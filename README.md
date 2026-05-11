@@ -1,113 +1,61 @@
-# Quilib
+# Qulib
 
-Quilib is a TypeScript-first QA harness for analyzing web app quality gaps and generating actionable reports from real app + repo scans.
+**Qulib** is an opinionated QA harness that analyzes deployed web apps and reports honest quality gaps. Built to answer one question: **is this app ready to ship?**
 
-## Current Status
+On npm the packages stay lowercase: **`@qulib/core`** (library + CLI) and **`@qulib/mcp`** (MCP server). The CLI binary is **`qulib`**.
 
-MVP path is implemented end-to-end:
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- CLI `analyze` flow is wired through `observe -> think -> act`.
-- Playwright explorer performs route discovery, **axe-core** accessibility checks, and sampled internal link HEAD checks.
-- Optional **authenticated** crawling via `auth` in config (`form-login` or Playwright `storage-state`).
-- Repo scanner inventories routes/tests and Cypress structure.
-- Gap engine computes deterministic quality gaps, **release confidence with a low-page coverage floor**, and optional coverage warnings.
-- Reports are generated as JSON and Markdown (`output/report.json`, `output/report.md`).
-- State and decision logs persist under `.scan-state` unless you use **`--ephemeral`** (no disk writes; full JSON on stdout for MCP/CI).
-- **`npm run clean`** removes generated `output/` and `.scan-state/` and restores placeholder `.gitkeep` files.
+## What Qulib does
 
-## Tech Stack
+- Crawls deployed web apps (anonymous or authenticated)
+- Runs real accessibility scans (axe-core, WCAG 2 A/AA)
+- Detects broken links, console errors, navigation failures
+- Computes a release confidence score with an explicit coverage floor
+- Returns structured reports (JSON, Markdown) — or runs ephemeral with no disk writes
+- Ships as **`@qulib/core`** (engine + CLI) and **`@qulib/mcp`** (AI-facing MCP server)
 
-- TypeScript (strict, NodeNext)
-- Commander (CLI)
-- Zod (schemas and validation)
-- Playwright (URL exploration)
-- @axe-core/playwright (WCAG 2.0 A/AA scans)
-- fast-glob (repo analysis)
-- Anthropic API integration (optional scenario generation)
+## Packages
 
-## Project Structure
+| Package | Purpose |
+|---------|---------|
+| [`@qulib/core`](./packages/core) | The analyzer engine and CLI (`qulib`) |
+| [`@qulib/mcp`](./packages/mcp) | MCP server exposing Qulib to AI agents (e.g. Claude Code) |
 
-```text
-src/
-  adapters/      # test rendering adapters (playwright, cypress, api)
-  cli/           # command-line entrypoint
-  harness/       # state + decision logging contracts
-  llm/           # LLM provider/context contracts
-  phases/        # observe / think / act orchestration contracts
-  reporters/     # output report contracts
-  schemas/       # shared zod schemas + inferred types
-  tools/         # explorers, auth helper, gap engine, repo scanner
-```
-
-Contributor workflow and repo rules live in **`CLAUDE.md`**.
-
-## Configuration
-
-Primary config lives in `quilib.config.ts` and is typed with `HarnessConfig`.
-
-Optional **authenticated scanning** uses `auth` on the config (`form-login` or `storage-state`). See the commented example in `quilib.config.ts`. For local-only credentials, use a separate file (for example `quilib.test-auth.config.ts`, gitignored) and pass **`--config <path>`** relative to the project root.
-
-Use the same **origin** for `--url` as the app uses after login (for example `https://www.example.com` vs `https://example.com`) so same-origin links are discovered during the crawl.
-
-## Scripts
-
-- `npm run dev` — run CLI entry (`src/cli/index.ts`); append a subcommand (e.g. `npm run dev -- clean`)
-- `npm run analyze -- --url <app-url> [--repo <repo-path>] [--config <file>] [--ephemeral]` — full pipeline
-- `npm run clean` — remove generated `output/` and `.scan-state/`, then recreate placeholder dirs
-- `npm run build` — compile TypeScript into `dist/`
-
-With the package **`bin`**, you can also run **`npx quilib analyze …`** after install.
-
-## Usage
+## Quick start (CLI)
 
 ```bash
-# analyze app only
-npm run analyze -- --url http://localhost:3000
-
-# analyze app + repo
-npm run analyze -- --url http://localhost:3000 --repo ../notquality-app
-
-# alternate config file (e.g. local auth — keep that file out of git)
-npm run analyze -- --config quilib.test-auth.config.ts --url https://example.com
-
-# stateless run: no files on disk; full JSON payload on stdout (for MCP/CI)
-# Logs go to stderr so you can pipe stdout: npm run analyze -- --url https://example.com --ephemeral > report.bundle.json
-npm run analyze -- --url https://example.com --ephemeral
-
-# wipe generated output and scan state
-npm run clean
+npx @qulib/core analyze --url https://example.com
 ```
 
-## Playwright browsers
+For local development from a clone, use `npm run analyze -w @qulib/core -- --url https://example.com` from the repo root, or `cd packages/core` and `npm run analyze -- --url https://example.com`.
 
-First time (or after a Playwright upgrade), install browser binaries:
+## Quick start (MCP)
 
-```bash
-npx playwright install chromium
+Add to your Claude Code or Claude Desktop MCP config:
+
+```json
+{
+  "mcpServers": {
+    "qulib": {
+      "command": "npx",
+      "args": ["-y", "@qulib/mcp"]
+    }
+  }
+}
 ```
 
-## Validate Setup
+Then ask Claude:
 
-```bash
-npm install
-npx tsc --noEmit
-```
+> "Use Qulib to analyze https://example.com and tell me if it's ready to ship."
 
-## Output and State Folders
+## Documentation
 
-- `.scan-state/` holds persisted scan state (ignored by git except `.gitkeep`).
-- `output/` holds generated reports (ignored by git except `.gitkeep`).
+- [Core package (CLI & API)](./packages/core/README.md)
+- [MCP server](./packages/mcp/README.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)
 
-Omitted when using **`--ephemeral`**: nothing is written under `output/` or `.scan-state/`; the tool prints one JSON object to **stdout** containing `gapAnalysis`, `discoveredRoutes`, `repoInventory`, and `decisionLog`.
+## License
 
-Expected state files:
-
-- `.scan-state/discovered-routes.json`
-- `.scan-state/repo-inventory.json` (when `--repo` is provided)
-- `.scan-state/gap-analysis.json`
-- `.scan-state/decision-log.json`
-
-Expected reports:
-
-- `output/report.json`
-- `output/report.md`
+MIT — see [LICENSE](LICENSE)

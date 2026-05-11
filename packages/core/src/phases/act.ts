@@ -38,13 +38,13 @@ export async function act(
     logOpts
   );
 
-  log('\n[quilib] Analysis complete');
+  log('\n[qulib] Analysis complete');
   log(`  Gaps found:          ${analysis.gaps.length}`);
   log(`  Scenarios generated: ${analysis.scenarios.length}`);
   log(`  Release confidence:  ${analysis.releaseConfidence}/100`);
 
   if (config.requireHumanReview) {
-    log('\n[quilib] Human review required before applying any generated output.');
+    log('\n[qulib] Human review required before applying any generated output.');
     if (artifacts.writeArtifacts) {
       log('  Reports:   output/report.json and output/report.md');
       log('  Decisions: .scan-state/decision-log.json');

@@ -1,6 +1,9 @@
 node_modules
+packages/*/node_modules
 dist
+packages/*/dist
 .env
+qulib.test-auth.config.ts
 quilib.test-auth.config.ts
 .scan-state/*
 !.scan-state/.gitkeep

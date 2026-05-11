@@ -1,0 +1,50 @@
+{
+  "name": "@qulib/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Qulib — AI-callable QA gap analysis",
+  "license": "MIT",
+  "author": "Tapesh Nagarwal",
+  "homepage": "https://github.com/TapeshN/qulib#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TapeshN/qulib.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/TapeshN/qulib/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "qulib-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@qulib/core": "0.1.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "mcp",
+    "qa",
+    "quality",
+    "accessibility",
+    "release-confidence",
+    "ai"
+  ]
+}

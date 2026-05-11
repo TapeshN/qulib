@@ -17,7 +17,7 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
     .map((s) => `### ${s.title}\n${s.description}\n\nSteps:\n${s.steps.map((step) => `- ${step.description}`).join('\n')}\n\nRecommended adapters: ${s.recommendations.map((r) => r.adapter).join(', ')}`)
     .join('\n\n---\n\n');
 
-  const md = `# Quilib Quality Gap Report
+  const md = `# Qulib Quality Gap Report
 
 **Generated:** ${analysis.analyzedAt}
 **Mode:** ${analysis.mode}
@@ -46,5 +46,5 @@ See \`.scan-state/decision-log.json\` for the full audit trail.
 
   const filePath = join(outputDir, 'report.md');
   await writeFile(filePath, md, 'utf-8');
-  console.log(`[quilib] Markdown report written to ${filePath}`);
+  console.log(`[qulib] Markdown report written to ${filePath}`);
 }
