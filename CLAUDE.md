@@ -16,7 +16,7 @@ An opinionated QA harness that analyzes deployed web apps and emits honest quali
 - Read files before editing them.
 - Do not install packages without explicitly stating what you are installing and why.
 - Run `npm run build` before committing.
-- The schemas in `src/schemas/` use zod and are the source of truth. Never widen or relax them without justification.
+- The schemas in `packages/core/src/schemas/` use zod and are the source of truth. Never widen or relax them without justification.
 - Do not add comments explaining what code does. Add comments only when the WHY is non-obvious.
 
 ### Design principle

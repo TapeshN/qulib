@@ -1,5 +1,7 @@
 node_modules
+packages/*/node_modules
 dist
+packages/*/dist
 .env
 quilib.test-auth.config.ts
 .scan-state/*
