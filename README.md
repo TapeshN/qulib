@@ -4,6 +4,8 @@
 
 On npm the packages stay lowercase: **`@qulib/core`** (library + CLI) and **`@qulib/mcp`** (MCP server). The CLI binary is **`qulib`**.
 
+[![npm @qulib/core](https://img.shields.io/npm/v/@qulib/core?label=%40qulib%2Fcore)](https://www.npmjs.com/package/@qulib/core)
+[![npm @qulib/mcp](https://img.shields.io/npm/v/@qulib/mcp?label=%40qulib%2Fmcp)](https://www.npmjs.com/package/@qulib/mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## What Qulib does
@@ -55,6 +57,11 @@ Then ask Claude:
 - [MCP server](./packages/mcp/README.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security policy](./SECURITY.md)
+- [Code of Conduct](./CODE_OF_CONDUCT.md)
+
+## Contributing
+
+We welcome issues and pull requests. Start with [CONTRIBUTING.md](./CONTRIBUTING.md) for a fast local setup and conventions. Everyone participating in the project is expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 

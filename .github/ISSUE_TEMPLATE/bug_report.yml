@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a bug in @qulib/core or @qulib/mcp
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package?
+      options:
+        - "@qulib/core"
+        - "@qulib/mcp"
+        - Both / unsure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug. What did you expect to happen, and what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands or MCP tool calls. Include the URL you were scanning if applicable.
+      placeholder: |
+        1. Run `npx @qulib/core analyze --url https://example.com`
+        2. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        - OS: macOS 14
+        - Node version: 20.x
+        - MCP host: Claude Code / Claude Desktop / Cursor
+    validations:
+      required: true

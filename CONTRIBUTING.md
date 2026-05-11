@@ -2,6 +2,24 @@
 
 Thanks for your interest in contributing. Qulib is a small project focused on honest quality reporting for deployed web apps.
 
+## Quick local setup
+
+```bash
+git clone https://github.com/TapeshN/qulib.git
+cd qulib
+npm install
+npm run build
+```
+
+Run the CLI against any URL to verify the build works (from `packages/core` so the default `qulib.config.ts` is found):
+
+```bash
+cd packages/core
+node bin/qulib.js analyze --url https://example.com --ephemeral
+```
+
+You should see a JSON report on stdout with a `releaseConfidence` score.
+
 ## Before opening a PR
 
 1. Open an issue first if the change is non-trivial — saves wasted effort if the direction needs discussion.
@@ -18,14 +36,32 @@ Thanks for your interest in contributing. Qulib is a small project focused on ho
 
 The output must be honest. If Qulib has not collected enough data to assess a deployment, it must say so — not report false confidence. PRs that hide failure modes will not be merged.
 
-## Local development
+## Project structure
 
-```bash
-git clone https://github.com/TapeshN/qulib.git
-cd qulib
-npm install
-npm run build
 ```
+qulib/
+├── packages/
+│   ├── core/          # The analyzer engine + CLI (@qulib/core)
+│   └── mcp/           # MCP server wrapper (@qulib/mcp)
+├── CLAUDE.md          # Project rules (read this before contributing)
+└── README.md
+```
+
+`@qulib/mcp` depends on `@qulib/core`. The MCP wraps the programmatic `analyzeApp()` function exported from core. Do not duplicate logic — extend core, then expose it through mcp.
+
+## Good first contributions
+
+If you want to help but aren't sure where to start:
+
+- Improve multi-page crawling (link extraction is shallow in v0.1.0 — see Known limitations in [packages/mcp/README.md](./packages/mcp/README.md))
+- Add new gap detection rules (e.g., missing page titles, oversized images, missing meta tags)
+- Add integration with another scanner (Lighthouse, Pa11y, axe DevTools Pro)
+- Improve docs or add usage examples
+- Fix typos
+
+## Questions?
+
+Open a [discussion](https://github.com/TapeshN/qulib/discussions) or use the issue tracker.
 
 ## License
 
