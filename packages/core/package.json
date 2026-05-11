@@ -25,6 +25,11 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
   "bin": {
     "qulib": "./bin/qulib.js"
   },
