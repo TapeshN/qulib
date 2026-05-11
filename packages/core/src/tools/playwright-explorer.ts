@@ -20,7 +20,7 @@ export class PlaywrightExplorer implements AppExplorer {
     if (config.auth) {
       const label =
         config.auth.type === 'form-login' ? config.auth.credentials.username : 'storage-state';
-      console.error(`[quilib] authenticated as ${label}`);
+      console.error(`[qulib] authenticated as ${label}`);
     }
 
     const visited = new Set<string>();

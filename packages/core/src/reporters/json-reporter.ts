@@ -6,5 +6,5 @@ export async function writeJsonReport(analysis: GapAnalysis, outputDir: string):
   await mkdir(outputDir, { recursive: true });
   const filePath = join(outputDir, 'report.json');
   await writeFile(filePath, JSON.stringify(analysis, null, 2), 'utf-8');
-  console.log(`[quilib] JSON report written to ${filePath}`);
+  console.log(`[qulib] JSON report written to ${filePath}`);
 }
