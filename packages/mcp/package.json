@@ -18,6 +18,7 @@
   },
   "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "qulib-mcp": "./dist/index.js"
   },
