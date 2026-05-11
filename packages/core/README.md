@@ -1,6 +1,54 @@
 # @qulib/core
 
-**Qulib** core package on npm (`@qulib/core`): TypeScript-first QA harness for deployed apps and optional repo scans.
+**@qulib/core** is the TypeScript-first Qulib package for analyzing deployed web apps (and optionally a local repo) and surfacing honest quality gaps.
+
+## Install
+
+```bash
+npm install @qulib/core
+```
+
+## CLI (from npm)
+
+```bash
+npx @qulib/core analyze --url https://example.com
+```
+
+Use `npx playwright install chromium` the first time you scan (Playwright is a dependency).
+
+## Programmatic API
+
+```ts
+import { analyzeApp, type HarnessConfig } from '@qulib/core';
+
+const config: HarnessConfig = {
+  maxPagesToScan: 20,
+  maxDepth: 3,
+  minPagesForConfidence: 3,
+  timeoutMs: 30000,
+  retryCount: 2,
+  llmTokenBudget: 4000,
+  testGenerationLimit: 10,
+  readOnlyMode: true,
+  requireHumanReview: true,
+  failOnConsoleError: false,
+  explorer: 'playwright',
+  defaultAdapter: 'playwright',
+  adapters: ['playwright', 'cypress-e2e'],
+};
+
+const result = await analyzeApp({
+  url: 'https://example.com',
+  config,
+  writeArtifacts: false,
+});
+
+console.log(result.releaseConfidence, result.gapAnalysis);
+```
+
+## Repository
+
+Source and issues: **[github.com/TapeshN/qulib](https://github.com/TapeshN/qulib)**.
 
 ## Monorepo context
 
@@ -95,10 +143,4 @@ npx playwright install chromium
 - `.scan-state/discovered-routes.json`, `gap-analysis.json`, `decision-log.json`, and `repo-inventory.json` when `--repo` is set
 - `output/report.json`, `output/report.md`
 
-## Programmatic API
-
-```ts
-import { analyzeApp } from '@qulib/core';
-```
-
-Use `writeArtifacts: false` for stateless runs (same path as MCP). See `src/analyze.ts`.
+For more options (`repoPath`, loading config from disk), see `src/analyze.ts` in the repository.
