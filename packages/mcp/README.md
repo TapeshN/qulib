@@ -1,6 +1,6 @@
 # @qulib/mcp
 
-An MCP server that gives AI agents the ability to analyze deployed web apps for quality gaps.
+**Qulib** on npm as `@qulib/mcp`: MCP server so AI agents can analyze deployed web apps for quality gaps (CLI entry `qulib-mcp`).
 
 ## What it does
 
@@ -39,15 +39,15 @@ Same config, in `claude_desktop_config.json`.
 
 Ask Claude:
 
-> "Use qulib to analyze https://example.com and tell me if it's ready to ship."
+> "Use Qulib to analyze https://example.com and tell me if it's ready to ship."
 
 Claude will call `analyze_app({ url: "https://example.com" })` and reason about the result.
 
 ## Authenticated scanning
 
-> "Use qulib to scan my staging app at https://staging.example.com. Log in as user@example.com with password Test123, the login form is at /login with selectors [data-testid='email'], [data-testid='password'], and [data-testid='submit']."
+> "Use Qulib to scan my staging app at https://staging.example.com. Log in as user@example.com with password Test123, the login form is at /login with selectors [data-testid='email'], [data-testid='password'], and [data-testid='submit']."
 
-Claude will pass auth credentials to the tool, qulib will sign in, then scan.
+Claude will pass auth credentials to the tool; Qulib signs in, then scans.
 
 ## License
 

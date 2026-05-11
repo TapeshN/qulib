@@ -1,24 +1,26 @@
-# qulib
+# Qulib
 
-An opinionated QA harness that analyzes deployed web apps and reports honest quality gaps. Built to answer one question: **is this app ready to ship?**
+**Qulib** is an opinionated QA harness that analyzes deployed web apps and reports honest quality gaps. Built to answer one question: **is this app ready to ship?**
+
+On npm the packages stay lowercase: **`@qulib/core`** (library + CLI) and **`@qulib/mcp`** (MCP server). The CLI binary is **`qulib`**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## What qulib does
+## What Qulib does
 
 - Crawls deployed web apps (anonymous or authenticated)
 - Runs real accessibility scans (axe-core, WCAG 2 A/AA)
 - Detects broken links, console errors, navigation failures
 - Computes a release confidence score with an explicit coverage floor
 - Returns structured reports (JSON, Markdown) — or runs ephemeral with no disk writes
-- Available as a CLI (`@qulib/core`) and an MCP server (`@qulib/mcp`)
+- Ships as **`@qulib/core`** (engine + CLI) and **`@qulib/mcp`** (AI-facing MCP server)
 
 ## Packages
 
 | Package | Purpose |
 |---------|---------|
-| [`@qulib/core`](./packages/core) | The analyzer engine and CLI |
-| [`@qulib/mcp`](./packages/mcp) | MCP server exposing qulib to AI agents like Claude Code |
+| [`@qulib/core`](./packages/core) | The analyzer engine and CLI (`qulib`) |
+| [`@qulib/mcp`](./packages/mcp) | MCP server exposing Qulib to AI agents (e.g. Claude Code) |
 
 ## Quick start (CLI)
 
@@ -45,7 +47,7 @@ Add to your Claude Code or Claude Desktop MCP config:
 
 Then ask Claude:
 
-> "Use qulib to analyze https://example.com and tell me if it's ready to ship."
+> "Use Qulib to analyze https://example.com and tell me if it's ready to ship."
 
 ## Documentation
 

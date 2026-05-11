@@ -1,6 +1,6 @@
-# Contributing to qulib
+# Contributing to Qulib
 
-Thanks for your interest in contributing. qulib is a small project focused on honest quality reporting for deployed web apps.
+Thanks for your interest in contributing. Qulib is a small project focused on honest quality reporting for deployed web apps.
 
 ## Before opening a PR
 
@@ -16,7 +16,7 @@ Thanks for your interest in contributing. qulib is a small project focused on ho
 
 ## Design principle
 
-The output must be honest. If qulib has not collected enough data to assess a deployment, it must say so — not report false confidence. PRs that hide failure modes will not be merged.
+The output must be honest. If Qulib has not collected enough data to assess a deployment, it must say so — not report false confidence. PRs that hide failure modes will not be merged.
 
 ## Local development
 

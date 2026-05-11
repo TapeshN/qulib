@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-If you discover a security issue in qulib, please report it privately rather than opening a public issue.
+If you discover a security issue in Qulib, please report it privately rather than opening a public issue.
 
 Email: tapeshnagarwal@gmail.com
 
@@ -29,4 +29,4 @@ Out of scope:
 
 ## Credential handling
 
-qulib never logs, persists, or transmits authentication credentials beyond the running browser context. If you find a violation of this principle, it is a security bug — please report it.
+Qulib never logs, persists, or transmits authentication credentials beyond the running browser context. If you find a violation of this principle, it is a security bug — please report it.

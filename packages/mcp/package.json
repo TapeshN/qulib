@@ -1,7 +1,7 @@
 {
   "name": "@qulib/mcp",
   "version": "0.1.0",
-  "description": "MCP server for qulib — AI-callable QA gap analysis",
+  "description": "MCP server for Qulib — AI-callable QA gap analysis",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
   "homepage": "https://github.com/TapeshN/qulib#readme",

@@ -1,10 +1,10 @@
 # @qulib/core
 
-TypeScript-first QA harness: analyze deployed web apps for quality gaps and generate reports from real app and optional repo scans.
+**Qulib** core package on npm (`@qulib/core`): TypeScript-first QA harness for deployed apps and optional repo scans.
 
 ## Monorepo context
 
-This package lives under the [qulib workspace root](../../README.md). Install dependencies from the repo root: `npm install`. Build all packages: `npm run build` (from root).
+This package is part of **[Qulib](https://github.com/TapeshN/qulib)** ([repo README](../../README.md)). Install dependencies from the repository root: `npm install`. Build all packages: `npm run build` (from root).
 
 ## Current capabilities
 

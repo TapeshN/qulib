@@ -1,4 +1,4 @@
-# qulib
+# Qulib
 
 An opinionated QA harness that analyzes deployed web apps and emits honest quality gap reports. Positioned as an AI-callable QA engineer — not just another browser automation wrapper. Built by Tapesh Nagarwal.
 
@@ -20,4 +20,4 @@ An opinionated QA harness that analyzes deployed web apps and emits honest quali
 - Do not add comments explaining what code does. Add comments only when the WHY is non-obvious.
 
 ### Design principle
-The output must be honest. If qulib has not collected enough data to assess a deployment, it must say so — not report 100% confidence. False confidence is the worst possible failure mode for a QA tool.
+The output must be honest. If Qulib has not collected enough data to assess a deployment, it must say so — not report 100% confidence. False confidence is the worst possible failure mode for a QA tool.
