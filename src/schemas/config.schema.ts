@@ -3,6 +3,35 @@ import { z } from 'zod';
 export type ExplorerType = 'playwright' | 'cypress';
 export type AdapterType = 'playwright' | 'cypress-e2e' | 'cypress-component' | 'api' | 'accessibility';
 
+const FormLoginAuthSchema = z.object({
+  type: z.literal('form-login'),
+  loginUrl: z.string(),
+  credentials: z.object({
+    username: z.string(),
+    password: z.string(),
+  }),
+  selectors: z.object({
+    username: z.string(),
+    password: z.string(),
+    submit: z.string(),
+  }),
+  successIndicator: z.object({
+    urlContains: z.string().optional(),
+    selectorVisible: z.string().optional(),
+  }),
+});
+
+const StorageStateAuthSchema = z.object({
+  type: z.literal('storage-state'),
+  path: z.string(),
+});
+
+export const AuthConfigSchema = z.discriminatedUnion('type', [FormLoginAuthSchema, StorageStateAuthSchema]);
+
+export type FormLoginAuthConfig = z.infer<typeof FormLoginAuthSchema>;
+export type StorageStateAuthConfig = z.infer<typeof StorageStateAuthSchema>;
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+
 export const HarnessConfigSchema = z.object({
   maxPagesToScan: z.number().int().positive(),
   maxDepth: z.number().int().positive(),
@@ -17,6 +46,7 @@ export const HarnessConfigSchema = z.object({
   explorer: z.enum(['playwright', 'cypress']).default('playwright'),
   defaultAdapter: z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility']).default('playwright'),
   adapters: z.array(z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility'])).default(['playwright']),
+  auth: AuthConfigSchema.optional(),
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;

@@ -1,13 +1,28 @@
-import { chromium } from '@playwright/test';
+import { chromium, type BrowserContext } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AppExplorer } from './explorer.interface.js';
+import { createAuthenticatedContext } from './auth.js';
 import { RouteInventorySchema, type RouteInventory, type Route } from '../schemas/route-inventory.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
 
 export class PlaywrightExplorer implements AppExplorer {
   async explore(baseUrl: string, config: HarnessConfig): Promise<RouteInventory> {
     const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
+
+    let context: BrowserContext;
+    try {
+      context = await createAuthenticatedContext(browser, config.auth, config.timeoutMs);
+    } catch (err) {
+      await browser.close();
+      throw new Error(`Authentication failed: ${String(err)}. Check your auth config and credentials.`);
+    }
+
+    if (config.auth) {
+      const label =
+        config.auth.type === 'form-login' ? config.auth.credentials.username : 'storage-state';
+      console.error(`[quilib] authenticated as ${label}`);
+    }
+
     const visited = new Set<string>();
     const queue: string[] = [baseUrl];
     const routes: Route[] = [];

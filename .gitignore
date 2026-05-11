@@ -1,6 +1,7 @@
 node_modules
 dist
 .env
+quilib.test-auth.config.ts
 .scan-state/*
 !.scan-state/.gitkeep
 output/*

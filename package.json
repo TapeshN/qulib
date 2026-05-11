@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx src/cli/index.ts",
     "analyze": "tsx src/cli/index.ts analyze",
+    "clean": "tsx src/cli/index.ts clean",
     "build": "tsc"
   },
   "dependencies": {

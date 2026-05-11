@@ -14,6 +14,23 @@ const config: HarnessConfig = {
   explorer: 'playwright',
   defaultAdapter: 'playwright',
   adapters: ['playwright', 'cypress-e2e'],
+  // Example: scan authenticated pages on notquality.com
+  // auth: {
+  //   type: 'form-login',
+  //   loginUrl: 'https://notquality.com/login',
+  //   credentials: {
+  //     username: 'legacy.user@notquality.com',
+  //     password: 'Test123!',
+  //   },
+  //   selectors: {
+  //     username: '[data-testid="login-email"]',
+  //     password: '[data-testid="login-password"]',
+  //     submit: '[data-testid="login-submit"]',
+  //   },
+  //   successIndicator: {
+  //     urlContains: '/playgrounds/',
+  //   },
+  // },
 };
 
 export default config;

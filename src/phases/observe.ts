@@ -5,6 +5,7 @@ import { createExplorer } from '../tools/explorer-factory.js';
 import { scanRepo } from '../tools/repo-scanner.js';
 import { StateManager } from '../harness/state-manager.js';
 import { logDecision } from '../harness/decision-logger.js';
+import type { RunArtifactsOptions } from '../harness/run-options.js';
 
 export interface ObserveResult {
   routes: RouteInventory;
@@ -14,45 +15,57 @@ export interface ObserveResult {
 export async function observe(
   baseUrl: string,
   repoPath: string | undefined,
-  config: HarnessConfig
+  config: HarnessConfig,
+  artifacts: RunArtifactsOptions = { writeArtifacts: true }
 ): Promise<ObserveResult> {
   const explorer = createExplorer(config.explorer);
   const stateManager = new StateManager();
+  const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
 
   const rawRoutes = await explorer.explore(baseUrl, config);
   const routes = RouteInventorySchema.parse(rawRoutes);
-  await stateManager.writeState('discovered-routes.json', routes, RouteInventorySchema);
+  if (artifacts.writeArtifacts) {
+    await stateManager.writeState('discovered-routes.json', routes, RouteInventorySchema);
+  }
 
-  await logDecision({
-    timestamp: new Date().toISOString(),
-    phase: 'observe',
-    decision: 'exploration-complete',
-    reason: `Discovered ${routes.routes.length} routes; budgetExceeded=${routes.budgetExceeded}`,
-    metadata: {
-      baseUrl,
-      scannedRoutes: routes.routes.length,
-      budgetExceeded: routes.budgetExceeded,
-      pagesSkipped: routes.pagesSkipped,
+  await logDecision(
+    {
+      timestamp: new Date().toISOString(),
+      phase: 'observe',
+      decision: 'exploration-complete',
+      reason: `Discovered ${routes.routes.length} routes; budgetExceeded=${routes.budgetExceeded}`,
+      metadata: {
+        baseUrl,
+        scannedRoutes: routes.routes.length,
+        budgetExceeded: routes.budgetExceeded,
+        pagesSkipped: routes.pagesSkipped,
+      },
     },
-  });
+    logOpts
+  );
 
   let repo: RepoAnalysis | null = null;
   if (repoPath) {
     const rawRepo = await scanRepo(repoPath);
     repo = RepoAnalysisSchema.parse(rawRepo);
-    await stateManager.writeState('repo-inventory.json', repo, RepoAnalysisSchema);
+    if (artifacts.writeArtifacts) {
+      await stateManager.writeState('repo-inventory.json', repo, RepoAnalysisSchema);
+    }
 
-    await logDecision({
-      timestamp: new Date().toISOString(),
-      phase: 'observe',
-      decision: 'repo-scan-complete',
-      reason: `Scanned repo inventory: ${repo.routes.length} routes, ${repo.testFiles.length} test files`,
-      metadata: {
-        repoPath,
-        routeCount: repo.routes.length,
-        testFileCount: repo.testFiles.length,
+    await logDecision(
+      {
+        timestamp: new Date().toISOString(),
+        phase: 'observe',
+        decision: 'repo-scan-complete',
+        reason: `Scanned repo inventory: ${repo.routes.length} routes, ${repo.testFiles.length} test files`,
+        metadata: {
+          repoPath,
+          routeCount: repo.routes.length,
+          testFileCount: repo.testFiles.length,
+        },
       },
-    });
+      logOpts
+    );
   }
 
   return { routes, repo };

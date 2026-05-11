@@ -7,13 +7,29 @@ import type { DecisionLogEntry } from '../schemas/decision-log.schema.js';
 const LOG_FILE = join(process.cwd(), '.scan-state', 'decision-log.json');
 const STATE_DIR = join(process.cwd(), '.scan-state');
 
-export async function logDecision(entry: DecisionLogEntry): Promise<void> {
+export type LogDecisionOptions = {
+  persist?: boolean;
+  memory?: DecisionLogEntry[];
+};
+
+export async function logDecision(entry: DecisionLogEntry, options?: LogDecisionOptions): Promise<void> {
+  const persist = options?.persist !== false;
+  const memory = options?.memory;
+
   try {
     const validation = DecisionLogEntrySchema.safeParse(entry);
     if (!validation.success) {
       console.warn(
         `Failed to log decision entry to ${LOG_FILE}: validation issues ${JSON.stringify(validation.error.issues)}`
       );
+      return;
+    }
+
+    if (memory) {
+      memory.push(validation.data);
+    }
+
+    if (!persist) {
       return;
     }
 
