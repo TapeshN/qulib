@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest an improvement or new capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case. What can't you do today that this would enable?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would this work? Schema changes, new MCP tool, new CLI flag?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Anything you tried first or other approaches?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: honesty-check
+    attributes:
+      label: Honesty check
+      description: qulib is designed to produce honest output. Does this feature preserve that?
+      options:
+        - label: This feature does not encourage false confidence in QA reports
+          required: true
