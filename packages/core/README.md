@@ -92,7 +92,7 @@ Default file: **`qulib.config.ts`** in this package directory (or pass **`--conf
 
 Optional `auth` for authenticated scanning — see commented example in `qulib.config.ts`. For local credentials, use a separate file (e.g. `qulib.test-auth.config.ts`, gitignored at the repo root) and point `--config` at it.
 
-Use the same **origin** for `--url` as the app uses after login so same-origin links are discovered during the crawl.
+Use the same **hostname** for `--url` as your app’s canonical host when you can. The crawler treats **`www` and apex** (e.g. `example.com` and `www.example.com`) as the same site for internal link discovery, so hydration and redirects still queue in-site URLs.
 
 ## Scripts (from `packages/core`)
 

@@ -5,6 +5,20 @@ import { createAuthenticatedContext } from './auth.js';
 import { RouteInventorySchema, type RouteInventory, type Route } from '../schemas/route-inventory.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
 
+function crawlHostKey(hostname: string): string {
+  return hostname.replace(/^www\./i, '').toLowerCase();
+}
+
+function isInternalHref(href: string, baseUrlStr: string): boolean {
+  try {
+    const u = new URL(href);
+    const base = new URL(baseUrlStr);
+    return u.protocol === base.protocol && crawlHostKey(u.hostname) === crawlHostKey(base.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export class PlaywrightExplorer implements AppExplorer {
   async explore(baseUrl: string, config: HarnessConfig): Promise<RouteInventory> {
     const browser = await chromium.launch({ headless: true });
@@ -69,16 +83,8 @@ export class PlaywrightExplorer implements AppExplorer {
               .filter(Boolean)
           );
 
-          const base = new URL(baseUrl);
           const internalLinks = hrefs
-            .filter((href) => {
-              try {
-                const u = new URL(href);
-                return u.origin === base.origin;
-              } catch {
-                return false;
-              }
-            })
+            .filter((href) => isInternalHref(href, baseUrl))
             .map((href) => href.split('?')[0].split('#')[0]);
 
           const uniqueInternal = [...new Set(internalLinks)];
