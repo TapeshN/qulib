@@ -64,7 +64,7 @@ export async function runCostDoctor(reportPath: string): Promise<void> {
     console.log(`- ${c}`);
   }
   const topGap = [...parsed.data.gaps].sort((a, b) => {
-    const o = { high: 0, medium: 1, low: 2 };
+    const o = { critical: 0, high: 1, medium: 2, low: 3 };
     return o[a.severity] - o[b.severity];
   })[0];
   console.log('\n## Next best deterministic check\n');

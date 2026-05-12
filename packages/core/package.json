@@ -38,7 +38,7 @@
     "analyze": "tsx src/cli/index.ts analyze",
     "clean": "tsx src/cli/index.ts clean",
     "build": "tsc",
-    "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts",
+    "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts src/tools/gap-engine.test.ts src/tools/auth-block-gap.test.ts",
     "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral",
     "cost-doctor": "tsx src/cli/index.ts cost doctor"
   },

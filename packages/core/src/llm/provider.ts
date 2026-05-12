@@ -87,9 +87,20 @@ export function generateScenariosFromTemplate(gaps: Gap[]): NeutralScenario[] {
       steps.push({ action: 'assert-visible' as const, description: 'Run accessibility scan on page' });
     } else if (gap.category === 'broken-link') {
       steps.push({ action: 'assert-visible' as const, description: 'Assert all links resolve correctly' });
+    } else if (gap.category === 'auth-surface') {
+      steps.push({
+        action: 'assert-visible' as const,
+        description: 'Verify sign-in surface accessibility and SSO affordances',
+      });
+    } else if (gap.category === 'coverage') {
+      steps.push({
+        action: 'assert-visible' as const,
+        description: 'Resolve authentication and re-run full deployment scan',
+      });
     }
 
-    const adapter = gap.category === 'a11y' ? 'accessibility' : 'playwright';
+    const adapter =
+      gap.category === 'a11y' || gap.category === 'auth-surface' ? 'accessibility' : 'playwright';
 
     return NeutralScenarioSchema.parse({
       id: randomUUID(),

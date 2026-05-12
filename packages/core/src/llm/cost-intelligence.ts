@@ -103,7 +103,7 @@ export function computeDeterministicMaturity(params: {
   gapCount: number;
   scenarioSource: 'llm' | 'template';
   repeatedOperations: RepeatedAiPattern[];
-  releaseConfidence: number;
+  releaseConfidence: number | null;
   requireHumanReview: boolean;
 }): DeterministicMaturity {
   if (params.mode === 'auth-required') {
@@ -147,7 +147,7 @@ export function computeDeterministicMaturity(params: {
   }
 
   const ceilingNote =
-    params.releaseConfidence >= 85 && !params.requireHumanReview
+    (params.releaseConfidence ?? 0) >= 85 && !params.requireHumanReview
       ? 'High release confidence does not imply L4–L5. Reviewed self-healing (L4) and adaptive quality intelligence (L5) require organizational process and feedback loops outside this single scan.'
       : 'L4 (reviewed self-healing) and L5 (adaptive quality intelligence) are not inferred from a snapshot scan. They require documented review, ownership, and sustained automation feedback.';
 

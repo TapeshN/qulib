@@ -129,8 +129,13 @@ async function runAnalyze(options: {
     console.log(
       JSON.stringify(
         {
+          status: result.status,
+          coverageScore: result.coverageScore,
+          releaseConfidence: result.releaseConfidence,
+          gaps: result.gaps,
           gapAnalysis: result.gapAnalysis,
           discoveredRoutes: result.routeInventory,
+          publicSurface: result.publicSurface,
           repoInventory: result.repoInventory,
           decisionLog: result.decisionLog,
           ...(result.detectedAuth !== undefined && { detectedAuth: result.detectedAuth }),

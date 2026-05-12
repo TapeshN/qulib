@@ -4,9 +4,11 @@ import { CostIntelligenceSchema } from './cost-intelligence.schema.js';
 export const GapSchema = z.object({
   id: z.string(),
   path: z.string(),
-  severity: z.enum(['high', 'medium', 'low']),
+  severity: z.enum(['critical', 'high', 'medium', 'low']),
   reason: z.string(),
-  category: z.enum(['untested-route', 'a11y', 'console-error', 'broken-link']),
+  category: z.enum(['untested-route', 'a11y', 'console-error', 'broken-link', 'auth-surface', 'coverage']),
+  description: z.string().optional(),
+  recommendation: z.string().optional(),
 });
 
 export const FrameworkRecommendationSchema = z.object({
@@ -57,7 +59,7 @@ export const GeneratedTestSchema = z.object({
 export const GapAnalysisSchema = z.object({
   analyzedAt: z.string().datetime(),
   mode: z.enum(['url-only', 'url-repo', 'auth-required']),
-  releaseConfidence: z.number().min(0).max(100),
+  releaseConfidence: z.union([z.number().min(0).max(100), z.null()]),
   coveragePagesScanned: z.number().int().min(0),
   coverageBudgetExceeded: z.boolean(),
   coverageWarning: z

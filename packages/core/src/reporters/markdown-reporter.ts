@@ -5,9 +5,15 @@ import type { GapAnalysis } from '../schemas/gap-analysis.schema.js';
 export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: string): Promise<void> {
   await mkdir(outputDir, { recursive: true });
 
+  const rc = analysis.releaseConfidence;
   const recommendation =
-    analysis.releaseConfidence >= 80 ? 'READY' :
-    analysis.releaseConfidence >= 50 ? 'CONDITIONAL' : 'NOT READY';
+    rc === null
+      ? 'NOT SCORED (blocked or insufficient surface)'
+      : rc >= 80
+        ? 'READY'
+        : rc >= 50
+          ? 'CONDITIONAL'
+          : 'NOT READY';
 
   const gapRows = analysis.gaps
     .map((g) => `| ${g.path} | ${g.category} | ${g.severity} | ${g.reason} |`)
@@ -35,7 +41,7 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
 
 **Generated:** ${analysis.analyzedAt}
 **Mode:** ${analysis.mode}
-**Release confidence:** ${analysis.releaseConfidence}/100 — ${recommendation}
+**Release confidence:** ${rc === null ? '—' : `${rc}/100`} — ${recommendation}
 
 ## Coverage
 

@@ -1,12 +1,12 @@
 import type { AnalyzeResult } from '@qulib/core';
 
-const severityOrder = { high: 0, medium: 1, low: 2 } as const;
+const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 } as const;
 
-function topGapsBySeverity(gaps: AnalyzeResult['gapAnalysis']['gaps'], limit: number) {
+function topGapsBySeverity(gaps: AnalyzeResult['gaps'], limit: number) {
   return [...gaps].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]).slice(0, limit);
 }
 
-function nextDeterministicChecks(gaps: AnalyzeResult['gapAnalysis']['gaps'], conversion: string[]): string[] {
+function nextDeterministicChecks(gaps: AnalyzeResult['gaps'], conversion: string[]): string[] {
   const out: string[] = [];
   const byCat = new Map<string, number>();
   for (const g of gaps) {
@@ -25,7 +25,7 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
   }
   const g = result.gapAnalysis;
   const ci = g.costIntelligence;
-  const top = topGapsBySeverity(g.gaps, 5);
+  const top = topGapsBySeverity(result.gaps, 5);
   const costSummary = ci
     ? {
         maxOutputTokensPerLlmCall: ci.maxOutputTokensPerLlmCall,
@@ -38,8 +38,12 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
       }
     : null;
 
+  const ps = result.publicSurface;
+
   return {
     summary: {
+      status: result.status,
+      coverageScore: result.coverageScore,
       releaseConfidence: g.releaseConfidence,
       mode: g.mode,
       coveragePagesScanned: g.coveragePagesScanned,
@@ -48,6 +52,15 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
       gapCount: g.gaps.length,
       scenarioCount: g.scenarios.length,
       generatedTestCount: g.generatedTests.length,
+      publicSurface:
+        ps === null
+          ? null
+          : {
+              pageCount: ps.pages.length,
+              gapCount: ps.gaps.length,
+              accessibilityViolationCount: ps.accessibilityViolations.length,
+              brokenLinkCount: ps.brokenLinks.length,
+            },
     },
     topGaps: top.map((x) => ({
       path: x.path,
@@ -58,8 +71,8 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
     costIntelligenceSummary: costSummary,
     costIntelligence: ci ?? null,
     nextDeterministicChecks: ci
-      ? nextDeterministicChecks(g.gaps, ci.conversionRecommendations)
-      : nextDeterministicChecks(g.gaps, []),
+      ? nextDeterministicChecks(result.gaps, ci.conversionRecommendations)
+      : nextDeterministicChecks(result.gaps, []),
     gapAnalysisPreview: {
       analyzedAt: g.analyzedAt,
       gapsSample: g.gaps.slice(0, 8),

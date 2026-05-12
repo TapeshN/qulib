@@ -61,3 +61,11 @@ export {
   RepoAnalysisSchema,
   type RepoAnalysis,
 } from './repo-analysis.schema.js';
+export {
+  PublicSurfaceSchema,
+  PublicSurfaceViolationSchema,
+  PublicSurfaceBrokenLinkSchema,
+  type PublicSurface,
+  type PublicSurfaceViolation,
+  type PublicSurfaceBrokenLink,
+} from './public-surface.schema.js';

@@ -41,7 +41,9 @@ export async function act(
   log('\n[qulib] Analysis complete');
   log(`  Gaps found:          ${analysis.gaps.length}`);
   log(`  Scenarios generated: ${analysis.scenarios.length}`);
-  log(`  Release confidence:  ${analysis.releaseConfidence}/100`);
+  log(
+    `  Release confidence:  ${analysis.releaseConfidence === null ? '— (null)' : `${analysis.releaseConfidence}/100`}`
+  );
   if (analysis.costIntelligence?.budgetWarnings.length) {
     log(`  Cost warnings:       ${analysis.costIntelligence.budgetWarnings.length} (see report.md Cost Intelligence)`);
   }
