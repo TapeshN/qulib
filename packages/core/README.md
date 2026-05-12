@@ -55,6 +55,20 @@ qulib analyze --url https://app.example.com --auth-storage-state ./qulib-storage
 
 The storage state is just a JSON file of cookies and localStorage — keep it private, treat it like a credential.
 
+### Multi-path auth exploration (`explore-auth`)
+
+For unfamiliar apps (especially enterprise SSO with several buttons), run **`qulib explore-auth --url <url>`** before `analyze`. The JSON lists every detected path (built-in OAuth names like Google/Clever, **heuristic** unknown buttons such as tenant-specific SSO labels, password forms, and magic-link copy) plus **`suggestedAgentBehavior`** for the agent.
+
+Unknown SSO buttons include **`unrecognizedButtons`** with a hint. Teach this machine to recognize a label next time:
+
+```bash
+qulib auth providers add --id nq-login --label "NQ Login" --pattern "nq login"
+qulib auth providers list
+qulib auth providers remove --id nq-login
+```
+
+Patterns live in **`~/.qulib/providers.json`** (per user, not in the repo). Built-in public platforms stay in qulib’s curated list; tenant-specific names are never shipped as built-ins.
+
 ### Auth detection
 
 To check what auth pattern a site uses before configuring anything:

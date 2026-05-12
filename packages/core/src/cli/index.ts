@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 import { analyzeApp } from '../analyze.js';
 import { detectAuth } from '../tools/auth-detector.js';
+import { exploreAuth } from '../tools/auth-explorer.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -221,6 +222,16 @@ program
   });
 
 program
+  .command('explore-auth')
+  .description('Explore all sign-in paths (OAuth, forms, magic link) for agent-driven setup before analyze')
+  .requiredOption('--url <url>', 'URL of the app or login page')
+  .option('--timeout <ms>', 'Navigation timeout in ms', '20000')
+  .action(async (options) => {
+    const result = await exploreAuth(options.url, parseInt(options.timeout, 10));
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+program
   .command('detect-auth')
   .description('Detect the authentication pattern used by a deployed web app')
   .requiredOption('--url <url>', 'URL of the app or login page')
@@ -231,6 +242,43 @@ program
   });
 
 const authCmd = program.command('auth').description('Authentication helpers for scans');
+const providersCmd = authCmd
+  .command('providers')
+  .description('User-local OAuth/SSO button patterns (~/.qulib/providers.json)');
+providersCmd
+  .command('list')
+  .description('List user-local providers registered on this machine')
+  .action(async () => {
+    const { listUserProviders } = await import('../tools/user-providers.js');
+    const providers = listUserProviders();
+    console.log(JSON.stringify(providers, null, 2));
+  });
+providersCmd
+  .command('add')
+  .description('Register a custom provider pattern (case-insensitive regex source)')
+  .requiredOption('--id <id>', 'Stable id (kebab-case), e.g. nq-login')
+  .requiredOption('--label <label>', 'Human-readable label')
+  .requiredOption('--pattern <regex>', 'Regex source, e.g. nq login')
+  .action(async (opts: { id: string; label: string; pattern: string }) => {
+    try {
+      new RegExp(opts.pattern, 'i');
+    } catch {
+      throw new Error(`Invalid regex pattern: ${opts.pattern}`);
+    }
+    const { addUserProvider } = await import('../tools/user-providers.js');
+    addUserProvider({ id: opts.id, label: opts.label, pattern: opts.pattern });
+    console.log(`[qulib] Added provider "${opts.label}" (id: ${opts.id}) to ~/.qulib/providers.json`);
+  });
+providersCmd
+  .command('remove')
+  .description('Remove a user-local provider by id')
+  .requiredOption('--id <id>', 'Provider id to remove')
+  .action(async (opts: { id: string }) => {
+    const { removeUserProvider } = await import('../tools/user-providers.js');
+    const removed = removeUserProvider(opts.id);
+    console.log(removed ? `[qulib] Removed "${opts.id}"` : `[qulib] No provider with id "${opts.id}" found`);
+  });
+
 authCmd
   .command('init')
   .description('Open a browser, let the user log in manually, save the storage state to a file for reuse')

@@ -6,8 +6,9 @@
 
 Tools:
 
-- **`analyze_app(url, auth?)`** — full quality scan (optional form-login auth).
-- **`detect_auth(url, timeoutMs?)`** — detect whether the site uses form login, OAuth, magic link, etc., and get a plain-language recommendation (including when to use manual `qulib auth init` and storage state).
+- **`explore_auth(url, timeoutMs?)`** — list all sign-in paths (OAuth, unknown SSO heuristics, forms, magic link) and what the agent must collect before `analyze_app`. Prefer this on unfamiliar apps.
+- **`analyze_app(url, auth?)`** — full quality scan (optional form-login or storage-state auth).
+- **`detect_auth(url, timeoutMs?)`** — single-pattern auth guess with a short recommendation (lighter than `explore_auth`).
 
 Returns from `analyze_app`:
 
@@ -51,6 +52,14 @@ npx playwright install chromium
 This is a one-time step. You'll only need to do it again if Playwright's browser version is bumped in a future qulib release.
 
 If you skip this step, the first tool call will return a clear error telling you to run the command.
+
+## Agentic auth exploration (`explore_auth`)
+
+On unfamiliar apps, call **`explore_auth`** before **`analyze_app`**. The response lists each sign-in path (curated public OAuth/SSO, password forms, magic-link wording, and **heuristic** unknown buttons such as tenant-specific SSO). Each path includes **`requirements`** (e.g. storage-state vs credentials) and **`suggestedAgentBehavior`**.
+
+When the model sees **`unrecognizedButtons`**, it can ask the user to register a label on the **MCP host** with the CLI:
+
+`qulib auth providers add --id <kebab-id> --label "..." --pattern "..."` — patterns are saved under **`~/.qulib/providers.json`** and merged with the built-in list on the next `explore_auth` / `explore-auth`. Nothing is auto-written without an explicit `providers add`.
 
 ## Example usage
 
