@@ -1,6 +1,6 @@
 {
   "name": "@qulib/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Qulib — analyze deployed web apps for honest quality gaps (CLI + programmatic API)",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
