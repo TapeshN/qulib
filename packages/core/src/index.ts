@@ -13,4 +13,6 @@ export type {
   AuthExploration,
   AuthPath,
   AuthPathRequirements,
+  CostIntelligence,
+  LlmUsageRecord,
 } from './schemas/index.js';

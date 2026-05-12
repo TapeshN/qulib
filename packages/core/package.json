@@ -37,7 +37,8 @@
     "dev": "tsx src/cli/index.ts",
     "analyze": "tsx src/cli/index.ts analyze",
     "clean": "tsx src/cli/index.ts clean",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.9.0",

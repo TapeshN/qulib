@@ -1,12 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import { NeutralScenarioSchema, type Gap, type NeutralScenario } from '../schemas/gap-analysis.schema.js';
 
-export async function callLLM(
-  prompt: string,
-  tokenBudget: number
-): Promise<string> {
+export interface LlmCallResult {
+  text: string;
+  usage: {
+    provider: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    dataQuality: 'actual' | 'estimated';
+  } | null;
+}
+
+function estimateTokensFromChars(chars: number): number {
+  return Math.max(0, Math.ceil(chars / 4));
+}
+
+export async function callLLM(prompt: string, tokenBudget: number): Promise<LlmCallResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
+
+  const model = 'claude-sonnet-4-20250514';
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -16,7 +30,7 @@ export async function callLLM(
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: tokenBudget,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -27,9 +41,37 @@ export async function callLLM(
     throw new Error(`LLM call failed: ${response.status} ${text}`);
   }
 
-  const data = await response.json() as { content: Array<{ type: string; text: string }> };
+  const data = (await response.json()) as {
+    content: Array<{ type: string; text?: string }>;
+    usage?: { input_tokens?: number; output_tokens?: number };
+    model?: string;
+  };
   const text = data.content.find((b) => b.type === 'text')?.text ?? '';
-  return text;
+  const inTok = data.usage?.input_tokens;
+  const outTok = data.usage?.output_tokens;
+  if (typeof inTok === 'number' && typeof outTok === 'number') {
+    return {
+      text,
+      usage: {
+        provider: 'anthropic',
+        model: data.model ?? model,
+        inputTokens: inTok,
+        outputTokens: outTok,
+        dataQuality: 'actual',
+      },
+    };
+  }
+
+  return {
+    text,
+    usage: {
+      provider: 'anthropic',
+      model: data.model ?? model,
+      inputTokens: estimateTokensFromChars(prompt.length),
+      outputTokens: estimateTokensFromChars(text.length),
+      dataQuality: 'estimated',
+    },
+  };
 }
 
 export function generateScenariosFromTemplate(gaps: Gap[]): NeutralScenario[] {

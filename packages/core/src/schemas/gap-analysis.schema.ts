@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CostIntelligenceSchema } from './cost-intelligence.schema.js';
 
 export const GapSchema = z.object({
   id: z.string(),
@@ -65,6 +66,7 @@ export const GapAnalysisSchema = z.object({
   gaps: z.array(GapSchema),
   scenarios: z.array(NeutralScenarioSchema),
   generatedTests: z.array(GeneratedTestSchema),
+  costIntelligence: CostIntelligenceSchema.optional(),
 });
 
 export type GapAnalysis = z.infer<typeof GapAnalysisSchema>;

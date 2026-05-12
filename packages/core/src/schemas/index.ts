@@ -43,6 +43,20 @@ export {
   type FrameworkRecommendation,
 } from './gap-analysis.schema.js';
 export {
+  CostIntelligenceSchema,
+  LlmUsageRecordSchema,
+  LlmDataQualitySchema,
+  LlmOperationTypeSchema,
+  RepeatedAiPatternSchema,
+  DeterministicMaturitySchema,
+  type CostIntelligence,
+  type LlmUsageRecord,
+  type LlmDataQuality,
+  type LlmOperationType,
+  type RepeatedAiPattern,
+  type DeterministicMaturity,
+} from './cost-intelligence.schema.js';
+export {
   RepoAnalysisSchema,
   type RepoAnalysis,
 } from './repo-analysis.schema.js';

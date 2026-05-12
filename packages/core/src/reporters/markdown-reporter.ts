@@ -17,6 +17,19 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
     .map((s) => `### ${s.title}\n${s.description}\n\nSteps:\n${s.steps.map((step) => `- ${step.description}`).join('\n')}\n\nRecommended adapters: ${s.recommendations.map((r) => r.adapter).join(', ')}`)
     .join('\n\n---\n\n');
 
+  const ci = analysis.costIntelligence;
+  const costSection = ci
+    ? `## Cost Intelligence
+
+- **LLM token budget (max output per call):** ${ci.llmTokenBudgetConfigured} (${ci.budgetRole.replace(/-/g, ' ')})
+- **Usage (this run):** input ${ci.usageSummary.totalInputTokens}, output ${ci.usageSummary.totalOutputTokens} tokens — _${ci.usageSummary.dataQuality}_
+- **Budget warnings:** ${ci.budgetWarnings.length ? ci.budgetWarnings.map((w) => `\n  - ${w}`).join('') : '_none_'}
+- **Repeated AI patterns:** ${ci.repeatedOperations.length ? ci.repeatedOperations.map((r) => `\n  - \`${r.promptHash}\` ×${r.count}: ${r.recommendation}`).join('') : '_none detected in this run_'}
+- **Deterministic maturity:** **${ci.deterministicMaturity.label}** (level ${ci.deterministicMaturity.level}/5) — ${ci.deterministicMaturity.rationale}${ci.deterministicMaturity.ceilingNote ? `\n  - _${ci.deterministicMaturity.ceilingNote}_` : ''}
+- **Conversion recommendations:**${ci.conversionRecommendations.length ? ci.conversionRecommendations.map((c) => `\n  - ${c}`).join('') : '\n  - _none_'}
+`
+    : '';
+
   const md = `# Qulib Quality Gap Report
 
 **Generated:** ${analysis.analyzedAt}
@@ -29,6 +42,7 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
 - Scan budget exhausted (unfinished queue): ${analysis.coverageBudgetExceeded ? 'yes' : 'no'}
 ${analysis.coverageWarning ? `- Warning: **${analysis.coverageWarning}**` : '- Warning: none'}
 
+${costSection}
 ## Coverage gaps (${analysis.gaps.length})
 
 | Path | Category | Severity | Reason |

@@ -7,6 +7,7 @@ import { observe } from './phases/observe.js';
 import { think } from './phases/think.js';
 import { act } from './phases/act.js';
 import { detectAuth } from './tools/auth-detector.js';
+import { costIntelligenceForAuthBlocked } from './llm/cost-intelligence.js';
 
 export interface AnalyzeOptions {
   url: string;
@@ -46,6 +47,7 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
         gaps: [],
         scenarios: [],
         generatedTests: [],
+        costIntelligence: costIntelligenceForAuthBlocked(options.config.llmTokenBudget),
       });
       return {
         releaseConfidence: 0,
