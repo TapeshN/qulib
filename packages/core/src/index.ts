@@ -4,6 +4,7 @@ export { exploreAuth } from './tools/auth-explorer.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export type { AnalyzeOptions, AnalyzeResult, AnalyzeStatus } from './analyze.js';
+export type { AnalyzeProgressSink } from './harness/progress-log.js';
 export type {
   HarnessConfig,
   AuthConfig,

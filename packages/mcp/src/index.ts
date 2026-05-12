@@ -3,9 +3,17 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { analyzeApp, detectAuth, exploreAuth } from '@qulib/core';
-import type { HarnessConfig } from '@qulib/core';
+import type { HarnessConfig, AnalyzeProgressSink } from '@qulib/core';
 import { z } from 'zod';
 import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
+import { log } from './logger.js';
+
+const mcpProgressLog: AnalyzeProgressSink = {
+  info: (message) => log.info(message),
+  warn: (message) => log.warn(message),
+  error: (message) => log.error(message),
+  debug: (message) => log.debug(message),
+};
 
 const FormLoginMcpAuthSchema = z.object({
   type: z.literal('form-login'),
@@ -156,7 +164,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       })
       .parse(request.params.arguments ?? {});
 
-    const result = await exploreAuth(url, timeoutMs);
+    log.info(`explore_auth tool url=${url} timeoutMs=${timeoutMs ?? 20000}`);
+    const result = await exploreAuth(url, timeoutMs, mcpProgressLog);
+    log.info(`explore_auth tool done authRequired=${result.authRequired} paths=${result.authPaths.length}`);
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
@@ -170,7 +180,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       })
       .parse(request.params.arguments ?? {});
 
-    const result = await detectAuth(url, timeoutMs);
+    log.info(`detect_auth tool url=${url} timeoutMs=${timeoutMs ?? 15000}`);
+    const result = await detectAuth(url, timeoutMs, mcpProgressLog);
+    const providerSummary =
+      result.oauthButtons.length > 0
+        ? result.oauthButtons.map((b) => b.provider).join(', ')
+        : result.provider ?? 'none';
+    log.info(
+      `detect_auth tool done type=${result.type} providers=${providerSummary} automatable=${result.type === 'form-login'}`
+    );
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
@@ -229,6 +247,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     url: input.url,
     writeArtifacts: false,
     config: harnessConfig,
+    progressLog: mcpProgressLog,
   });
 
   const payload = buildCompactAnalyzePayload(result, input.includeFullReport === true);

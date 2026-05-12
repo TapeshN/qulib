@@ -13,6 +13,7 @@ import { analyzeAuthSurfaceGaps } from './tools/auth-surface-analyzer.js';
 import { buildPublicSurface } from './tools/public-surface.js';
 import { buildAuthBlockGap } from './tools/auth-block-gap.js';
 import { finalizeGapAnalysisFromDraft, type GapAnalysisDraft } from './phases/think-finalize.js';
+import type { AnalyzeProgressSink } from './harness/progress-log.js';
 
 export type AnalyzeStatus = 'complete' | 'blocked' | 'partial';
 
@@ -22,6 +23,7 @@ export interface AnalyzeOptions {
   config: HarnessConfig;
   writeArtifacts?: boolean;
   skipAuthDetection?: boolean;
+  progressLog?: AnalyzeProgressSink;
 }
 
 export interface AnalyzeResult {
@@ -41,18 +43,34 @@ export interface AnalyzeResult {
   publicSurface: PublicSurface | null;
 }
 
+function logScanEnd(progress: AnalyzeProgressSink | undefined, result: AnalyzeResult): void {
+  const rc = result.releaseConfidence === null ? 'null' : String(result.releaseConfidence);
+  const cs = result.coverageScore === null ? 'null' : String(result.coverageScore);
+  progress?.info(`status=${result.status} | coverageScore=${cs} | releaseConfidence=${rc} | gaps=${result.gaps.length}`);
+  for (const g of result.gaps) {
+    progress?.debug(`gap id=${g.id} severity=${g.severity} category=${g.category}`);
+  }
+  if (process.env.QULIB_DEBUG === '1') {
+    progress?.debug(`gaps json=${JSON.stringify(result.gaps)}`);
+  }
+}
+
 export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult> {
   const writeArtifacts = options.writeArtifacts ?? false;
   const decisionLog: DecisionLogEntry[] = [];
+  const progress = options.progressLog;
   const artifacts = {
     writeArtifacts,
     decisionMemory: decisionLog,
+    ...(progress !== undefined && { progressLog: progress }),
   };
+
+  progress?.info(`Starting scan → ${options.url} maxPagesToScan=${options.config.maxPagesToScan}`);
 
   let detectedAuth: DetectedAuth | undefined;
   let authWall = false;
   if (!options.config.auth && !options.skipAuthDetection) {
-    detectedAuth = await detectAuth(options.url, options.config.timeoutMs);
+    detectedAuth = await detectAuth(options.url, options.config.timeoutMs, progress);
     authWall = Boolean(detectedAuth.hasAuth);
   }
 
@@ -67,18 +85,26 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
       metadata: { detection: detectedAuth },
     });
 
+    const status: AnalyzeStatus = observed.routes.routes.length === 0 ? 'blocked' : 'partial';
+    if (status === 'blocked') {
+      progress?.warn('Scan blocked by auth wall');
+    } else {
+      progress?.warn('Auth wall: continuing with public surface only (partial)');
+    }
+
     const mode = observed.repo ? 'url-repo' : 'url-only';
     const publicAnalysis = analyzeGaps(observed.routes, observed.repo, mode, options.config);
     const publicSurface = PublicSurfaceSchema.parse(
       buildPublicSurface(observed.routes.routes, publicAnalysis.gaps)
     );
+    progress?.info(`Public surface crawl: ${publicSurface.pages.length} page(s) reachable pre-auth`);
+
     const authSurfaceGaps = await analyzeAuthSurfaceGaps(
       options.url,
       detectedAuth,
       options.config.timeoutMs
     );
     const authBlockGap = buildAuthBlockGap(options.url);
-    const status: AnalyzeStatus = observed.routes.routes.length === 0 ? 'blocked' : 'partial';
     const qualityInputGaps = [...publicAnalysis.gaps, ...authSurfaceGaps];
     const qualityScore = computeQualityScoreFromGaps(qualityInputGaps);
     const draftRelease = status === 'blocked' ? null : qualityScore;
@@ -117,7 +143,7 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
 
     await act(gapAnalysis, options.config, artifacts);
 
-    return {
+    const result: AnalyzeResult = {
       status,
       coverageScore: computeCoverageScore(observed.routes),
       releaseConfidence: draftRelease,
@@ -129,6 +155,8 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
       detectedAuth,
       publicSurface,
     };
+    logScanEnd(progress, result);
+    return result;
   }
 
   const analysis = await think(observed, options.config, artifacts);
@@ -137,8 +165,9 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   const publicSurface = PublicSurfaceSchema.parse(
     buildPublicSurface(observed.routes.routes, analysis.gaps)
   );
+  progress?.info(`Public surface crawl: ${publicSurface.pages.length} page(s) reachable pre-auth`);
 
-  return {
+  const result: AnalyzeResult = {
     status: 'complete',
     coverageScore: computeCoverageScore(observed.routes),
     releaseConfidence: analysis.releaseConfidence,
@@ -150,4 +179,6 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
     ...(detectedAuth !== undefined && { detectedAuth }),
     publicSurface,
   };
+  logScanEnd(progress, result);
+  return result;
 }
