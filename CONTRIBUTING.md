@@ -53,7 +53,7 @@ qulib/
 
 If you want to help but aren't sure where to start:
 
-- Improve multi-page crawling (link extraction is shallow in v0.1.0 — see Known limitations in [packages/mcp/README.md](./packages/mcp/README.md))
+- Improve crawl coverage (e.g. sitemap seeds, deeper authenticated expansion — see Known limitations in [packages/mcp/README.md](./packages/mcp/README.md))
 - Add new gap detection rules (e.g., missing page titles, oversized images, missing meta tags)
 - Add integration with another scanner (Lighthouse, Pa11y, axe DevTools Pro)
 - Improve docs or add usage examples

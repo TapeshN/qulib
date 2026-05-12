@@ -53,7 +53,7 @@ Claude will pass auth credentials to the tool; Qulib signs in, then scans.
 
 ## Known limitations
 
-In **v0.1.0**, link discovery and route expansion from the entry URL are **shallow** compared to full multi-site crawling. Broader multi-page coverage is planned for **0.1.1**; treat low page counts in the output as a signal that the scan may not represent the whole app yet.
+Qulib discovers routes by following **same-site** links from pages it visits; it is not a full multi-site crawler (no sitemap-first mode, no unbounded domain expansion). Treat the route list as a sample of what was reachable within `maxPagesToScan` and `maxDepth`.
 
 ## Repository
 
