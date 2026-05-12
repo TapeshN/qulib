@@ -5,10 +5,20 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 import { analyzeApp } from '../analyze.js';
+import { detectAuth } from '../tools/auth-detector.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
 type AnalyzeMode = 'url-only' | 'url-repo';
+
+const FormLoginCliSchema = z.object({
+  loginUrl: z.string().url(),
+  username: z.string().min(1),
+  password: z.string(),
+  usernameSelector: z.string().min(1),
+  passwordSelector: z.string().min(1),
+  submitSelector: z.string().min(1),
+});
 
 async function loadConfigFile(relativePath: string): Promise<HarnessConfig> {
   const configPath = resolve(process.cwd(), relativePath);
@@ -30,15 +40,73 @@ function redactConfigForLog(config: HarnessConfig): Record<string, unknown> {
   return base;
 }
 
+function mergeAuthFromCli(
+  config: HarnessConfig,
+  options: {
+    authStorageState?: string;
+    authFormLogin?: boolean;
+    loginUrl?: string;
+    username?: string;
+    password?: string;
+    usernameSelector?: string;
+    passwordSelector?: string;
+    submitSelector?: string;
+  }
+): HarnessConfig {
+  if (options.authStorageState && options.authFormLogin) {
+    throw new Error('Use either --auth-storage-state or --auth-form-login, not both.');
+  }
+  if (options.authStorageState) {
+    return {
+      ...config,
+      auth: { type: 'storage-state', path: options.authStorageState },
+    };
+  }
+  if (options.authFormLogin) {
+    const parsed = FormLoginCliSchema.parse({
+      loginUrl: options.loginUrl,
+      username: options.username,
+      password: options.password,
+      usernameSelector: options.usernameSelector,
+      passwordSelector: options.passwordSelector,
+      submitSelector: options.submitSelector,
+    });
+    return {
+      ...config,
+      auth: {
+        type: 'form-login',
+        loginUrl: parsed.loginUrl,
+        credentials: { username: parsed.username, password: parsed.password },
+        selectors: {
+          username: parsed.usernameSelector,
+          password: parsed.passwordSelector,
+          submit: parsed.submitSelector,
+        },
+        successIndicator: {},
+      },
+    };
+  }
+  return config;
+}
+
 async function runAnalyze(options: {
   url: string;
   repo?: string;
   configFile?: string;
   ephemeral?: boolean;
+  authStorageState?: string;
+  authFormLogin?: boolean;
+  loginUrl?: string;
+  username?: string;
+  password?: string;
+  usernameSelector?: string;
+  passwordSelector?: string;
+  submitSelector?: string;
 }): Promise<void> {
   const validatedUrl = AnalyzeUrlSchema.parse(options.url);
   const mode: AnalyzeMode = options.repo ? 'url-repo' : 'url-only';
-  const config = await loadConfigFile(options.configFile ?? 'qulib.config.ts');
+  const baseConfig = await loadConfigFile(options.configFile ?? 'qulib.config.ts');
+  const config = mergeAuthFromCli(baseConfig, options);
   const ephemeral = options.ephemeral ?? false;
   const writeArtifacts = !ephemeral;
 
@@ -64,6 +132,7 @@ async function runAnalyze(options: {
           discoveredRoutes: result.routeInventory,
           repoInventory: result.repoInventory,
           decisionLog: result.decisionLog,
+          ...(result.detectedAuth !== undefined && { detectedAuth: result.detectedAuth }),
         },
         null,
         2
@@ -115,17 +184,101 @@ program
     'playwright'
   )
   .option('--ephemeral', 'Do not write to disk — return full report as JSON on stdout (use for MCP/CI)', false)
+  .option(
+    '--auth-storage-state <path>',
+    'Path to a storage state JSON file (use after `qulib auth init`)'
+  )
+  .option('--auth-form-login', 'Use form-login; requires --login-url, credentials, and selectors', false)
+  .option('--login-url <url>', 'Form login page URL (required with --auth-form-login)')
+  .option('--username <user>', 'Form login username')
+  .option('--password <secret>', 'Form login password')
+  .option('--username-selector <sel>', 'Selector for username field')
+  .option('--password-selector <sel>', 'Selector for password field')
+  .option('--submit-selector <sel>', 'Selector for submit control')
   .action(async (options) => {
+    const authFormLogin = Boolean(options.authFormLogin);
+    const loginUrl = options.loginUrl as string | undefined;
+    if (!authFormLogin && loginUrl !== undefined) {
+      throw new Error('--login-url is only valid with --auth-form-login');
+    }
+    if (authFormLogin && loginUrl === undefined) {
+      throw new Error('--auth-form-login requires --login-url');
+    }
     await runAnalyze({
       url: options.url,
       repo: options.repo,
       configFile: options.config,
       ephemeral: options.ephemeral,
+      authStorageState: options.authStorageState,
+      authFormLogin,
+      loginUrl,
+      username: options.username,
+      password: options.password,
+      usernameSelector: options.usernameSelector,
+      passwordSelector: options.passwordSelector,
+      submitSelector: options.submitSelector,
     });
+  });
+
+program
+  .command('detect-auth')
+  .description('Detect the authentication pattern used by a deployed web app')
+  .requiredOption('--url <url>', 'URL of the app or login page')
+  .option('--timeout <ms>', 'Page load timeout in ms', '15000')
+  .action(async (options) => {
+    const result = await detectAuth(options.url, parseInt(options.timeout, 10));
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+const authCmd = program.command('auth').description('Authentication helpers for scans');
+authCmd
+  .command('init')
+  .description('Open a browser, let the user log in manually, save the storage state to a file for reuse')
+  .requiredOption('--base-url <url>', 'The base URL of the app to log into')
+  .option('--out <path>', 'Output file path for the storage state JSON', './qulib-storage-state.json')
+  .option('--timeout <ms>', 'Maximum time to wait for the user to finish logging in (default 5 min)', '300000')
+  .action(async (options) => {
+    const { chromium } = await import('@playwright/test');
+    const browser = await chromium.launch({ headless: false });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    const timeoutMs = parseInt(options.timeout, 10);
+    console.log(`\n[qulib] Opening ${options.baseUrl}`);
+    console.log('[qulib] Log in normally in the browser window that just opened.');
+    console.log('[qulib] After you reach a logged-in state, return to this terminal and press ENTER.');
+    console.log(`[qulib] You have ${timeoutMs / 1000}s before timeout.\n`);
+
+    await page.goto(options.baseUrl);
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('Timed out waiting for user')),
+        timeoutMs
+      );
+      process.stdin.once('data', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      process.stdin.resume();
+    });
+
+    const fs = await import('node:fs/promises');
+    const pathMod = await import('node:path');
+    const outPath = pathMod.resolve(options.out);
+    await context.storageState({ path: outPath });
+
+    console.log(`\n[qulib] Saved storage state to ${outPath}`);
+    console.log('[qulib] To use it, pass to qulib like:');
+    console.log(`        qulib analyze --url ${options.baseUrl} --auth-storage-state ${outPath}`);
+    console.log(`[qulib] Or in MCP, pass auth: { type: 'storage-state', path: '${outPath}' }`);
+
+    await browser.close();
+    process.exit(0);
   });
 
 program.parseAsync().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error('[qulib] Analyze failed:', message);
+  console.error('[qulib] Failed:', message);
   process.exit(1);
 });

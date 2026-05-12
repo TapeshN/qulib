@@ -2,25 +2,30 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { analyzeApp } from '@qulib/core';
+import { analyzeApp, detectAuth } from '@qulib/core';
 import { z } from 'zod';
+
+const FormLoginMcpAuthSchema = z.object({
+  type: z.literal('form-login'),
+  loginUrl: z.string().url(),
+  username: z.string(),
+  password: z.string(),
+  usernameSelector: z.string(),
+  passwordSelector: z.string(),
+  submitSelector: z.string(),
+  successUrlContains: z.string().optional(),
+});
+
+const StorageStateMcpAuthSchema = z.object({
+  type: z.literal('storage-state'),
+  path: z.string().min(1),
+});
 
 const AnalyzeInputSchema = z.object({
   url: z.string().url(),
   maxPagesToScan: z.number().int().min(1).max(50).optional(),
   timeoutMs: z.number().int().positive().optional(),
-  auth: z
-    .object({
-      type: z.literal('form-login'),
-      loginUrl: z.string().url(),
-      username: z.string(),
-      password: z.string(),
-      usernameSelector: z.string(),
-      passwordSelector: z.string(),
-      submitSelector: z.string(),
-      successUrlContains: z.string().optional(),
-    })
-    .optional(),
+  auth: z.discriminatedUnion('type', [FormLoginMcpAuthSchema, StorageStateMcpAuthSchema]).optional(),
 });
 
 const server = new Server(
@@ -40,7 +45,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: 'analyze_app',
       description:
-        'Analyze a deployed web app for quality gaps. Returns a release confidence score (0-100), accessibility violations, broken links, and prioritized risks. Supports optional form-login authentication.',
+        'Analyze a deployed web app for quality gaps. Returns a release confidence score (0-100), accessibility violations, broken links, and prioritized risks. Supports optional form-login or storage-state (Playwright) authentication.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -48,28 +53,53 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           maxPagesToScan: { type: 'number', description: 'Max pages to crawl (default 10)' },
           timeoutMs: { type: 'number', description: 'Per-page timeout in milliseconds (default 30000)' },
           auth: {
-            type: 'object',
-            description: 'Optional form-login auth',
-            properties: {
-              type: { type: 'string', enum: ['form-login'] },
-              loginUrl: { type: 'string' },
-              username: { type: 'string' },
-              password: { type: 'string' },
-              usernameSelector: { type: 'string' },
-              passwordSelector: { type: 'string' },
-              submitSelector: { type: 'string' },
-              successUrlContains: { type: 'string' },
-            },
-            required: [
-              'type',
-              'loginUrl',
-              'username',
-              'password',
-              'usernameSelector',
-              'passwordSelector',
-              'submitSelector',
+            description: 'Optional auth: form-login credentials or path to a storage state JSON from `qulib auth init`',
+            oneOf: [
+              {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', enum: ['form-login'] },
+                  loginUrl: { type: 'string' },
+                  username: { type: 'string' },
+                  password: { type: 'string' },
+                  usernameSelector: { type: 'string' },
+                  passwordSelector: { type: 'string' },
+                  submitSelector: { type: 'string' },
+                  successUrlContains: { type: 'string' },
+                },
+                required: [
+                  'type',
+                  'loginUrl',
+                  'username',
+                  'password',
+                  'usernameSelector',
+                  'passwordSelector',
+                  'submitSelector',
+                ],
+              },
+              {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', enum: ['storage-state'] },
+                  path: { type: 'string', description: 'Absolute path to storage state JSON on the MCP host' },
+                },
+                required: ['type', 'path'],
+              },
             ],
           },
+        },
+        required: ['url'],
+      },
+    },
+    {
+      name: 'detect_auth',
+      description:
+        'Detect the authentication pattern used by a deployed web app. Returns the auth type (form-login, oauth, magic-link, none, or unknown) and a recommendation for how to configure qulib to scan past it.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Full URL of the deployed app or login page' },
+          timeoutMs: { type: 'number', description: 'Page load timeout in milliseconds (default 15000)' },
         },
         required: ['url'],
       },
@@ -78,6 +108,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name === 'detect_auth') {
+    const { url, timeoutMs } = z
+      .object({
+        url: z.string().url(),
+        timeoutMs: z.number().int().positive().optional(),
+      })
+      .parse(request.params.arguments ?? {});
+
+    const result = await detectAuth(url, timeoutMs);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
   if (request.params.name !== 'analyze_app') {
     throw new Error(`Unknown tool: ${request.params.name}`);
   }
@@ -85,9 +129,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const input = AnalyzeInputSchema.parse(request.params.arguments ?? {});
 
   const successIndicator =
-    input.auth?.successUrlContains !== undefined && input.auth.successUrlContains !== ''
+    input.auth?.type === 'form-login' &&
+    input.auth.successUrlContains !== undefined &&
+    input.auth.successUrlContains !== ''
       ? { urlContains: input.auth.successUrlContains }
       : {};
+
+  const authConfig =
+    input.auth?.type === 'form-login'
+      ? {
+          type: 'form-login' as const,
+          loginUrl: input.auth.loginUrl,
+          credentials: { username: input.auth.username, password: input.auth.password },
+          selectors: {
+            username: input.auth.usernameSelector,
+            password: input.auth.passwordSelector,
+            submit: input.auth.submitSelector,
+          },
+          successIndicator,
+        }
+      : input.auth?.type === 'storage-state'
+        ? { type: 'storage-state' as const, path: input.auth.path }
+        : undefined;
 
   const result = await analyzeApp({
     url: input.url,
@@ -106,19 +169,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       explorer: 'playwright',
       defaultAdapter: 'playwright',
       adapters: ['playwright'],
-      ...(input.auth && {
-        auth: {
-          type: 'form-login' as const,
-          loginUrl: input.auth.loginUrl,
-          credentials: { username: input.auth.username, password: input.auth.password },
-          selectors: {
-            username: input.auth.usernameSelector,
-            password: input.auth.passwordSelector,
-            submit: input.auth.submitSelector,
-          },
-          successIndicator,
-        },
-      }),
+      ...(authConfig && { auth: authConfig }),
     },
   });
 

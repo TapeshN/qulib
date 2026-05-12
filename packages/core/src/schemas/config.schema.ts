@@ -50,3 +50,26 @@ export const HarnessConfigSchema = z.object({
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
+
+export const DetectedAuthSchema = z.object({
+  hasAuth: z.boolean(),
+  type: z.enum(['none', 'form-login', 'oauth', 'magic-link', 'unknown']),
+  provider: z.string().nullable(),
+  loginUrl: z.string().nullable(),
+  observedSelectors: z
+    .object({
+      usernameSelector: z.string().nullable(),
+      passwordSelector: z.string().nullable(),
+      submitSelector: z.string().nullable(),
+    })
+    .nullable(),
+  oauthButtons: z.array(
+    z.object({
+      provider: z.string(),
+      text: z.string(),
+    })
+  ),
+  recommendation: z.string(),
+});
+
+export type DetectedAuth = z.infer<typeof DetectedAuthSchema>;
