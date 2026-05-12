@@ -37,7 +37,7 @@ export interface AnalyzeResult {
   repoInventory: RepoAnalysis | null;
   decisionLog: DecisionLogEntry[];
   detectedAuth?: DetectedAuth;
-  /** Public pre-auth crawl; `null` when there was no auth wall or the flow matched a normal authenticated scan. */
+  /** Crawled public routes and their gap-derived surface (complete scans); OAuth-wall scans use the pre-auth crawl only. */
   publicSurface: PublicSurface | null;
 }
 
@@ -134,6 +134,10 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   const analysis = await think(observed, options.config, artifacts);
   await act(analysis, options.config, artifacts);
 
+  const publicSurface = PublicSurfaceSchema.parse(
+    buildPublicSurface(observed.routes.routes, analysis.gaps)
+  );
+
   return {
     status: 'complete',
     coverageScore: computeCoverageScore(observed.routes),
@@ -144,6 +148,6 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
     repoInventory: observed.repo,
     decisionLog,
     ...(detectedAuth !== undefined && { detectedAuth }),
-    publicSurface: null,
+    publicSurface,
   };
 }

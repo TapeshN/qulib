@@ -22,6 +22,8 @@ export function computeCoverageScore(routes: RouteInventory): number | null {
   const scanned = routes.routes.length;
   const skipped = routes.pagesSkipped;
   const denom = scanned + skipped;
+  // TODO: return null here once the explorer exposes an explicit "discovered-but-unknown" signal
+  //       (i.e. routes were found but the full set couldn't be confirmed — a low score is misleading)
   if (denom === 0) {
     if (routes.budgetExceeded) {
       return 0;
