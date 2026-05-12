@@ -27,13 +27,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "npm --prefix ../.. run build -w @qulib/core && tsc && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "node --import tsx/esm --test src/compact-analyze-payload.test.ts"
   },
   "dependencies": {
-    "@qulib/core": "0.2.2",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@qulib/core": "0.2.2",
     "zod": "^3.23.0"
   },
   "devDependencies": {
