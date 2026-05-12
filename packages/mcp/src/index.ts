@@ -9,10 +9,10 @@ import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
 import { log } from './logger.js';
 
 const mcpProgressLog: AnalyzeProgressSink = {
-  info: (message) => log.info(message),
-  warn: (message) => log.warn(message),
-  error: (message) => log.error(message),
-  debug: (message) => log.debug(message),
+  info: (message: string) => log.info(message),
+  warn: (message: string) => log.warn(message),
+  error: (message: string) => log.error(message),
+  debug: (message: string) => log.debug(message),
 };
 
 const FormLoginMcpAuthSchema = z.object({
