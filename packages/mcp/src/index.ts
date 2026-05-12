@@ -3,7 +3,17 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { analyzeApp, detectAuth, exploreAuth } from '@qulib/core';
+import type { HarnessConfig, AnalyzeProgressSink } from '@qulib/core';
 import { z } from 'zod';
+import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
+import { log } from './logger.js';
+
+const mcpProgressLog: AnalyzeProgressSink = {
+  info: (message) => log.info(message),
+  warn: (message) => log.warn(message),
+  error: (message) => log.error(message),
+  debug: (message) => log.debug(message),
+};
 
 const FormLoginMcpAuthSchema = z.object({
   type: z.literal('form-login'),
@@ -26,6 +36,11 @@ const AnalyzeInputSchema = z.object({
   maxPagesToScan: z.number().int().min(1).max(50).optional(),
   timeoutMs: z.number().int().positive().optional(),
   auth: z.discriminatedUnion('type', [FormLoginMcpAuthSchema, StorageStateMcpAuthSchema]).optional(),
+  includeFullReport: z.boolean().optional(),
+  llmTokenBudget: z.number().int().positive().optional(),
+  llmMaxOutputTokensPerCall: z.number().int().positive().optional(),
+  testGenerationLimit: z.number().int().positive().max(50).optional(),
+  enableLlmScenarios: z.boolean().optional(),
 });
 
 const server = new Server(
@@ -58,7 +73,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: 'analyze_app',
       description:
-        'Analyze a deployed web app for quality gaps. Returns a release confidence score (0-100), accessibility violations, broken links, and prioritized risks. Supports optional form-login or storage-state (Playwright) authentication.',
+        'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -100,6 +115,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
               },
             ],
           },
+          includeFullReport: {
+            type: 'boolean',
+            description:
+              'When true, returns the full analyzeApp payload including all scenarios. Default false returns a summary-first shape.',
+          },
+          llmTokenBudget: {
+            type: 'number',
+            description:
+              'Legacy per-completion max output tokens (same as HarnessConfig.llmTokenBudget). Prefer llmMaxOutputTokensPerCall when both are set.',
+          },
+          llmMaxOutputTokensPerCall: {
+            type: 'number',
+            description:
+              'Optional override for per-completion max output tokens (maps to HarnessConfig.llmMaxOutputTokensPerCall).',
+          },
+          testGenerationLimit: { type: 'number', description: 'Max gaps fed into scenario generation (default 5).' },
+          enableLlmScenarios: {
+            type: 'boolean',
+            description: 'When false, never calls an LLM for scenarios (default true when omitted).',
+          },
         },
         required: ['url'],
       },
@@ -129,7 +164,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       })
       .parse(request.params.arguments ?? {});
 
-    const result = await exploreAuth(url, timeoutMs);
+    log.info(`explore_auth tool url=${url} timeoutMs=${timeoutMs ?? 20000}`);
+    const result = await exploreAuth(url, timeoutMs, mcpProgressLog);
+    log.info(`explore_auth tool done authRequired=${result.authRequired} paths=${result.authPaths.length}`);
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
@@ -143,7 +180,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       })
       .parse(request.params.arguments ?? {});
 
-    const result = await detectAuth(url, timeoutMs);
+    log.info(`detect_auth tool url=${url} timeoutMs=${timeoutMs ?? 15000}`);
+    const result = await detectAuth(url, timeoutMs, mcpProgressLog);
+    const providerSummary =
+      result.oauthButtons.length > 0
+        ? result.oauthButtons.map((b) => b.provider).join(', ')
+        : result.provider ?? 'none';
+    log.info(
+      `detect_auth tool done type=${result.type} providers=${providerSummary} automatable=${result.type === 'form-login'}`
+    );
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
@@ -179,32 +224,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ? { type: 'storage-state' as const, path: input.auth.path }
         : undefined;
 
+  const harnessConfig: HarnessConfig = {
+    maxPagesToScan: input.maxPagesToScan ?? 10,
+    maxDepth: 3,
+    minPagesForConfidence: 3,
+    timeoutMs: input.timeoutMs ?? 30000,
+    retryCount: 0,
+    llmTokenBudget: input.llmTokenBudget ?? input.llmMaxOutputTokensPerCall ?? 4096,
+    llmMaxOutputTokensPerCall: input.llmMaxOutputTokensPerCall,
+    testGenerationLimit: input.testGenerationLimit ?? 5,
+    enableLlmScenarios: input.enableLlmScenarios !== false,
+    readOnlyMode: true,
+    requireHumanReview: false,
+    failOnConsoleError: false,
+    explorer: 'playwright',
+    defaultAdapter: 'playwright',
+    adapters: ['playwright'],
+    ...(authConfig && { auth: authConfig }),
+  };
+
   const result = await analyzeApp({
     url: input.url,
     writeArtifacts: false,
-    config: {
-      maxPagesToScan: input.maxPagesToScan ?? 10,
-      maxDepth: 3,
-      minPagesForConfidence: 3,
-      timeoutMs: input.timeoutMs ?? 30000,
-      retryCount: 0,
-      llmTokenBudget: 1,
-      testGenerationLimit: 1,
-      readOnlyMode: true,
-      requireHumanReview: false,
-      failOnConsoleError: false,
-      explorer: 'playwright',
-      defaultAdapter: 'playwright',
-      adapters: ['playwright'],
-      ...(authConfig && { auth: authConfig }),
-    },
+    config: harnessConfig,
+    progressLog: mcpProgressLog,
   });
+
+  const payload = buildCompactAnalyzePayload(result, input.includeFullReport === true);
 
   return {
     content: [
       {
         type: 'text' as const,
-        text: JSON.stringify(result, null, 2),
+        text: JSON.stringify(payload, null, 2),
       },
     ],
   };

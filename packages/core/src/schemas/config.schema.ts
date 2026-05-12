@@ -38,8 +38,24 @@ export const HarnessConfigSchema = z.object({
   minPagesForConfidence: z.number().int().min(1).default(3),
   timeoutMs: z.number().int().positive(),
   retryCount: z.number().int().min(0),
-  llmTokenBudget: z.number().int().positive(),
+  llmTokenBudget: z
+    .number()
+    .int()
+    .positive()
+    .describe(
+      'Legacy name: max output tokens for a single LLM completion request. Prefer llmMaxOutputTokensPerCall when set.'
+    ),
+  llmMaxOutputTokensPerCall: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('When set, overrides llmTokenBudget (same semantics: per-completion output cap, not a multi-call total).'),
   testGenerationLimit: z.number().int().positive(),
+  enableLlmScenarios: z
+    .boolean()
+    .default(true)
+    .describe('When false, scenario generation uses templates only (no LLM calls).'),
   readOnlyMode: z.boolean(),
   requireHumanReview: z.boolean(),
   failOnConsoleError: z.boolean(),
@@ -50,6 +66,10 @@ export const HarnessConfigSchema = z.object({
 });
 
 export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
+
+export function resolveMaxOutputTokensPerLlmCall(config: HarnessConfig): number {
+  return config.llmMaxOutputTokensPerCall ?? config.llmTokenBudget;
+}
 
 export const DetectedAuthSchema = z.object({
   hasAuth: z.boolean(),

@@ -22,7 +22,7 @@ export async function observe(
   const stateManager = new StateManager();
   const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
 
-  const rawRoutes = await explorer.explore(baseUrl, config);
+  const rawRoutes = await explorer.explore(baseUrl, config, artifacts);
   const routes = RouteInventorySchema.parse(rawRoutes);
   if (artifacts.writeArtifacts) {
     await stateManager.writeState('discovered-routes.json', routes, RouteInventorySchema);

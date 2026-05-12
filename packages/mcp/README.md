@@ -7,7 +7,7 @@
 Tools:
 
 - **`explore_auth(url, timeoutMs?)`** — list all sign-in paths (OAuth, unknown SSO heuristics, forms, magic link) and what the agent must collect before `analyze_app`. Prefer this on unfamiliar apps.
-- **`analyze_app(url, auth?)`** — full quality scan (optional form-login or storage-state auth).
+- **`analyze_app`** — quality scan (optional form-login or storage-state auth). **Default payload is summary-first:** `summary`, `topGaps`, `costIntelligenceSummary`, `nextDeterministicChecks`, small previews. Set **`includeFullReport: true`** for the full `analyzeApp` result (all scenarios). Optional harness overrides: **`llmMaxOutputTokensPerCall`**, **`llmTokenBudget`** (legacy), **`testGenerationLimit`**, **`enableLlmScenarios`** (default true when omitted).
 - **`detect_auth(url, timeoutMs?)`** — single-pattern auth guess with a short recommendation (lighter than `explore_auth`).
 
 Returns from `analyze_app`:
@@ -60,6 +60,30 @@ On unfamiliar apps, call **`explore_auth`** before **`analyze_app`**. The respon
 When the model sees **`unrecognizedButtons`**, it can ask the user to register a label on the **MCP host** with the CLI:
 
 `qulib auth providers add --id <kebab-id> --label "..." --pattern "..."` — patterns are saved under **`~/.qulib/providers.json`** and merged with the built-in list on the next `explore_auth` / `explore-auth`. Nothing is auto-written without an explicit `providers add`.
+
+## Compact vs full `analyze_app` response
+
+| | Default (`includeFullReport` omitted or false) | `includeFullReport: true` |
+|--|--|--|
+| Size | Small: top gaps, cost summary, next checks | Full `gapAnalysis` with every scenario |
+| When to use | Routine agent turns, chat context limits | Deep dives, exporting full scenario JSON |
+
+Example (full):
+
+```json
+{ "url": "https://example.com", "includeFullReport": true }
+```
+
+Example (tighter LLM envelope from MCP):
+
+```json
+{
+  "url": "https://example.com",
+  "llmMaxOutputTokensPerCall": 2048,
+  "testGenerationLimit": 5,
+  "enableLlmScenarios": true
+}
+```
 
 ## Example usage
 

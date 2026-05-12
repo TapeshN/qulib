@@ -6,11 +6,14 @@ Use this before releases or after changes to crawling, auth, MCP tools, or repor
 
 - [ ] Repo root: `npm install`
 - [ ] `npm run build`
+- [ ] `npm run test` (core + MCP unit tests)
 - [ ] Playwright browsers (first machine / after Playwright upgrade): `cd packages/core && npx playwright install chromium`
 
 ## Core CLI (any branch with CLI changes)
 
 - [ ] `cd packages/core && npm run analyze -- --url https://notquality.com --ephemeral` (or another stable public URL): exits 0, JSON on stdout in ephemeral mode
+- [ ] `gapAnalysis.costIntelligence` present with `maxOutputTokensPerLlmCall`, `usageSummary`, `deterministicMaturity`
+- [ ] After a non-ephemeral analyze: `cd packages/core && npm run cost-doctor` prints Cost Intelligence from `output/report.json`
 - [ ] `npm run clean` (from `packages/core`): resets `output/` and `.scan-state/` without errors
 
 ## Auth detection and helpers
@@ -41,7 +44,8 @@ node packages/core/bin/qulib.js detect-auth --url "<URL>" --timeout 30000
 
 - [ ] Server starts: `node packages/mcp/dist/index.js` (or workspace equivalent) without startup errors
 - [ ] **`detect_auth`:** call with `{ "url": "https://github.com/login" }` → JSON matches CLI `detect-auth` for the same URL
-- [ ] **`analyze_app`:** `{ "url": "https://notquality.com" }` → structured result, exit 0 through client
+- [ ] **`analyze_app`:** `{ "url": "https://notquality.com" }` → summary-first JSON (`topGaps`, `costIntelligenceSummary`, `includeFullReport: false`)
+- [ ] **`analyze_app`:** `{ "url": "https://notquality.com", "includeFullReport": true }` → full payload including all scenarios
 - [ ] **`analyze_app` + storage-state** (if supported in your version): path to a file from `auth init` on the **same host** as the MCP process
 
 ## Known tricky URLs (regression notes)

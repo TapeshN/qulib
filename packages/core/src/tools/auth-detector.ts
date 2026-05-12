@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import type { DetectedAuth } from '../schemas/config.schema.js';
+import type { AnalyzeProgressSink } from '../harness/progress-log.js';
 import { launchBrowser } from './browser.js';
 
 async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
@@ -59,14 +60,29 @@ async function firstTextInputNameForLogin(page: import('@playwright/test').Page)
   return null;
 }
 
-export async function detectAuth(url: string, timeoutMs = 15000): Promise<DetectedAuth> {
+function debugAuth(): boolean {
+  return process.env.QULIB_DEBUG === '1';
+}
+
+export async function detectAuth(
+  url: string,
+  timeoutMs = 15000,
+  progress?: AnalyzeProgressSink
+): Promise<DetectedAuth> {
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
 
+    progress?.info(`detect_auth URL=${url}`);
+
     await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
     await waitNetworkIdleBestEffort(page);
+
+    if (debugAuth()) {
+      const html = await page.content();
+      progress?.debug(`detect_auth HTML byteLength=${Buffer.byteLength(html, 'utf8')}`);
+    }
 
     let loginUrl = url;
     const looksLikeLoginPage =
@@ -75,8 +91,11 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
 
     if (!looksLikeLoginPage) {
       const loginLink = page.locator('a').filter({ hasText: /^(log ?in|sign ?in|sign in)$/i }).first();
-      if ((await loginLink.count()) > 0) {
+      const loginLinkCount = await loginLink.count();
+      progress?.debug(`detect_auth selector loginLink count=${loginLinkCount}`);
+      if (loginLinkCount > 0) {
         const href = await loginLink.getAttribute('href');
+        progress?.debug(`detect_auth selector loginLink href matched=${Boolean(href)}`);
         if (href) {
           loginUrl = new URL(href, url).toString();
           await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
@@ -87,6 +106,7 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
 
     const passwordInputs = page.locator('input[type="password"]');
     const passwordCount = await passwordInputs.count();
+    progress?.debug(`detect_auth selector input[type=password] count=${passwordCount}`);
     const hasFormLogin = passwordCount > 0;
 
     const oauthButtons: { provider: string; text: string }[] = [];
@@ -95,10 +115,17 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
     for (const text of buttonTexts) {
       const trimmed = text.trim();
       if (!textLooksLikeOAuthIdpButton(trimmed)) {
+        if (debugAuth() && trimmed.length > 0 && trimmed.length <= 120) {
+          progress?.debug(`detect_auth oauth text skipped (not Idp-shaped) sample="${trimmed.slice(0, 80)}"`);
+        }
         continue;
       }
       for (const { provider, patterns } of OAUTH_PROVIDERS) {
-        if (patterns.some((p) => p.test(trimmed))) {
+        const matched = patterns.some((p) => p.test(trimmed));
+        if (debugAuth()) {
+          progress?.debug(`detect_auth oauth pattern try provider=${provider} matched=${matched}`);
+        }
+        if (matched) {
           if (!oauthButtons.find((b) => b.provider === provider)) {
             oauthButtons.push({ provider, text: trimmed.slice(0, 100) });
           }
@@ -133,6 +160,11 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
         passwordSelector: passwordName ? `input[name="${passwordName}"]` : null,
         submitSelector: submitName ? `button[name="${submitName}"]` : 'button[type="submit"]',
       };
+      if (debugAuth()) {
+        progress?.debug(
+          `detect_auth resolved selectors username=${observedSelectors.usernameSelector ?? 'null'} password=${observedSelectors.passwordSelector ?? 'null'} submit=${observedSelectors.submitSelector}`
+        );
+      }
       recommendation = `Form login detected. Configure auth with type="form-login", credentials, and the selectors above. Test selectors in your browser dev tools to confirm.`;
     } else if (hasMagicLink) {
       type = 'magic-link';
@@ -144,6 +176,11 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
       type = 'none';
       recommendation = `No authentication required for the entry URL. Qulib can scan anonymously.`;
     }
+
+    const providerList =
+      oauthButtons.length > 0 ? oauthButtons.map((b) => b.provider).join(', ') : provider ?? 'none';
+    const automatable = type === 'form-login';
+    progress?.info(`Auth detected: ${type} (${providerList}) automatable=${automatable}`);
 
     return {
       hasAuth: type !== 'none',

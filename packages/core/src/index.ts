@@ -2,7 +2,9 @@ export { analyzeApp } from './analyze.js';
 export { detectAuth } from './tools/auth-detector.js';
 export { exploreAuth } from './tools/auth-explorer.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
-export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
+export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
+export type { AnalyzeOptions, AnalyzeResult, AnalyzeStatus } from './analyze.js';
+export type { AnalyzeProgressSink } from './harness/progress-log.js';
 export type {
   HarnessConfig,
   AuthConfig,
@@ -13,4 +15,9 @@ export type {
   AuthExploration,
   AuthPath,
   AuthPathRequirements,
+  CostIntelligence,
+  LlmUsageRecord,
+  RepeatedAiPattern,
+  DeterministicMaturity,
+  PublicSurface,
 } from './schemas/index.js';

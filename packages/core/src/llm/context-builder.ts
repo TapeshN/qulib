@@ -3,7 +3,7 @@ import type { Gap } from '../schemas/gap-analysis.schema.js';
 export function buildGapPrompt(gaps: Gap[], limit: number): string {
   const topGaps = [...gaps]
     .sort((a, b) => {
-      const order = { high: 0, medium: 1, low: 2 };
+      const order = { critical: 0, high: 1, medium: 2, low: 3 };
       return order[a.severity] - order[b.severity];
     })
     .slice(0, limit);

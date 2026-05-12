@@ -5,6 +5,7 @@ import {
   type AuthPath,
   type AuthPathRequirements,
 } from '../schemas/config.schema.js';
+import type { AnalyzeProgressSink } from '../harness/progress-log.js';
 import { launchBrowser } from './browser.js';
 import { BUILT_IN_OAUTH_PROVIDERS, type OAuthProvider } from './oauth-providers.js';
 import { loadUserProviders } from './user-providers.js';
@@ -49,6 +50,10 @@ function slugifyLabel(text: string): string {
 
 function onLoginishPage(url: string): boolean {
   return /login|sign[- ]?in|auth|sso|oauth/i.test(new URL(url).pathname + new URL(url).hostname);
+}
+
+function debugExplore(): boolean {
+  return process.env.QULIB_DEBUG === '1';
 }
 
 function isHeuristicUnknownSso(text: string, loginish: boolean): boolean {
@@ -209,22 +214,36 @@ async function buildFormPaths(page: Page): Promise<AuthPath[]> {
   ];
 }
 
-export async function exploreAuth(url: string, timeoutMs = 20000): Promise<AuthExploration> {
+export async function exploreAuth(
+  url: string,
+  timeoutMs = 20000,
+  progress?: AnalyzeProgressSink
+): Promise<AuthExploration> {
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
 
+    progress?.info(`explore_auth URL=${url}`);
+
     await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
     await waitNetworkIdleBestEffort(page);
+
+    if (debugExplore()) {
+      const html = await page.content();
+      progress?.debug(`explore_auth HTML byteLength=${Buffer.byteLength(html, 'utf8')}`);
+    }
 
     const loginishAfterFirst =
       /login|sign[- ]?in|auth/i.test(page.url()) || (await page.locator('input[type="password"]').count()) > 0;
 
     if (!loginishAfterFirst) {
       const loginLink = page.locator('a').filter({ hasText: /^(log ?in|sign ?in|sign in)$/i }).first();
-      if ((await loginLink.count()) > 0) {
+      const cnt = await loginLink.count();
+      progress?.debug(`explore_auth selector loginLink count=${cnt}`);
+      if (cnt > 0) {
         const href = await loginLink.getAttribute('href');
+        progress?.debug(`explore_auth selector loginLink href matched=${Boolean(href)}`);
         if (href) {
           const next = new URL(href, url).toString();
           await page.goto(next, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
@@ -247,19 +266,23 @@ export async function exploreAuth(url: string, timeoutMs = 20000): Promise<AuthE
       if (!text) {
         continue;
       }
-      let matched: { p: ProviderWithSource; gate: boolean } | null = null;
+      let providerMatch: { p: ProviderWithSource; gate: boolean } | null = null;
       for (const p of allProviders) {
-        if (!matchProvider(text, p)) {
+        const hit = matchProvider(text, p);
+        if (debugExplore()) {
+          progress?.debug(`explore_auth provider try id=${p.id} matched=${hit}`);
+        }
+        if (!hit) {
           continue;
         }
         if (p.source === 'built-in' && !(textLooksLikeOAuthIdpButton(text) || loginish)) {
           continue;
         }
-        matched = { p, gate: textLooksLikeOAuthIdpButton(text) || loginish };
+        providerMatch = { p, gate: textLooksLikeOAuthIdpButton(text) || loginish };
         break;
       }
-      if (matched) {
-        const { p, gate } = matched;
+      if (providerMatch) {
+        const { p, gate } = providerMatch;
         const id = `oauth:${p.id}`;
         if (consumed.has(id)) {
           continue;
@@ -275,6 +298,7 @@ export async function exploreAuth(url: string, timeoutMs = 20000): Promise<AuthE
           confidence: oauthConfidence(p.source, loginish || gate),
           requirements: storageRequirement(),
         });
+        progress?.info(`explore_auth path id=${id} type=oauth provider=${p.id} automatable=false`);
         continue;
       }
       if (isHeuristicUnknownSso(text, loginish)) {
@@ -294,6 +318,7 @@ export async function exploreAuth(url: string, timeoutMs = 20000): Promise<AuthE
           confidence: 'low',
           requirements: storageRequirement(),
         });
+        progress?.info(`explore_auth path id=${id} type=oauth-unknown automatable=false`);
         const safePattern = text.slice(0, 48).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
         unrecognizedButtons.push({
           label: text.slice(0, 100),
@@ -318,9 +343,14 @@ export async function exploreAuth(url: string, timeoutMs = 20000): Promise<AuthE
             'Magic-link flows need a human in the loop. Use `qulib auth init --base-url <app-url>` and complete email or provider steps in the opened browser, then reuse the saved storage state for scans.',
         },
       });
+      progress?.info('explore_auth path id=magic-link type=magic-link automatable=false');
     }
 
-    authPaths.push(...(await buildFormPaths(page)));
+    const formPaths = await buildFormPaths(page);
+    for (const fp of formPaths) {
+      authPaths.push(fp);
+      progress?.info(`explore_auth path id=${fp.id} type=${fp.type} automatable=${fp.automatable}`);
+    }
 
     const authRequired = authPaths.length > 0;
     let authScope: AuthExploration['authScope'] = 'none';

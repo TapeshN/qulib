@@ -4,6 +4,35 @@ import type { RouteInventory } from '../schemas/route-inventory.schema.js';
 import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
 
+export function computeQualityScoreFromGaps(gaps: Gap[]): number {
+  let critical = 0;
+  let high = 0;
+  let medium = 0;
+  let low = 0;
+  for (const g of gaps) {
+    if (g.severity === 'critical') critical++;
+    else if (g.severity === 'high') high++;
+    else if (g.severity === 'medium') medium++;
+    else low++;
+  }
+  return Math.max(0, 100 - critical * 25 - high * 20 - medium * 8 - low * 3);
+}
+
+export function computeCoverageScore(routes: RouteInventory): number | null {
+  const scanned = routes.routes.length;
+  const skipped = routes.pagesSkipped;
+  const denom = scanned + skipped;
+  // TODO: return null here once the explorer exposes an explicit "discovered-but-unknown" signal
+  //       (i.e. routes were found but the full set couldn't be confirmed — a low score is misleading)
+  if (denom === 0) {
+    if (routes.budgetExceeded) {
+      return 0;
+    }
+    return scanned === 0 ? 0 : 100;
+  }
+  return Math.round((100 * scanned) / denom);
+}
+
 export function analyzeGaps(
   routes: RouteInventory,
   repo: RepoAnalysis | null,
@@ -72,11 +101,13 @@ export function analyzeGaps(
     for (const violation of route.a11yViolations) {
       const impact = violation.impact.toLowerCase();
       const severity: Gap['severity'] =
-        impact === 'critical' || impact === 'serious'
-          ? 'high'
-          : impact === 'moderate'
-            ? 'medium'
-            : 'low';
+        impact === 'critical'
+          ? 'critical'
+          : impact === 'serious'
+            ? 'high'
+            : impact === 'moderate'
+              ? 'medium'
+              : 'low';
       addGap({
         id: randomUUID(),
         path: route.path,
@@ -87,16 +118,9 @@ export function analyzeGaps(
     }
   }
 
-  const highCount = gaps.filter((g) => g.severity === 'high').length;
-  const mediumCount = gaps.filter((g) => g.severity === 'medium').length;
-  const lowCount = gaps.filter((g) => g.severity === 'low').length;
-  let releaseConfidence = Math.max(0, 100 - highCount * 20 - mediumCount * 8 - lowCount * 3);
+  const releaseConfidence = computeQualityScoreFromGaps(gaps);
 
   const pagesScanned = routes.routes.length;
-  if (pagesScanned < config.minPagesForConfidence) {
-    releaseConfidence = Math.min(releaseConfidence, 40);
-  }
-
   let coverageWarning: GapAnalysis['coverageWarning'];
   if (routes.budgetExceeded) {
     coverageWarning = 'budget-exceeded';

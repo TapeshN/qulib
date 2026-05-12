@@ -5,6 +5,7 @@ import type { AppExplorer } from './explorer.interface.js';
 import { createAuthenticatedContext } from './auth.js';
 import { RouteInventorySchema, type RouteInventory, type Route } from '../schemas/route-inventory.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
+import type { RunArtifactsOptions } from '../harness/run-options.js';
 
 function crawlHostKey(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase();
@@ -20,8 +21,13 @@ function isInternalHref(href: string, baseUrlStr: string): boolean {
   }
 }
 
+function debugMode(): boolean {
+  return process.env.QULIB_DEBUG === '1';
+}
+
 export class PlaywrightExplorer implements AppExplorer {
-  async explore(baseUrl: string, config: HarnessConfig): Promise<RouteInventory> {
+  async explore(baseUrl: string, config: HarnessConfig, artifacts?: RunArtifactsOptions): Promise<RouteInventory> {
+    const progress = artifacts?.progressLog;
     const browser = await launchBrowser();
 
     let context: BrowserContext;
@@ -35,7 +41,10 @@ export class PlaywrightExplorer implements AppExplorer {
     if (config.auth) {
       const label =
         config.auth.type === 'form-login' ? config.auth.credentials.username : 'storage-state';
-      console.error(`[qulib] authenticated as ${label}`);
+      progress?.info(`Authenticated context: ${label}`);
+      if (!progress) {
+        process.stderr.write(`[qulib] authenticated as ${label}\n`);
+      }
     }
 
     const visited = new Set<string>();
@@ -69,10 +78,16 @@ export class PlaywrightExplorer implements AppExplorer {
         });
 
         try {
-          await page.goto(url, {
+          const navResponse = await page.goto(url, {
             timeout: config.timeoutMs,
             waitUntil: 'domcontentloaded',
           });
+          const httpStatus = navResponse?.status() ?? 0;
+
+          if (debugMode()) {
+            const html = await page.content();
+            progress?.debug(`page HTML byteLength=${Buffer.byteLength(html, 'utf8')} url=${normalized}`);
+          }
 
           const pageTitle = await page.title();
           const formCount = await page.locator('form').count();
@@ -113,6 +128,9 @@ export class PlaywrightExplorer implements AppExplorer {
             const axeResults = await new AxeBuilder({ page })
               .withTags(['wcag2a', 'wcag2aa'])
               .analyze();
+            if (debugMode()) {
+              progress?.debug(`raw axe violations (pre-map) count=${axeResults.violations.length} json=${JSON.stringify(axeResults.violations)}`);
+            }
             a11yViolations = axeResults.violations.map((v) => ({
               id: v.id,
               impact: v.impact ?? 'unknown',
@@ -125,6 +143,8 @@ export class PlaywrightExplorer implements AppExplorer {
 
           const path = new URL(url).pathname || '/';
 
+          progress?.info(`Crawled ${normalized} status=${httpStatus} a11yViolations=${a11yViolations.length}`);
+
           routes.push({
             path,
             pageTitle,
@@ -134,6 +154,7 @@ export class PlaywrightExplorer implements AppExplorer {
             consoleErrors,
             brokenLinks,
             a11yViolations,
+            statusCode: httpStatus,
           });
         } catch (err) {
           const path = (() => {
@@ -143,6 +164,7 @@ export class PlaywrightExplorer implements AppExplorer {
               return url;
             }
           })();
+          progress?.info(`Crawled ${normalized} status=error a11yViolations=0 err=${String(err).slice(0, 120)}`);
           routes.push({
             path,
             pageTitle: '',
