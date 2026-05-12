@@ -8,6 +8,16 @@
 npm install @qulib/core
 ```
 
+## One-time browser setup
+
+Qulib uses Playwright. Install Chromium once on the machine that runs scans:
+
+```bash
+npx playwright install chromium
+```
+
+If browsers are missing, commands fail with a short message pointing you here.
+
 ## Scanning authenticated apps
 
 Qulib supports three auth modes: anonymous (default), form-login, and storage-state.
