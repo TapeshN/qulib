@@ -55,11 +55,13 @@ export const GeneratedTestSchema = z.object({
 
 export const GapAnalysisSchema = z.object({
   analyzedAt: z.string().datetime(),
-  mode: z.enum(['url-only', 'url-repo']),
+  mode: z.enum(['url-only', 'url-repo', 'auth-required']),
   releaseConfidence: z.number().min(0).max(100),
   coveragePagesScanned: z.number().int().min(0),
   coverageBudgetExceeded: z.boolean(),
-  coverageWarning: z.enum(['budget-exceeded', 'low-coverage', 'navigation-failures']).optional(),
+  coverageWarning: z
+    .enum(['budget-exceeded', 'low-coverage', 'navigation-failures', 'auth-required'])
+    .optional(),
   gaps: z.array(GapSchema),
   scenarios: z.array(NeutralScenarioSchema),
   generatedTests: z.array(GeneratedTestSchema),

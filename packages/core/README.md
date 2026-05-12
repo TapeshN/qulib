@@ -8,6 +8,55 @@
 npm install @qulib/core
 ```
 
+## Scanning authenticated apps
+
+Qulib supports three auth modes: anonymous (default), form-login, and storage-state.
+
+### Form login
+
+If your app uses a simple username/password form:
+
+```bash
+qulib analyze --url https://app.example.com \
+  --auth-form-login \
+  --login-url https://app.example.com/login \
+  --username you@example.com \
+  --password "..." \
+  --username-selector "input[name=email]" \
+  --password-selector "input[name=password]" \
+  --submit-selector "button[type=submit]"
+```
+
+### OAuth, magic link, SSO, or anything else
+
+These can't be automated. Qulib has a helper for this:
+
+```bash
+qulib auth init --base-url https://app.example.com
+```
+
+This opens a real browser. Log in normally (OAuth, magic link, password manager, whatever). Press ENTER in the terminal when you reach a logged-in page. Qulib saves your session to `qulib-storage-state.json`.
+
+Then scan with it:
+
+```bash
+qulib analyze --url https://app.example.com --auth-storage-state ./qulib-storage-state.json
+```
+
+The storage state is just a JSON file of cookies and localStorage — keep it private, treat it like a credential.
+
+### Auth detection
+
+To check what auth pattern a site uses before configuring anything:
+
+```bash
+qulib detect-auth --url https://app.example.com
+```
+
+Or via MCP:
+
+> "Use qulib's detect_auth tool on https://app.example.com — what's the recommended auth setup?"
+
 ## CLI (from npm)
 
 ```bash

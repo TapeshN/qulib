@@ -1,0 +1,149 @@
+import { chromium } from '@playwright/test';
+import type { DetectedAuth } from '../schemas/config.schema.js';
+
+const OAUTH_PROVIDERS: Array<{ provider: string; patterns: RegExp[] }> = [
+  { provider: 'github', patterns: [/github/i, /sign in with github/i] },
+  {
+    provider: 'google',
+    patterns: [/google/i, /sign in with google/i, /accounts\.google\.com/i],
+  },
+  {
+    provider: 'microsoft',
+    patterns: [/microsoft/i, /sign in with microsoft/i, /login\.microsoftonline\.com/i],
+  },
+  { provider: 'apple', patterns: [/apple/i, /sign in with apple/i] },
+  { provider: 'auth0', patterns: [/auth0/i] },
+  { provider: 'okta', patterns: [/okta/i] },
+];
+
+function textLooksLikeOAuthIdpButton(text: string): boolean {
+  const t = text.trim();
+  if (t.length === 0 || t.length > 120) {
+    return false;
+  }
+  return (
+    /\b(sign in with|log in with|continue with|sign up with)\b/i.test(t) ||
+    /^(github|google|microsoft|apple)$/i.test(t)
+  );
+}
+
+const MAGIC_LINK_PATTERNS = [
+  /email me a (sign[- ]?in )?link/i,
+  /sign in with email/i,
+  /passwordless/i,
+  /we'll send you a link/i,
+];
+
+async function firstTextInputNameForLogin(page: import('@playwright/test').Page): Promise<string | null> {
+  const emailName = await page.locator('input[type="email"]').first().getAttribute('name').catch(() => null);
+  if (emailName) {
+    return emailName;
+  }
+  const textInputs = page.locator('input[type="text"]');
+  const count = await textInputs.count();
+  for (let i = 0; i < count; i++) {
+    const name = await textInputs.nth(i).getAttribute('name');
+    if (name && /user|email|login/i.test(name)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+export async function detectAuth(url: string, timeoutMs = 15000): Promise<DetectedAuth> {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+
+    let loginUrl = url;
+    const looksLikeLoginPage =
+      /login|sign[- ]?in|auth/i.test(page.url()) ||
+      (await page.locator('input[type="password"]').count()) > 0;
+
+    if (!looksLikeLoginPage) {
+      const loginLink = page.locator('a').filter({ hasText: /^(log ?in|sign ?in|sign in)$/i }).first();
+      if ((await loginLink.count()) > 0) {
+        const href = await loginLink.getAttribute('href');
+        if (href) {
+          loginUrl = new URL(href, url).toString();
+          await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+        }
+      }
+    }
+
+    const passwordInputs = page.locator('input[type="password"]');
+    const passwordCount = await passwordInputs.count();
+    const hasFormLogin = passwordCount > 0;
+
+    const oauthButtons: { provider: string; text: string }[] = [];
+    const buttonTexts = await page.locator('button, a').allInnerTexts();
+
+    for (const text of buttonTexts) {
+      const trimmed = text.trim();
+      if (!textLooksLikeOAuthIdpButton(trimmed)) {
+        continue;
+      }
+      for (const { provider, patterns } of OAUTH_PROVIDERS) {
+        if (patterns.some((p) => p.test(trimmed))) {
+          if (!oauthButtons.find((b) => b.provider === provider)) {
+            oauthButtons.push({ provider, text: trimmed.slice(0, 100) });
+          }
+        }
+      }
+    }
+
+    const pageText = await page.locator('body').innerText().catch(() => '');
+    const hasMagicLink = MAGIC_LINK_PATTERNS.some((p) => p.test(pageText));
+
+    let type: DetectedAuth['type'] = 'none';
+    let provider: string | null = null;
+    let observedSelectors: DetectedAuth['observedSelectors'] = null;
+    let recommendation = '';
+
+    if (oauthButtons.length > 0) {
+      type = 'oauth';
+      provider = oauthButtons[0].provider;
+      recommendation = `OAuth detected (${oauthButtons.map((b) => b.provider).join(', ')}). OAuth cannot be automated. Run "qulib auth init --base-url ${url}" to log in manually once and save a reusable storage state file.`;
+    } else if (hasFormLogin) {
+      type = 'form-login';
+      const usernameName = await firstTextInputNameForLogin(page);
+      const passwordName = await passwordInputs.first().getAttribute('name').catch(() => null);
+      const submitName = await page
+        .locator('button[type="submit"], input[type="submit"]')
+        .first()
+        .getAttribute('name')
+        .catch(() => null);
+
+      observedSelectors = {
+        usernameSelector: usernameName ? `input[name="${usernameName}"]` : null,
+        passwordSelector: passwordName ? `input[name="${passwordName}"]` : null,
+        submitSelector: submitName ? `button[name="${submitName}"]` : 'button[type="submit"]',
+      };
+      recommendation = `Form login detected. Configure auth with type="form-login", credentials, and the selectors above. Test selectors in your browser dev tools to confirm.`;
+    } else if (hasMagicLink) {
+      type = 'magic-link';
+      recommendation = `Magic link / passwordless auth detected. Qulib cannot complete email-link flows. Run "qulib auth init --base-url ${url}" to log in manually once and save a storage state file.`;
+    } else if (looksLikeLoginPage) {
+      type = 'unknown';
+      recommendation = `Authentication required but the pattern is unrecognized. Use "qulib auth init --base-url ${url}" to capture a storage state by logging in manually.`;
+    } else {
+      type = 'none';
+      recommendation = `No authentication required for the entry URL. Qulib can scan anonymously.`;
+    }
+
+    return {
+      hasAuth: type !== 'none',
+      type,
+      provider,
+      loginUrl: type === 'none' ? null : loginUrl,
+      observedSelectors,
+      oauthButtons,
+      recommendation,
+    };
+  } finally {
+    await browser.close();
+  }
+}
