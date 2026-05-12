@@ -16,6 +16,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "smoke": "npm run smoke -w @qulib/core",
     "clean": "npm run clean -w @qulib/core --if-present"
   }
 }
