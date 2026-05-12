@@ -1,4 +1,5 @@
-import { chromium, type BrowserContext } from '@playwright/test';
+import type { BrowserContext } from '@playwright/test';
+import { launchBrowser } from './browser.js';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AppExplorer } from './explorer.interface.js';
 import { createAuthenticatedContext } from './auth.js';
@@ -21,7 +22,7 @@ function isInternalHref(href: string, baseUrlStr: string): boolean {
 
 export class PlaywrightExplorer implements AppExplorer {
   async explore(baseUrl: string, config: HarnessConfig): Promise<RouteInventory> {
-    const browser = await chromium.launch({ headless: true });
+    const browser = await launchBrowser();
 
     let context: BrowserContext;
     try {

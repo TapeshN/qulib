@@ -40,6 +40,18 @@ Add this under `mcpServers` in `claude_desktop_config.json` (Claude Desktop) or 
 }
 ```
 
+## One-time browser setup
+
+qulib uses Playwright under the hood. After your MCP host first runs the qulib server, you'll need to install Chromium:
+
+```bash
+npx playwright install chromium
+```
+
+This is a one-time step. You'll only need to do it again if Playwright's browser version is bumped in a future qulib release.
+
+If you skip this step, the first tool call will return a clear error telling you to run the command.
+
 ## Example usage
 
 Ask Claude:

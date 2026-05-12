@@ -1,5 +1,14 @@
-import { chromium } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type { DetectedAuth } from '../schemas/config.schema.js';
+import { launchBrowser } from './browser.js';
+
+async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 5000 });
+  } catch {
+    // best-effort — analytics or polling can prevent networkidle
+  }
+}
 
 const OAUTH_PROVIDERS: Array<{ provider: string; patterns: RegExp[] }> = [
   { provider: 'github', patterns: [/github/i, /sign in with github/i] },
@@ -51,12 +60,13 @@ async function firstTextInputNameForLogin(page: import('@playwright/test').Page)
 }
 
 export async function detectAuth(url: string, timeoutMs = 15000): Promise<DetectedAuth> {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
 
     await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+    await waitNetworkIdleBestEffort(page);
 
     let loginUrl = url;
     const looksLikeLoginPage =
@@ -70,6 +80,7 @@ export async function detectAuth(url: string, timeoutMs = 15000): Promise<Detect
         if (href) {
           loginUrl = new URL(href, url).toString();
           await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+          await waitNetworkIdleBestEffort(page);
         }
       }
     }
