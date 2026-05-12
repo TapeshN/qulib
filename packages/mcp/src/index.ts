@@ -2,7 +2,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { analyzeApp, detectAuth } from '@qulib/core';
+import { analyzeApp, detectAuth, exploreAuth } from '@qulib/core';
 import { z } from 'zod';
 
 const FormLoginMcpAuthSchema = z.object({
@@ -42,6 +42,19 @@ const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    {
+      name: 'explore_auth',
+      description:
+        'Use this BEFORE analyze_app when scanning unfamiliar apps. Returns all detected sign-in paths with per-path requirements describing what credentials or actions the agent must collect from the user before calling analyze_app. Combines built-in OAuth/SSO labels, user-local patterns from ~/.qulib/providers.json, and heuristic unknown buttons.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Full URL of the deployed app or login page' },
+          timeoutMs: { type: 'number', description: 'Navigation timeout in milliseconds (default 20000)' },
+        },
+        required: ['url'],
+      },
+    },
     {
       name: 'analyze_app',
       description:
@@ -108,6 +121,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name === 'explore_auth') {
+    const { url, timeoutMs } = z
+      .object({
+        url: z.string().url(),
+        timeoutMs: z.number().int().positive().optional(),
+      })
+      .parse(request.params.arguments ?? {});
+
+    const result = await exploreAuth(url, timeoutMs);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  }
+
   if (request.params.name === 'detect_auth') {
     const { url, timeoutMs } = z
       .object({

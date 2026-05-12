@@ -1,5 +1,7 @@
 export { analyzeApp } from './analyze.js';
 export { detectAuth } from './tools/auth-detector.js';
+export { exploreAuth } from './tools/auth-explorer.js';
+export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
 export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
 export type {
   HarnessConfig,
@@ -8,4 +10,7 @@ export type {
   GapAnalysis,
   RepoAnalysis,
   DetectedAuth,
+  AuthExploration,
+  AuthPath,
+  AuthPathRequirements,
 } from './schemas/index.js';

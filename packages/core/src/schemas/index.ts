@@ -2,6 +2,9 @@ export {
   HarnessConfigSchema,
   AuthConfigSchema,
   DetectedAuthSchema,
+  AuthPathRequirementsSchema,
+  AuthPathSchema,
+  AuthExplorationSchema,
   type ExplorerType,
   type AdapterType,
   type FormLoginAuthConfig,
@@ -9,6 +12,9 @@ export {
   type AuthConfig,
   type HarnessConfig,
   type DetectedAuth,
+  type AuthPathRequirements,
+  type AuthPath,
+  type AuthExploration,
 } from './config.schema.js';
 export {
   DecisionLogEntrySchema,
