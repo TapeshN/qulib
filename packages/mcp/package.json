@@ -28,7 +28,8 @@
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "test": "node --import tsx/esm --test src/compact-analyze-payload.test.ts"
   },
   "dependencies": {
     "@qulib/core": "0.2.2",

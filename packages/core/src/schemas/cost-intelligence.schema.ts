@@ -32,7 +32,7 @@ export const DeterministicMaturitySchema = z.object({
 });
 
 export const CostIntelligenceSchema = z.object({
-  llmTokenBudgetConfigured: z.number().int().positive(),
+  maxOutputTokensPerLlmCall: z.number().int().positive(),
   budgetRole: z.literal('max-output-tokens-per-llm-call'),
   records: z.array(LlmUsageRecordSchema),
   budgetWarnings: z.array(z.string()),

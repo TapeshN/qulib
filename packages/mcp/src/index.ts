@@ -3,8 +3,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { analyzeApp, detectAuth, exploreAuth } from '@qulib/core';
-import type { AnalyzeResult } from '@qulib/core';
+import type { HarnessConfig } from '@qulib/core';
 import { z } from 'zod';
+import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
 
 const FormLoginMcpAuthSchema = z.object({
   type: z.literal('form-login'),
@@ -28,46 +29,11 @@ const AnalyzeInputSchema = z.object({
   timeoutMs: z.number().int().positive().optional(),
   auth: z.discriminatedUnion('type', [FormLoginMcpAuthSchema, StorageStateMcpAuthSchema]).optional(),
   includeFullReport: z.boolean().optional(),
+  llmTokenBudget: z.number().int().positive().optional(),
+  llmMaxOutputTokensPerCall: z.number().int().positive().optional(),
+  testGenerationLimit: z.number().int().positive().max(50).optional(),
+  enableLlmScenarios: z.boolean().optional(),
 });
-
-function compactAnalyzeAppResponse(result: AnalyzeResult, includeFullReport: boolean) {
-  if (includeFullReport) {
-    return result;
-  }
-  const g = result.gapAnalysis;
-  return {
-    summary: {
-      releaseConfidence: g.releaseConfidence,
-      mode: g.mode,
-      coveragePagesScanned: g.coveragePagesScanned,
-      coverageBudgetExceeded: g.coverageBudgetExceeded,
-      coverageWarning: g.coverageWarning ?? null,
-      gapCount: g.gaps.length,
-      scenarioCount: g.scenarios.length,
-      generatedTestCount: g.generatedTests.length,
-    },
-    gapAnalysisPreview: {
-      analyzedAt: g.analyzedAt,
-      releaseConfidence: g.releaseConfidence,
-      gapsSample: g.gaps.slice(0, 8),
-      scenariosOmitted: g.scenarios.length,
-      generatedTestsOmitted: g.generatedTests.length,
-      costIntelligence: g.costIntelligence ?? null,
-    },
-    routeInventorySummary: {
-      scannedAt: result.routeInventory.scannedAt,
-      baseUrl: result.routeInventory.baseUrl,
-      routeCount: result.routeInventory.routes.length,
-      pagesSkipped: result.routeInventory.pagesSkipped,
-      budgetExceeded: result.routeInventory.budgetExceeded,
-    },
-    repoInventory: result.repoInventory,
-    decisionLogPreview: result.decisionLog.slice(-8),
-    ...(result.detectedAuth !== undefined && { detectedAuth: result.detectedAuth }),
-    includeFullReport: false,
-    note: 'Default payload omits gapAnalysis.scenarios and gapAnalysis.generatedTests. Pass includeFullReport: true for the complete analyzeApp result.',
-  };
-}
 
 const server = new Server(
   {
@@ -99,7 +65,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: 'analyze_app',
       description:
-        'Analyze a deployed web app for quality gaps. Returns a release confidence score (0-100), accessibility violations, broken links, and prioritized risks. Supports optional form-login or storage-state (Playwright) authentication. By default the response is summary-first (truncated gaps list, scenarios omitted); set includeFullReport to true for the full gapAnalysis payload.',
+        'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -144,7 +110,22 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           includeFullReport: {
             type: 'boolean',
             description:
-              'When true, returns the full analyzeApp payload including all scenarios. Default false returns a summary-first shape to keep MCP responses compact.',
+              'When true, returns the full analyzeApp payload including all scenarios. Default false returns a summary-first shape.',
+          },
+          llmTokenBudget: {
+            type: 'number',
+            description:
+              'Legacy per-completion max output tokens (same as HarnessConfig.llmTokenBudget). Prefer llmMaxOutputTokensPerCall when both are set.',
+          },
+          llmMaxOutputTokensPerCall: {
+            type: 'number',
+            description:
+              'Optional override for per-completion max output tokens (maps to HarnessConfig.llmMaxOutputTokensPerCall).',
+          },
+          testGenerationLimit: { type: 'number', description: 'Max gaps fed into scenario generation (default 5).' },
+          enableLlmScenarios: {
+            type: 'boolean',
+            description: 'When false, never calls an LLM for scenarios (default true when omitted).',
           },
         },
         required: ['url'],
@@ -225,28 +206,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ? { type: 'storage-state' as const, path: input.auth.path }
         : undefined;
 
+  const harnessConfig: HarnessConfig = {
+    maxPagesToScan: input.maxPagesToScan ?? 10,
+    maxDepth: 3,
+    minPagesForConfidence: 3,
+    timeoutMs: input.timeoutMs ?? 30000,
+    retryCount: 0,
+    llmTokenBudget: input.llmTokenBudget ?? input.llmMaxOutputTokensPerCall ?? 4096,
+    llmMaxOutputTokensPerCall: input.llmMaxOutputTokensPerCall,
+    testGenerationLimit: input.testGenerationLimit ?? 5,
+    enableLlmScenarios: input.enableLlmScenarios !== false,
+    readOnlyMode: true,
+    requireHumanReview: false,
+    failOnConsoleError: false,
+    explorer: 'playwright',
+    defaultAdapter: 'playwright',
+    adapters: ['playwright'],
+    ...(authConfig && { auth: authConfig }),
+  };
+
   const result = await analyzeApp({
     url: input.url,
     writeArtifacts: false,
-    config: {
-      maxPagesToScan: input.maxPagesToScan ?? 10,
-      maxDepth: 3,
-      minPagesForConfidence: 3,
-      timeoutMs: input.timeoutMs ?? 30000,
-      retryCount: 0,
-      llmTokenBudget: 1,
-      testGenerationLimit: 1,
-      readOnlyMode: true,
-      requireHumanReview: false,
-      failOnConsoleError: false,
-      explorer: 'playwright',
-      defaultAdapter: 'playwright',
-      adapters: ['playwright'],
-      ...(authConfig && { auth: authConfig }),
-    },
+    config: harnessConfig,
   });
 
-  const payload = compactAnalyzeAppResponse(result, input.includeFullReport === true);
+  const payload = buildCompactAnalyzePayload(result, input.includeFullReport === true);
 
   return {
     content: [

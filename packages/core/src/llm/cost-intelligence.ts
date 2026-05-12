@@ -22,7 +22,7 @@ export function summarizeUsageQuality(records: LlmUsageRecord[]): CostIntelligen
 
 export function buildBudgetWarnings(
   records: LlmUsageRecord[],
-  llmTokenBudget: number
+  maxOutputTokensPerLlmCall: number
 ): string[] {
   const warnings: string[] = [];
   for (const r of records) {
@@ -30,13 +30,13 @@ export function buildBudgetWarnings(
       continue;
     }
     const out = r.outputTokens;
-    if (out >= llmTokenBudget) {
+    if (out >= maxOutputTokensPerLlmCall) {
       warnings.push(
-        `Output tokens (${out}) reached or exceeded configured max-output budget (${llmTokenBudget}). Completion may be truncated; consider raising llmTokenBudget or reducing testGenerationLimit.`
+        `Output tokens (${out}) reached or exceeded the configured per-completion max-output ceiling (${maxOutputTokensPerLlmCall}). Completion may be truncated; raise llmMaxOutputTokensPerCall (or legacy llmTokenBudget) or reduce testGenerationLimit.`
       );
-    } else if (out >= Math.floor(llmTokenBudget * 0.8)) {
+    } else if (out >= Math.floor(maxOutputTokensPerLlmCall * 0.8)) {
       warnings.push(
-        `Output tokens (${out}) are within 80% of max-output budget (${llmTokenBudget}). Truncation risk on heavier prompts.`
+        `Output tokens (${out}) are within 80% of the per-completion max-output ceiling (${maxOutputTokensPerLlmCall}). Truncation risk on heavier prompts.`
       );
     }
   }
@@ -86,7 +86,7 @@ export function buildConversionRecommendations(params: {
   }
   if (params.budgetWarnings.some((w) => w.includes('truncated') || w.includes('80%'))) {
     rec.push(
-      'Tune llmTokenBudget against real prompt sizes, or lower testGenerationLimit so each model call stays within a safe completion envelope.'
+      'Tune llmMaxOutputTokensPerCall (or legacy llmTokenBudget) against real prompt sizes, or lower testGenerationLimit so each completion stays within a safe envelope.'
     );
   }
   if (params.scenarioSource === 'template') {
@@ -155,7 +155,7 @@ export function computeDeterministicMaturity(params: {
 }
 
 export function assembleCostIntelligence(params: {
-  llmTokenBudget: number;
+  maxOutputTokensPerLlmCall: number;
   records: LlmUsageRecord[];
   partial: Pick<
     GapAnalysis,
@@ -165,7 +165,7 @@ export function assembleCostIntelligence(params: {
   requireHumanReview: boolean;
 }): CostIntelligence {
   const usageSummary = summarizeUsageQuality(params.records);
-  const budgetWarnings = buildBudgetWarnings(params.records, params.llmTokenBudget);
+  const budgetWarnings = buildBudgetWarnings(params.records, params.maxOutputTokensPerLlmCall);
   const repeatedOperations = findRepeatedPromptPatterns(params.records);
   const conversionRecommendations = buildConversionRecommendations({
     scenarioSource: params.scenarioSource,
@@ -184,7 +184,7 @@ export function assembleCostIntelligence(params: {
   });
 
   return {
-    llmTokenBudgetConfigured: params.llmTokenBudget,
+    maxOutputTokensPerLlmCall: params.maxOutputTokensPerLlmCall,
     budgetRole: 'max-output-tokens-per-llm-call',
     records: params.records,
     budgetWarnings,
@@ -195,9 +195,9 @@ export function assembleCostIntelligence(params: {
   };
 }
 
-export function costIntelligenceForAuthBlocked(llmTokenBudget: number): CostIntelligence {
+export function costIntelligenceForAuthBlocked(maxOutputTokensPerLlmCall: number): CostIntelligence {
   return {
-    llmTokenBudgetConfigured: llmTokenBudget,
+    maxOutputTokensPerLlmCall,
     budgetRole: 'max-output-tokens-per-llm-call',
     records: [],
     budgetWarnings: [],

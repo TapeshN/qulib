@@ -172,6 +172,16 @@ program
     console.log('[qulib] clean complete');
   });
 
+const costCmd = program.command('cost').description('Cost intelligence helpers');
+costCmd
+  .command('doctor')
+  .description('Print Cost Intelligence from output/report.json (run analyze without --ephemeral first)')
+  .option('--report <file>', 'Path to report.json relative to cwd', 'output/report.json')
+  .action(async (opts: { report: string }) => {
+    const { runCostDoctor } = await import('./cost-doctor.js');
+    await runCostDoctor(opts.report);
+  });
+
 program
   .command('analyze')
   .description('Analyze an app for quality gaps')

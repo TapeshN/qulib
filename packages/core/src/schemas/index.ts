@@ -1,5 +1,6 @@
 export {
   HarnessConfigSchema,
+  resolveMaxOutputTokensPerLlmCall,
   AuthConfigSchema,
   DetectedAuthSchema,
   AuthPathRequirementsSchema,

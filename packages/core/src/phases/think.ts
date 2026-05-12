@@ -1,4 +1,4 @@
-import type { HarnessConfig } from '../schemas/config.schema.js';
+import { resolveMaxOutputTokensPerLlmCall, type HarnessConfig } from '../schemas/config.schema.js';
 import { GapAnalysisSchema, NeutralScenarioSchema, type GapAnalysis, type NeutralScenario } from '../schemas/gap-analysis.schema.js';
 import type { LlmUsageRecord } from '../schemas/cost-intelligence.schema.js';
 import type { ObserveResult } from './observe.js';
@@ -47,8 +47,30 @@ export async function think(
   let scenarioSource: 'llm' | 'template' = 'template';
   let generatedScenarios: NeutralScenario[] = [];
   const llmRecords: LlmUsageRecord[] = [];
+  const maxOut = resolveMaxOutputTokensPerLlmCall(config);
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!config.enableLlmScenarios) {
+    await logDecision(
+      {
+        timestamp: new Date().toISOString(),
+        phase: 'think',
+        decision: 'llm-scenarios-disabled',
+        reason: 'enableLlmScenarios is false; using template scenarios only',
+      },
+      logOpts
+    );
+    generatedScenarios = generateScenariosFromTemplate(partialAnalysis.gaps);
+    llmRecords.push({
+      provider: 'none',
+      model: 'none',
+      inputTokens: 0,
+      outputTokens: 0,
+      operationType: 'scenario-generation',
+      timestamp: new Date().toISOString(),
+      dataQuality: 'none',
+      notes: 'No LLM call: enableLlmScenarios is false in harness config.',
+    });
+  } else if (!process.env.ANTHROPIC_API_KEY) {
     await logDecision(
       {
         timestamp: new Date().toISOString(),
@@ -73,7 +95,7 @@ export async function think(
     const prompt = buildGapPrompt(partialAnalysis.gaps, config.testGenerationLimit);
     const promptHash = hashForCostIntelligence(prompt);
     try {
-      const llmResult = await callLLM(prompt, config.llmTokenBudget);
+      const llmResult = await callLLM(prompt, maxOut);
       const resultHash = hashForCostIntelligence(llmResult.text);
       const usage = llmResult.usage;
       llmRecords.push({
@@ -129,7 +151,7 @@ export async function think(
       scenarioSource = 'template';
       const msg = err instanceof Error ? err.message : String(err);
       llmRecords.push({
-        provider: 'anthropic',
+        provider: 'unavailable',
         model: 'unknown',
         inputTokens: Math.max(0, Math.ceil(prompt.length / 4)),
         outputTokens: 0,
@@ -157,7 +179,7 @@ export async function think(
   );
 
   const costIntelligence = assembleCostIntelligence({
-    llmTokenBudget: config.llmTokenBudget,
+    maxOutputTokensPerLlmCall: maxOut,
     records: llmRecords,
     partial: partialAnalysis,
     scenarioSource,

@@ -7,6 +7,8 @@ const config: HarnessConfig = {
   timeoutMs: 30000,
   retryCount: 2,
   llmTokenBudget: 4000,
+  // llmMaxOutputTokensPerCall: 2048,
+  // enableLlmScenarios: true,
   testGenerationLimit: 10,
   readOnlyMode: true,
   requireHumanReview: true,

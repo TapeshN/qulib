@@ -39,7 +39,8 @@
     "clean": "tsx src/cli/index.ts clean",
     "build": "tsc",
     "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts",
-    "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral"
+    "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral",
+    "cost-doctor": "tsx src/cli/index.ts cost doctor"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.9.0",

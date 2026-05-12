@@ -1,4 +1,4 @@
-import type { HarnessConfig, DetectedAuth } from './schemas/config.schema.js';
+import { resolveMaxOutputTokensPerLlmCall, type HarnessConfig, type DetectedAuth } from './schemas/config.schema.js';
 import { GapAnalysisSchema, type GapAnalysis } from './schemas/gap-analysis.schema.js';
 import type { RouteInventory } from './schemas/route-inventory.schema.js';
 import type { RepoAnalysis } from './schemas/repo-analysis.schema.js';
@@ -47,7 +47,7 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
         gaps: [],
         scenarios: [],
         generatedTests: [],
-        costIntelligence: costIntelligenceForAuthBlocked(options.config.llmTokenBudget),
+        costIntelligence: costIntelligenceForAuthBlocked(resolveMaxOutputTokensPerLlmCall(options.config)),
       });
       return {
         releaseConfidence: 0,

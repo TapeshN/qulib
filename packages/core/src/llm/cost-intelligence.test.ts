@@ -5,7 +5,10 @@ import {
   buildBudgetWarnings,
   findRepeatedPromptPatterns,
   computeDeterministicMaturity,
+  costIntelligenceForAuthBlocked,
 } from './cost-intelligence.js';
+import { CostIntelligenceSchema } from '../schemas/cost-intelligence.schema.js';
+import { HarnessConfigSchema, resolveMaxOutputTokensPerLlmCall } from '../schemas/config.schema.js';
 
 test('hashForCostIntelligence is stable 32-char hex', () => {
   const a = hashForCostIntelligence('hello');
@@ -116,4 +119,27 @@ test('computeDeterministicMaturity L0 for auth-required', () => {
     requireHumanReview: true,
   });
   assert.equal(m.level, 0);
+});
+
+test('resolveMaxOutputTokensPerLlmCall prefers llmMaxOutputTokensPerCall', () => {
+  const c = HarnessConfigSchema.parse({
+    maxPagesToScan: 5,
+    maxDepth: 2,
+    minPagesForConfidence: 1,
+    timeoutMs: 10000,
+    retryCount: 0,
+    llmTokenBudget: 4000,
+    llmMaxOutputTokensPerCall: 512,
+    testGenerationLimit: 5,
+    readOnlyMode: true,
+    requireHumanReview: true,
+    failOnConsoleError: false,
+  });
+  assert.equal(resolveMaxOutputTokensPerLlmCall(c), 512);
+});
+
+test('costIntelligenceForAuthBlocked matches schema', () => {
+  const ci = costIntelligenceForAuthBlocked(2048);
+  CostIntelligenceSchema.parse(ci);
+  assert.equal(ci.maxOutputTokensPerLlmCall, 2048);
 });

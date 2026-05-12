@@ -81,6 +81,29 @@ Or via MCP:
 
 > "Use qulib's detect_auth tool on https://app.example.com — what's the recommended auth setup?"
 
+## Release confidence
+
+The score (0–100) is derived from **deterministic gaps** (untested routes vs repo, console errors, broken links, axe violations). High-severity items subtract more than low-severity ones. If **`coveragePagesScanned` is below `minPagesForConfidence`**, the score is **capped at 40** and `coverageWarning` is set to **`low-coverage`** so a shallow crawl cannot masquerade as high confidence.
+
+When **`mode` is `auth-required`**, the scan never reached real app pages behind login: **release confidence is 0**, gaps are empty, and Cost Intelligence reflects the blocked state (L0 maturity).
+
+## LLM scenario budget (naming)
+
+- **`llmTokenBudget`** (legacy name, still required in config files): **max output tokens for a single** scenario-generation LLM completion. It maps to the provider’s **per-request completion cap**, not a multi-call or “whole run” token budget.
+- **`llmMaxOutputTokensPerCall`** (optional): when set, **overrides** `llmTokenBudget` for the same purpose—clearer naming.
+- **`enableLlmScenarios`**: when **`false`**, Qulib never calls an LLM for scenarios (templates only).
+
+## Cost Intelligence and `qulib cost doctor`
+
+After a normal **`analyze`**, `output/report.json` includes **`gapAnalysis.costIntelligence`**: usage records (**`actual`** vs **`estimated`** vs **`none`**), per-completion ceiling, budget warnings, repeated prompt fingerprints (when the same hash appears twice in one run), deterministic maturity (L0–L3 with an explicit ceiling for L4/L5), and conversion recommendations.
+
+Re-print that block from disk:
+
+```bash
+npx tsx src/cli/index.ts cost doctor
+# or: npx tsx src/cli/index.ts cost doctor --report output/report.json
+```
+
 ## CLI (from npm)
 
 ```bash
@@ -101,6 +124,8 @@ const config: HarnessConfig = {
   timeoutMs: 30000,
   retryCount: 2,
   llmTokenBudget: 4000,
+  llmMaxOutputTokensPerCall: undefined,
+  enableLlmScenarios: true,
   testGenerationLimit: 10,
   readOnlyMode: true,
   requireHumanReview: true,
@@ -116,7 +141,7 @@ const result = await analyzeApp({
   writeArtifacts: false,
 });
 
-console.log(result.releaseConfidence, result.gapAnalysis);
+console.log(result.releaseConfidence, result.gapAnalysis.costIntelligence);
 ```
 
 ## Repository
@@ -134,7 +159,7 @@ This package is part of **[Qulib](https://github.com/TapeshN/qulib)** ([repo REA
 - Optional **authenticated** crawling via `auth` in config (`form-login` or Playwright `storage-state`).
 - Repo scanner: routes, tests, Cypress structure.
 - Gap engine: deterministic gaps, **release confidence** with a low-page coverage floor, coverage warnings.
-- Reports: `output/report.json` and `output/report.md` when not using **`--ephemeral`**.
+- Reports: `output/report.json` and `output/report.md` when not using **`--ephemeral`** (both include **Cost Intelligence** when present on `gapAnalysis`).
 - State under `.scan-state/` unless **`--ephemeral`** (no disk writes; full JSON on stdout).
 - **`npm run clean`** removes generated `output/` and `.scan-state/` and restores `.gitkeep` placeholders.
 
@@ -172,6 +197,9 @@ Use the same **hostname** for `--url` as your app’s canonical host when you ca
 - `npm run dev` — CLI via `tsx` (append subcommands, e.g. `npm run dev -- clean`)
 - `npm run analyze -- --url <url> [--repo <path>] [--config <file>] [--ephemeral]`
 - `npm run clean` — reset `output/` and `.scan-state/` here
+- `npm run test` — unit tests (cost intelligence + hashing)
+- `npm run smoke` — ephemeral analyze of `https://example.com` (uses this package’s `qulib.config.ts`)
+- `npm run cost-doctor` — print Cost Intelligence from `output/report.json` (run a non-ephemeral `analyze` first)
 - `npm run build` — compile to `dist/`
 
 From the **repository root**:
@@ -209,7 +237,7 @@ npx playwright install chromium
 
 ## Output and state (cwd = `packages/core` when you `cd` here)
 
-**Ephemeral:** stdout prints one JSON object: `gapAnalysis`, `discoveredRoutes`, `repoInventory`, `decisionLog`.
+**Ephemeral:** stdout prints one JSON object: `gapAnalysis` (including **`costIntelligence`** when populated), `discoveredRoutes`, `repoInventory`, `decisionLog`.
 
 **Persistent:**
 

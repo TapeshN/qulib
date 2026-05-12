@@ -2,6 +2,7 @@ export { analyzeApp } from './analyze.js';
 export { detectAuth } from './tools/auth-detector.js';
 export { exploreAuth } from './tools/auth-explorer.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
+export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export type { AnalyzeOptions, AnalyzeResult } from './analyze.js';
 export type {
   HarnessConfig,
@@ -15,4 +16,6 @@ export type {
   AuthPathRequirements,
   CostIntelligence,
   LlmUsageRecord,
+  RepeatedAiPattern,
+  DeterministicMaturity,
 } from './schemas/index.js';

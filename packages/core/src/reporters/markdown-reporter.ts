@@ -21,7 +21,8 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
   const costSection = ci
     ? `## Cost Intelligence
 
-- **LLM token budget (max output per call):** ${ci.llmTokenBudgetConfigured} (${ci.budgetRole.replace(/-/g, ' ')})
+- **Per-completion LLM output ceiling:** ${ci.maxOutputTokensPerLlmCall} (${ci.budgetRole.replace(/-/g, ' ')})
+- **Meaning:** this caps **one** model completion per scenario-generation call; it is **not** a multi-step or multi-run token budget.
 - **Usage (this run):** input ${ci.usageSummary.totalInputTokens}, output ${ci.usageSummary.totalOutputTokens} tokens — _${ci.usageSummary.dataQuality}_
 - **Budget warnings:** ${ci.budgetWarnings.length ? ci.budgetWarnings.map((w) => `\n  - ${w}`).join('') : '_none_'}
 - **Repeated AI patterns:** ${ci.repeatedOperations.length ? ci.repeatedOperations.map((r) => `\n  - \`${r.promptHash}\` ×${r.count}: ${r.recommendation}`).join('') : '_none detected in this run_'}
