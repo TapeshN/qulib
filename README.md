@@ -61,7 +61,7 @@ Then ask Claude:
 
 ## Contributing
 
-We welcome issues and pull requests. Start with [CONTRIBUTING.md](./CONTRIBUTING.md) for a fast local setup and conventions. Everyone participating in the project is expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
+We welcome issues and pull requests. Start with [CONTRIBUTING.md](./CONTRIBUTING.md) for a fast local setup and conventions. Optional release smoke steps (CLI, auth detection when present, MCP) live in the [manual testing checklist](./docs/manual-testing-checklist.md). Everyone participating in the project is expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
