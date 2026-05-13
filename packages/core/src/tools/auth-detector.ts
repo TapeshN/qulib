@@ -69,11 +69,36 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function buildCredentialFieldsFromVisibleForm(
-  page: Page,
-  usernameName: string | null,
-  passwordName: string | null
-): Promise<
+async function resolveVisibleFieldLabel(page: Page, el: import('@playwright/test').Locator): Promise<string> {
+  const id = await el.getAttribute('id');
+  if (id) {
+    const lt = await page.locator(`label[for="${CSS.escape(id)}"]`).first().textContent().catch(() => null);
+    const fromLabel = (lt ?? '').trim();
+    if (fromLabel) return fromLabel;
+  }
+  const placeholder = (await el.getAttribute('placeholder'))?.trim();
+  if (placeholder) return placeholder;
+  const aria = (await el.getAttribute('aria-label'))?.trim();
+  if (aria) return aria;
+  const name = (await el.getAttribute('name'))?.trim();
+  if (name) return name;
+  const typ = (await el.getAttribute('type'))?.trim();
+  return typ && typ !== 'select' ? typ : 'text';
+}
+
+async function deriveCredentialFieldName(el: import('@playwright/test').Locator): Promise<string> {
+  const name = (await el.getAttribute('name'))?.trim();
+  if (name) return name;
+  const placeholder = (await el.getAttribute('placeholder'))?.trim();
+  if (placeholder) return slugify(placeholder);
+  const aria = (await el.getAttribute('aria-label'))?.trim();
+  if (aria) return slugify(aria);
+  const id = (await el.getAttribute('id'))?.trim();
+  if (id) return slugify(id);
+  return 'field';
+}
+
+async function buildCredentialFieldsFromVisibleForm(page: Page): Promise<
   Array<{
     name: string;
     label: string;
@@ -87,59 +112,37 @@ async function buildCredentialFieldsFromVisibleForm(
     type: 'text' | 'password' | 'email' | 'select' | 'checkbox';
     observedOptions: string[];
   }> = [];
+  const seen = new Set<string>();
 
-  let uname = usernameName;
-  if (!uname) {
-    const ti = page.locator('input[type="text"]:visible, input[type="email"]:visible');
-    const c = await ti.count();
-    for (let j = 0; j < c; j++) {
-      const nm = await ti.nth(j).getAttribute('name');
-      if (nm && nm.trim().length > 0) {
-        uname = nm.trim();
-        break;
-      }
+  const loc = page.locator(
+    'input[type="text"]:visible, input[type="email"]:visible, input[type="password"]:visible, select:visible'
+  );
+  const count = await loc.count();
+  for (let i = 0; i < count; i++) {
+    const el = loc.nth(i);
+    const tag = await el.evaluate((node) => node.tagName.toLowerCase()).catch(() => '');
+    if (tag === 'select') {
+      const name = await deriveCredentialFieldName(el);
+      const label = await resolveVisibleFieldLabel(page, el);
+      const opts = await el.locator('option').allInnerTexts();
+      const observedOptions = opts.map((o) => o.trim()).filter((x) => x.length > 0).slice(0, 20);
+      const dedupeKey = `select|${name}|${label}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      fields.push({ name, label, type: 'select', observedOptions });
+      continue;
     }
-  }
-  const emailCount = await page.locator('input[type="email"]:visible').count();
-  const usernameType: 'email' | 'text' = emailCount > 0 ? 'email' : 'text';
-  fields.push({
-    name: uname ?? 'username',
-    label: usernameType === 'email' ? 'Email or username' : 'Username',
-    type: usernameType,
-    observedOptions: [],
-  });
 
-  const pwdName = passwordName ?? 'password';
-  fields.push({
-    name: pwdName,
-    label: 'Password',
-    type: 'password',
-    observedOptions: [],
-  });
-
-  const selects = page.locator('select:visible');
-  const scount = await selects.count();
-  for (let si = 0; si < scount; si++) {
-    const sel = selects.nth(si);
-    const name = await sel.getAttribute('name');
-    const nid = name && name.trim().length > 0 ? name.trim() : `select-${si}`;
-    const opts = await sel.locator('option').allInnerTexts();
-    const observedOptions = opts.map((o) => o.trim()).filter((x) => x.length > 0);
-    let lbl = (await sel.getAttribute('aria-label'))?.trim() ?? '';
-    if (!lbl) {
-      const sid = await sel.getAttribute('id');
-      if (sid) {
-        const lt = await page.locator(`label[for="${CSS.escape(sid)}"]`).first().textContent().catch(() => null);
-        lbl = (lt ?? '').trim();
-      }
-    }
-    if (!lbl) lbl = nid;
-    fields.push({
-      name: nid,
-      label: lbl,
-      type: 'select',
-      observedOptions,
-    });
+    const rawType = ((await el.getAttribute('type')) ?? 'text').toLowerCase();
+    if (rawType === 'hidden') continue;
+    const fieldType = rawType === 'email' ? 'email' : rawType === 'password' ? 'password' : 'text';
+    const name = await deriveCredentialFieldName(el);
+    const label = await resolveVisibleFieldLabel(page, el);
+    const placeholder = (await el.getAttribute('placeholder'))?.trim() ?? '';
+    const dedupeKey = `${name}|${placeholder}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    fields.push({ name, label, type: fieldType, observedOptions: [] });
   }
 
   return fields;
@@ -220,9 +223,7 @@ async function probeClickToRevealForms(
       continue;
     }
 
-    const usernameName = await firstTextInputNameForLogin(page);
-    const passwordName = await page.locator('input[type="password"]').first().getAttribute('name').catch(() => null);
-    const fields = await buildCredentialFieldsFromVisibleForm(page, usernameName, passwordName);
+    const fields = await buildCredentialFieldsFromVisibleForm(page);
     const slug = slugify(label);
     out.push({
       id: slug,

@@ -124,16 +124,33 @@ export async function analyzeAuthSurfaceGaps(
     const hasOAuthUi =
       detection.oauthButtons.length > 0 ||
       (await page.getByText(/sign in with|continue with google|microsoft|github/i).count()) > 0;
-    if (hasOAuthUi && !hasPassword && !hasEmailLink) {
-      gaps.push({
-        id: randomUUID(),
-        path: '/',
-        severity: 'medium',
-        category: 'auth-surface',
-        reason: 'OAuth-only entry with no visible password or magic-link fallback.',
-        description: 'Users who cannot use a social IdP need another path (email/password, help, or support).',
-        recommendation: 'Add a documented fallback (email/password, help desk link, or alternate IdP).',
-      });
+    const formLoginFallbacks = (detection.authOptions ?? []).filter((o) => o.type === 'form-login');
+    const hasFormLoginFallback = formLoginFallbacks.length > 0;
+
+    if (detection.type === 'oauth' && hasOAuthUi && !hasPassword && !hasEmailLink) {
+      if (hasFormLoginFallback) {
+        const labels = formLoginFallbacks.map((o) => o.label).join(', ');
+        gaps.push({
+          id: randomUUID(),
+          path: '/',
+          severity: 'low',
+          category: 'auth-surface',
+          reason: `OAuth-primary login with form-login fallback detected via: ${labels}`,
+          description:
+            'A form-based login path exists alongside OAuth. Automate via type="form-login" using the selectors in authOptions.',
+          recommendation: `Automatable form option(s): ${labels}. Configure type="form-login" with credentials and selectors from detectedAuth.authOptions.`,
+        });
+      } else {
+        gaps.push({
+          id: randomUUID(),
+          path: '/',
+          severity: 'medium',
+          category: 'auth-surface',
+          reason: 'OAuth-only entry with no visible password or magic-link fallback.',
+          description: 'Users who cannot use a social IdP need another path (email/password, help, or support).',
+          recommendation: 'Add a documented fallback (email/password, help desk link, or alternate IdP).',
+        });
+      }
     }
 
     const errorSelectors = '[role="alert"], [data-testid*="error" i], .error, .alert-danger, [class*="error" i]';
