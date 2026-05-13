@@ -7,6 +7,12 @@ import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schem
 import { analyzeApp } from '../analyze.js';
 import { detectAuth } from '../tools/auth-detector.js';
 import { exploreAuth } from '../tools/auth-explorer.js';
+import {
+  assertExactlyOneCredentialSource,
+  parseCredentialsJsonString,
+  resolveAuthLoginConfig,
+} from './auth-login-resolve.js';
+import { runAutomatedAuthLogin } from './auth-login-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -339,6 +345,71 @@ authCmd
     await browser.close();
     process.exit(0);
   });
+
+authCmd
+  .command('login')
+  .description(
+    'Detect form-login on the URL, fill credentials, and save the storage state automatically (uses selectors from detect-auth)'
+  )
+  .requiredOption('--base-url <url>', 'The base URL of the app to log into')
+  .option('--auth-path <id>', 'Specific authOption id to use (e.g. "nq-login") when multiple form-login paths exist')
+  .option(
+    '--credentials <json>',
+    'JSON object mapping field name → value, e.g. \'{"username":"a","password":"b","hidden.datasource":"NYC"}\''
+  )
+  .option('--credentials-file <path>', 'Path to a JSON file with the credentials object (keeps secrets out of shell history)')
+  .option('--out <path>', 'Output file path for the storage state JSON', './qulib-storage-state.json')
+  .option(
+    '--success-url-contains <substring>',
+    'Substring that must appear in the URL after login (stronger success detection). If omitted, success is inferred from navigation or hidden password fields.'
+  )
+  .option('--timeout <ms>', 'Max time in ms to wait for navigation / success heuristics', '30000')
+  .option('--headed', 'Run Chromium headed for debugging', false)
+  .action(
+    async (options: {
+      baseUrl: string;
+      authPath?: string;
+      credentials?: string;
+      credentialsFile?: string;
+      out: string;
+      successUrlContains?: string;
+      timeout: string;
+      headed?: boolean;
+    }) => {
+      assertExactlyOneCredentialSource(options.credentials, options.credentialsFile);
+      const fs = await import('node:fs/promises');
+      let credentials: Record<string, string>;
+      if (options.credentialsFile && options.credentialsFile.trim()) {
+        const p = resolve(options.credentialsFile.trim());
+        const raw = await fs.readFile(p, 'utf8');
+        credentials = parseCredentialsJsonString(raw);
+      } else {
+        credentials = parseCredentialsJsonString(options.credentials!.trim());
+      }
+
+      const timeoutMs = parseInt(options.timeout, 10);
+      const detection = await detectAuth(options.baseUrl, timeoutMs);
+      const { path } = resolveAuthLoginConfig({
+        baseUrl: options.baseUrl,
+        authOptions: detection.authOptions,
+        credentials,
+        authPathId: options.authPath,
+      });
+
+      const loginUrl = detection.loginUrl ?? options.baseUrl;
+      await runAutomatedAuthLogin({
+        loginUrl,
+        path,
+        credentials,
+        outPath: options.out,
+        headed: Boolean(options.headed),
+        timeoutMs,
+        successUrlContains: options.successUrlContains,
+        baseUrlHint: options.baseUrl,
+      });
+      process.exit(0);
+    }
+  );
 
 program.parseAsync().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);

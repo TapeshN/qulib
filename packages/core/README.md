@@ -47,6 +47,28 @@ qulib auth init --base-url https://app.example.com
 
 This opens a real browser. Log in normally (OAuth, magic link, password manager, whatever). Press ENTER in the terminal when you reach a logged-in page. Qulib saves your session to `qulib-storage-state.json`.
 
+### Automated form login (`auth login`)
+
+When **`detect-auth`** shows **`authOptions`** with **`type: "form-login"`** and **`requirements.method: "credentials"`** (including click-to-reveal paths such as NQ Login), you can save a storage state **without** manual clicking:
+
+```bash
+qulib auth login --base-url https://notquality.com \
+  --auth-path nq-login \
+  --credentials-file ~/.qulib/nq-creds.json \
+  --out ~/.qulib/nq-state.json
+```
+
+The JSON file must map **field `name`** values from `authOptions` to secrets, e.g. `{"username":"…","password":"…","hidden.datasource":"…"}`. Prefer **`--credentials-file`** over **`--credentials`** so values are not stored in shell history.
+
+Then analyze with the saved session:
+
+```bash
+qulib analyze --url https://notquality.com \
+  --auth-storage-state ~/.qulib/nq-state.json
+```
+
+Use **`--auth-path <id>`** when multiple **`form-login`** paths appear in **`authOptions`**. Use **`--success-url-contains <substring>`** for stricter success detection; otherwise Qulib infers success from URL changes or the password field disappearing (and warns if it cannot confirm).
+
 Then scan with it:
 
 ```bash
