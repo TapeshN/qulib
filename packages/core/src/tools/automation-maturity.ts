@@ -1,7 +1,11 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
-import type { AutomationMaturity, AutomationMaturityDimension } from '../schemas/automation-maturity.schema.js';
+import type {
+  AutomationMaturity,
+  AutomationMaturityApplicability,
+  AutomationMaturityDimension,
+} from '../schemas/automation-maturity.schema.js';
 import { AutomationMaturitySchema } from '../schemas/automation-maturity.schema.js';
 
 /**
@@ -101,17 +105,34 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
     recommendations: frameworkScore >= 80 ? [] : ['Standardize on Playwright or Cypress for E2E against deployed URLs.'],
   };
 
-  const hygienePenalty = Math.min(100, repo.missingTestIds.length * 6);
-  const hygieneScore = Math.max(0, 100 - hygienePenalty);
+  const missingIds = repo.missingTestIds.length;
+  const interactiveTsxScanned = repo.interactiveTsxFilesScanned ?? missingIds;
+  let hygieneScore = 0;
+  let hygieneApplicability: AutomationMaturityApplicability = 'applicable';
+  let hygieneReason: string | undefined;
+  const hygieneEvidence: string[] = [];
+  if (interactiveTsxScanned === 0) {
+    hygieneApplicability = 'unknown';
+    hygieneReason = 'No interactive TSX files scanned — cannot compute a missing-id ratio honestly.';
+    hygieneEvidence.push(hygieneReason);
+  } else {
+    const missingRatio = missingIds / interactiveTsxScanned;
+    hygieneScore = Math.round(Math.max(0, 100 * (1 - missingRatio)));
+    hygieneEvidence.push(
+      `${missingIds}/${interactiveTsxScanned} interactive TSX file(s) lacked data-testid (heuristic scan).`
+    );
+  }
   const hygieneDim: AutomationMaturityDimension = {
     dimension: 'test-id-hygiene',
     score: hygieneScore,
     weight: W_TEST_ID,
-    evidence: [
-      `${repo.missingTestIds.length} TSX file(s) with interactive markup but no data-testid (heuristic scan).`,
-    ],
+    evidence: hygieneEvidence,
     recommendations:
-      hygieneScore >= 85 ? [] : ['Add stable data-testid (or role-based selectors) on interactive components used in tests.'],
+      hygieneApplicability === 'applicable' && hygieneScore < 85
+        ? ['Add stable data-testid (or role-based selectors) on interactive components used in tests.']
+        : [],
+    applicability: hygieneApplicability,
+    ...(hygieneReason && { reason: hygieneReason }),
   };
 
   const ci = hasCiAtRoot(repo.repoPath);
@@ -124,43 +145,82 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
   };
 
   const authRe = /\/(login|auth|signin)(\/|$)/i;
+  const authRouteFileRe = /(login|auth|signin)/i;
   const authCovered = repo.testFiles.some((tf) => tf.coveredPaths.some((c) => authRe.test(c)));
-  const authScore = authCovered ? 90 : 25;
+  const repoHasAuthRoute = repo.routes.some((r) => authRe.test(r.path));
+  const repoHasAuthTestFile = repo.testFiles.some((tf) => authRouteFileRe.test(tf.file));
+  const repoHasAnyAuthSignal = repoHasAuthRoute || repoHasAuthTestFile || authCovered;
+  let authScore = 0;
+  let authApplicability: AutomationMaturityApplicability = 'applicable';
+  let authReason: string | undefined;
+  const authEvidence: string[] = [];
+  if (!repoHasAnyAuthSignal) {
+    authApplicability = 'not_applicable';
+    authReason = 'No auth routes, auth-named test files, or auth path coverage detected — repo appears auth-free.';
+    authEvidence.push(authReason);
+  } else {
+    authScore = authCovered ? 90 : 25;
+    authEvidence.push(
+      authCovered
+        ? 'At least one test references /login, /auth, or /signin in coveredPaths.'
+        : 'Repo has auth-shaped routes or test files but no auth-route coverage in extracted test path strings.'
+    );
+  }
   const authDim: AutomationMaturityDimension = {
     dimension: 'auth-test-coverage',
     score: authScore,
     weight: W_AUTH_TESTS,
-    evidence: authCovered
-      ? ['At least one test references /login, /auth, or /signin in coveredPaths.']
-      : ['No obvious auth-route coverage in extracted test path strings.'],
-    recommendations: authCovered ? [] : ['Add focused tests for sign-in and post-auth landing behavior.'],
+    evidence: authEvidence,
+    recommendations:
+      authApplicability === 'applicable' && !authCovered
+        ? ['Add focused tests for sign-in and post-auth landing behavior.']
+        : [],
+    applicability: authApplicability,
+    ...(authReason && { reason: authReason }),
   };
 
   const cypressE2e = repo.testFiles.filter((t) => t.type === 'cypress-e2e').length;
   const cypressComp = repo.testFiles.filter((t) => t.type === 'cypress-component').length;
   const cypressTotal = cypressE2e + cypressComp;
-  const compRatioScore =
-    cypressTotal === 0 ? 50 : Math.round((100 * cypressComp) / cypressTotal);
+  let compRatioScore = 0;
+  let compApplicability: AutomationMaturityApplicability = 'applicable';
+  let compReason: string | undefined;
+  const compEvidence: string[] = [];
+  if (cypressTotal === 0) {
+    compApplicability = 'not_applicable';
+    compReason = 'No Cypress (e2e or component) tests detected — component-test-ratio does not apply.';
+    compEvidence.push(compReason);
+  } else {
+    compRatioScore = Math.round((100 * cypressComp) / cypressTotal);
+    compEvidence.push(`Cypress e2e files (matched): ${cypressE2e}, component: ${cypressComp}.`);
+  }
   const compDim: AutomationMaturityDimension = {
     dimension: 'component-test-ratio',
     score: compRatioScore,
     weight: W_COMPONENT_RATIO,
-    evidence: [
-      `Cypress e2e files (matched): ${cypressE2e}, component: ${cypressComp}.`,
-    ],
+    evidence: compEvidence,
     recommendations:
-      cypressComp === 0 || cypressTotal === 0
-        ? []
-        : ['Balance component vs E2E Cypress tests so critical flows stay fast in CI.'],
+      compApplicability === 'applicable' && cypressComp > 0
+        ? ['Balance component vs E2E Cypress tests so critical flows stay fast in CI.']
+        : [],
+    applicability: compApplicability,
+    ...(compReason && { reason: compReason }),
   };
 
   const dimensions = [breadthDim, frameworkDim, hygieneDim, ciDim, authDim, compDim];
-  const overallScore = Math.round(
-    dimensions.reduce((s, d) => s + d.score * d.weight, 0)
-  );
+
+  // Overall score normalizes over applicable dimensions only.
+  // overallScore = round( Σ score_i * weight_i / Σ weight_i ) for i ∈ applicable.
+  // If no dimension is applicable (degenerate repo), overall = 0 and level = L1.
+  const applicableDims = dimensions.filter((d) => (d.applicability ?? 'applicable') === 'applicable');
+  const weightSum = applicableDims.reduce((s, d) => s + d.weight, 0);
+  const overallScore =
+    weightSum > 0
+      ? Math.round(applicableDims.reduce((s, d) => s + d.score * d.weight, 0) / weightSum)
+      : 0;
   const { level, label } = scoreLevel(overallScore);
 
-  const topRecommendations = [...dimensions]
+  const topRecommendations = [...applicableDims]
     .sort((a, b) => a.score - b.score)
     .flatMap((d) => d.recommendations)
     .filter(Boolean)
@@ -174,5 +234,7 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
     label,
     dimensions,
     topRecommendations,
+    scoreFormula:
+      'overallScore = round( Σ (score * weight) / Σ weight ) for applicable dimensions only. not_applicable and unknown dimensions are excluded from the denominator.',
   });
 }

@@ -9,9 +9,13 @@
 // Today: all tools are equally trusted. Future: read-only tools (detect_auth, explore_auth)
 // vs. write-capable tools (analyze_app with writeArtifacts) should carry different trust levels.
 
+import { createRequire } from 'node:module';
 import { isAbsolute, normalize, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const requirePkg = createRequire(import.meta.url);
+const pkg = requirePkg('../package.json') as { version: string };
 import {
   analyzeApp,
   detectAuth,
@@ -105,7 +109,7 @@ function validateAbsoluteRepoPath(repoPath: string): string {
 const mcpServer = new McpServer(
   {
     name: 'qulib-mcp',
-    version: '0.4.1',
+    version: pkg.version,
     description:
       'Qulib QA intelligence platform — gap analysis, auth exploration, and quality scoring for deployed web applications',
   },

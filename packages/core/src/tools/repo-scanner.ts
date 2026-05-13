@@ -151,12 +151,16 @@ export async function scanRepo(repoPath: string): Promise<RepoAnalysis> {
     ignore: [...IGNORE_PATTERNS, '**/*.spec.tsx'],
   });
   const missingTestIds: string[] = [];
+  let interactiveTsxFilesScanned = 0;
   for (const file of tsxFiles) {
     const rel = toPosix(relative(repoPath, file));
     const content = await readFile(file, 'utf8');
     const hasInteractive = content.includes('<button') || content.includes('<input') || content.includes('<a ');
-    if (hasInteractive && !content.includes('data-testid')) {
-      missingTestIds.push(rel);
+    if (hasInteractive) {
+      interactiveTsxFilesScanned += 1;
+      if (!content.includes('data-testid')) {
+        missingTestIds.push(rel);
+      }
     }
   }
 
@@ -166,6 +170,7 @@ export async function scanRepo(repoPath: string): Promise<RepoAnalysis> {
     routes,
     testFiles,
     missingTestIds: [...new Set(missingTestIds)],
+    interactiveTsxFilesScanned,
     cypressStructure: {
       detected: cypressRoot.length > 0,
       e2eFolder: e2eFolder[0],

@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
+
+const requirePkg = createRequire(import.meta.url);
+const pkg = requirePkg('../../package.json') as { version: string };
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 import { analyzeApp } from '../analyze.js';
 import { detectAuth } from '../tools/auth-detector.js';
@@ -156,7 +160,7 @@ async function runAnalyze(options: {
 program
   .name('qulib')
   .description('Qulib — QA harness')
-  .version('0.1.0');
+  .version(pkg.version);
 
 program
   .command('clean')

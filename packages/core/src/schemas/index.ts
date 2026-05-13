@@ -70,8 +70,10 @@ export {
 export {
   AutomationMaturitySchema,
   AutomationMaturityDimensionSchema,
+  AutomationMaturityApplicabilitySchema,
   type AutomationMaturity,
   type AutomationMaturityDimension,
+  type AutomationMaturityApplicability,
 } from './automation-maturity.schema.js';
 export {
   PublicSurfaceSchema,
