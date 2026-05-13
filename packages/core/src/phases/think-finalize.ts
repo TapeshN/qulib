@@ -17,8 +17,12 @@ export async function finalizeGapAnalysisFromDraft(
   artifacts: RunArtifactsOptions = { writeArtifacts: true },
   costContext?: Pick<GapAnalysis, 'mode' | 'coveragePagesScanned' | 'releaseConfidence' | 'gaps'>
 ): Promise<GapAnalysis> {
-  const stateManager = new StateManager();
-  const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
+  const stateManager = new StateManager(config.outputDir);
+  const logOpts = {
+    persist: artifacts.writeArtifacts,
+    memory: artifacts.decisionMemory,
+    outputDir: config.outputDir,
+  };
   const partialAnalysis = GapAnalysisSchema.parse({
     ...draft,
     scenarios: [],
@@ -76,7 +80,12 @@ export async function finalizeGapAnalysisFromDraft(
     const prompt = buildGapPrompt(partialAnalysis.gaps, config.testGenerationLimit);
     const promptHash = hashForCostIntelligence(prompt);
     try {
-      const llmResult = await callLLM(prompt, maxOut);
+      const llmResult = await callLLM(prompt, maxOut, {
+        llmProvider: config.llmProvider,
+        llmModel: config.llmModel,
+        telemetry: artifacts.telemetry,
+        telemetrySessionId: artifacts.telemetrySessionId,
+      });
       const resultHash = hashForCostIntelligence(llmResult.text);
       const usage = llmResult.usage;
       llmRecords.push({

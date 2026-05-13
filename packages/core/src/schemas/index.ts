@@ -59,8 +59,20 @@ export {
 } from './cost-intelligence.schema.js';
 export {
   RepoAnalysisSchema,
+  FrameworkDetectionSchema,
+  DetectedFrameworkPrimarySchema,
+  FrameworkDetectionConfidenceSchema,
+  TestFrameworkDetectedSchema,
   type RepoAnalysis,
+  type FrameworkDetectionResult,
+  type DetectedFrameworkPrimary,
 } from './repo-analysis.schema.js';
+export {
+  AutomationMaturitySchema,
+  AutomationMaturityDimensionSchema,
+  type AutomationMaturity,
+  type AutomationMaturityDimension,
+} from './automation-maturity.schema.js';
 export {
   PublicSurfaceSchema,
   PublicSurfaceViolationSchema,

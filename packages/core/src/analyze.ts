@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { type HarnessConfig, type DetectedAuth } from './schemas/config.schema.js';
 import type { Gap, GapAnalysis } from './schemas/gap-analysis.schema.js';
 import { RouteInventorySchema, type RouteInventory } from './schemas/route-inventory.schema.js';
@@ -14,6 +15,8 @@ import { buildPublicSurface } from './tools/public-surface.js';
 import { buildAuthBlockGap } from './tools/auth-block-gap.js';
 import { finalizeGapAnalysisFromDraft, type GapAnalysisDraft } from './phases/think-finalize.js';
 import type { AnalyzeProgressSink } from './harness/progress-log.js';
+import type { TelemetrySink } from './telemetry/telemetry.interface.js';
+import { emitTelemetry } from './telemetry/emit.js';
 
 export type AnalyzeStatus = 'complete' | 'blocked' | 'partial';
 
@@ -24,6 +27,7 @@ export interface AnalyzeOptions {
   writeArtifacts?: boolean;
   skipAuthDetection?: boolean;
   progressLog?: AnalyzeProgressSink;
+  telemetry?: TelemetrySink;
 }
 
 export interface AnalyzeResult {
@@ -59,11 +63,20 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   const writeArtifacts = options.writeArtifacts ?? false;
   const decisionLog: DecisionLogEntry[] = [];
   const progress = options.progressLog;
+  const sessionId = randomUUID();
   const artifacts = {
     writeArtifacts,
     decisionMemory: decisionLog,
+    telemetrySessionId: sessionId,
+    ...(options.telemetry !== undefined && { telemetry: options.telemetry }),
     ...(progress !== undefined && { progressLog: progress }),
   };
+
+  emitTelemetry(options.telemetry, 'scan.started', sessionId, {
+    url: options.url,
+    maxPagesToScan: options.config.maxPagesToScan,
+    hasAuth: Boolean(options.config.auth),
+  });
 
   progress?.info(`Starting scan → ${options.url} maxPagesToScan=${options.config.maxPagesToScan}`);
 
@@ -72,6 +85,12 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   if (!options.config.auth && !options.skipAuthDetection) {
     detectedAuth = await detectAuth(options.url, options.config.timeoutMs, progress);
     authWall = Boolean(detectedAuth.hasAuth);
+    if (detectedAuth.hasAuth) {
+      emitTelemetry(options.telemetry, 'auth.detected', sessionId, {
+        authType: detectedAuth.type,
+        hasAuth: true,
+      });
+    }
   }
 
   const observed = await observe(options.url, options.repoPath, options.config, artifacts);
@@ -106,7 +125,7 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
     );
     const authBlockGap = buildAuthBlockGap(options.url);
     const qualityInputGaps = [...publicAnalysis.gaps, ...authSurfaceGaps];
-    const qualityScore = computeQualityScoreFromGaps(qualityInputGaps);
+    const qualityScore = computeQualityScoreFromGaps(qualityInputGaps, options.config.scoringWeights);
     const draftRelease = status === 'blocked' ? null : qualityScore;
 
     const draft: GapAnalysisDraft = {
@@ -156,6 +175,17 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
       publicSurface,
     };
     logScanEnd(progress, result);
+    emitTelemetry(
+      options.telemetry,
+      status === 'blocked' ? 'scan.blocked' : 'scan.completed',
+      sessionId,
+      {
+        status: result.status,
+        coverageScore: result.coverageScore,
+        releaseConfidence: result.releaseConfidence,
+        gapCount: result.gaps.length,
+      }
+    );
     return result;
   }
 
@@ -180,5 +210,11 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
     publicSurface,
   };
   logScanEnd(progress, result);
+  emitTelemetry(options.telemetry, 'scan.completed', sessionId, {
+    status: result.status,
+    coverageScore: result.coverageScore,
+    releaseConfidence: result.releaseConfidence,
+    gapCount: result.gaps.length,
+  });
   return result;
 }

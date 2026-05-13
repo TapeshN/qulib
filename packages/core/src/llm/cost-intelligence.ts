@@ -1,3 +1,17 @@
+/**
+ * @module cost-intelligence
+ * @packageBoundary @qulib/core (candidate: @qulib/cost-intelligence)
+ *
+ * This module assembles CostIntelligence from scan run records.
+ * Extraction to @qulib/cost-intelligence is appropriate when:
+ *   1. Cross-scan aggregation is needed (trend analysis across multiple runs)
+ *   2. Pricing tables for multiple LLM providers need to be maintained
+ *   3. A standalone cost reporting dashboard is built
+ *
+ * The CostIntelligenceSchema is already in @qulib/core/schemas and would
+ * remain there (or be duplicated/re-exported) on extraction.
+ */
+
 import type { GapAnalysis } from '../schemas/gap-analysis.schema.js';
 import type {
   CostIntelligence,

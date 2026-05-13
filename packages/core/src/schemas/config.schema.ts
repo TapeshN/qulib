@@ -62,6 +62,17 @@ export const HarnessConfigSchema = z.object({
   explorer: z.enum(['playwright', 'cypress']).default('playwright'),
   defaultAdapter: z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility']).default('playwright'),
   adapters: z.array(z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility'])).default(['playwright']),
+  llmProvider: z.enum(['anthropic']).optional(),
+  llmModel: z.string().optional(),
+  outputDir: z.string().optional(),
+  scoringWeights: z
+    .object({
+      critical: z.number().min(0).max(100).optional(),
+      high: z.number().min(0).max(100).optional(),
+      medium: z.number().min(0).max(100).optional(),
+      low: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
   auth: AuthConfigSchema.optional(),
 });
 
