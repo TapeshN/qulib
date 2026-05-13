@@ -13,6 +13,16 @@
   "bugs": {
     "url": "https://github.com/TapeshN/qulib/issues"
   },
+  "keywords": [
+    "qa",
+    "quality",
+    "accessibility",
+    "gap-analysis",
+    "release-confidence",
+    "playwright",
+    "mcp",
+    "ai"
+  ],
   "publishConfig": {
     "access": "public"
   },
