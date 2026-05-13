@@ -1,15 +1,26 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, isAbsolute } from 'path';
 import { ZodError } from 'zod';
 import type { ZodSchema } from 'zod';
 
-const STATE_DIR = join(process.cwd(), '.scan-state');
+export function resolveScanStateBaseDir(outputDir?: string): string {
+  if (outputDir === undefined || outputDir === '') {
+    return join(process.cwd(), '.scan-state');
+  }
+  return isAbsolute(outputDir) ? resolve(outputDir) : resolve(process.cwd(), outputDir);
+}
 
 export class StateManager {
+  private readonly stateDir: string;
+
+  constructor(scanStateBaseDir?: string) {
+    this.stateDir = resolveScanStateBaseDir(scanStateBaseDir);
+  }
+
   async readState<T>(filename: string, schema: ZodSchema<T>): Promise<T> {
-    await mkdir(STATE_DIR, { recursive: true });
-    const filepath = join(STATE_DIR, filename);
+    await mkdir(this.stateDir, { recursive: true });
+    const filepath = join(this.stateDir, filename);
     if (!existsSync(filepath)) {
       throw new Error(`State file missing: ${filename} (${filepath})`);
     }
@@ -38,7 +49,7 @@ export class StateManager {
   }
 
   async writeState<T>(filename: string, data: T, schema: ZodSchema<T>): Promise<void> {
-    const filepath = join(STATE_DIR, filename);
+    const filepath = join(this.stateDir, filename);
 
     let validatedData: T;
     try {
@@ -51,20 +62,7 @@ export class StateManager {
       throw new Error(`Failed to validate state data for ${filename}: ${message}`);
     }
 
-    await mkdir(STATE_DIR, { recursive: true });
+    await mkdir(this.stateDir, { recursive: true });
     await writeFile(filepath, JSON.stringify(validatedData, null, 2), 'utf8');
   }
 }
-
-/*
-Manual smoke test:
-
-import { z } from 'zod';
-
-const manager = new StateManager();
-const DemoSchema = z.object({ count: z.number().int() });
-
-await manager.writeState('demo.json', { count: 1 }, DemoSchema);
-const loaded = await manager.readState('demo.json', DemoSchema);
-console.log(loaded.count); // 1
-*/

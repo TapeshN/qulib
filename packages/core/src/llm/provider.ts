@@ -1,77 +1,28 @@
 import { randomUUID } from 'node:crypto';
 import { NeutralScenarioSchema, type Gap, type NeutralScenario } from '../schemas/gap-analysis.schema.js';
+import type { HarnessConfig } from '../schemas/config.schema.js';
+import type { LlmCallResult } from './provider.interface.js';
+import { createProvider } from './provider-registry.js';
 
-export interface LlmCallResult {
-  text: string;
-  usage: {
-    provider: string;
-    model: string;
-    inputTokens: number;
-    outputTokens: number;
-    dataQuality: 'actual' | 'estimated';
-  } | null;
-}
+export type { LlmCallResult } from './provider.interface.js';
+export type { LlmProvider } from './provider.interface.js';
 
-function estimateTokensFromChars(chars: number): number {
-  return Math.max(0, Math.ceil(chars / 4));
-}
+export type CallLlmConfigSlice = Pick<HarnessConfig, 'llmProvider' | 'llmModel'> & {
+  telemetry?: import('../telemetry/telemetry.interface.js').TelemetrySink;
+  telemetrySessionId?: string;
+};
 
-export async function callLLM(prompt: string, tokenBudget: number): Promise<LlmCallResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
-
-  const model = 'claude-sonnet-4-20250514';
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: tokenBudget,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`LLM call failed: ${response.status} ${text}`);
-  }
-
-  const data = (await response.json()) as {
-    content: Array<{ type: string; text?: string }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
-    model?: string;
-  };
-  const text = data.content.find((b) => b.type === 'text')?.text ?? '';
-  const inTok = data.usage?.input_tokens;
-  const outTok = data.usage?.output_tokens;
-  if (typeof inTok === 'number' && typeof outTok === 'number') {
-    return {
-      text,
-      usage: {
-        provider: 'anthropic',
-        model: data.model ?? model,
-        inputTokens: inTok,
-        outputTokens: outTok,
-        dataQuality: 'actual',
-      },
-    };
-  }
-
-  return {
-    text,
-    usage: {
-      provider: 'anthropic',
-      model: data.model ?? model,
-      inputTokens: estimateTokensFromChars(prompt.length),
-      outputTokens: estimateTokensFromChars(text.length),
-      dataQuality: 'estimated',
-    },
-  };
+export async function callLLM(
+  prompt: string,
+  tokenBudget: number,
+  harness?: CallLlmConfigSlice
+): Promise<LlmCallResult> {
+  return createProvider({
+    llmProvider: harness?.llmProvider,
+    llmModel: harness?.llmModel,
+    telemetry: harness?.telemetry,
+    telemetrySessionId: harness?.telemetrySessionId,
+  }).call(prompt, tokenBudget);
 }
 
 export function generateScenariosFromTemplate(gaps: Gap[]): NeutralScenario[] {

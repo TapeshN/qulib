@@ -3,24 +3,29 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { DecisionLogEntrySchema } from '../schemas/decision-log.schema.js';
 import type { DecisionLogEntry } from '../schemas/decision-log.schema.js';
-
-const LOG_FILE = join(process.cwd(), '.scan-state', 'decision-log.json');
-const STATE_DIR = join(process.cwd(), '.scan-state');
+import { resolveScanStateBaseDir } from './state-manager.js';
 
 export type LogDecisionOptions = {
   persist?: boolean;
   memory?: DecisionLogEntry[];
+  outputDir?: string;
 };
+
+function logFilePath(options?: LogDecisionOptions): string {
+  return join(resolveScanStateBaseDir(options?.outputDir), 'decision-log.json');
+}
 
 export async function logDecision(entry: DecisionLogEntry, options?: LogDecisionOptions): Promise<void> {
   const persist = options?.persist !== false;
   const memory = options?.memory;
+  const logFile = logFilePath(options);
+  const stateDir = resolveScanStateBaseDir(options?.outputDir);
 
   try {
     const validation = DecisionLogEntrySchema.safeParse(entry);
     if (!validation.success) {
       console.warn(
-        `Failed to log decision entry to ${LOG_FILE}: validation issues ${JSON.stringify(validation.error.issues)}`
+        `Failed to log decision entry to ${logFile}: validation issues ${JSON.stringify(validation.error.issues)}`
       );
       return;
     }
@@ -33,15 +38,15 @@ export async function logDecision(entry: DecisionLogEntry, options?: LogDecision
       return;
     }
 
-    await mkdir(STATE_DIR, { recursive: true });
+    await mkdir(stateDir, { recursive: true });
 
     let log: DecisionLogEntry[] = [];
-    if (existsSync(LOG_FILE)) {
+    if (existsSync(logFile)) {
       try {
-        const raw = await readFile(LOG_FILE, 'utf8');
+        const raw = await readFile(logFile, 'utf8');
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) {
-          console.warn(`Failed to log decision entry to ${LOG_FILE}: file is not a JSON array; resetting log`);
+          console.warn(`Failed to log decision entry to ${logFile}: file is not a JSON array; resetting log`);
         } else {
           const validatedEntries: DecisionLogEntry[] = [];
           for (const item of parsed) {
@@ -50,7 +55,7 @@ export async function logDecision(entry: DecisionLogEntry, options?: LogDecision
               validatedEntries.push(itemValidation.data);
             } else {
               console.warn(
-                `Invalid existing entry skipped in ${LOG_FILE}: ${JSON.stringify(itemValidation.error.issues)}`
+                `Invalid existing entry skipped in ${logFile}: ${JSON.stringify(itemValidation.error.issues)}`
               );
             }
           }
@@ -58,26 +63,14 @@ export async function logDecision(entry: DecisionLogEntry, options?: LogDecision
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Failed to read existing decision log at ${LOG_FILE}: ${message}`);
+        console.warn(`Failed to read existing decision log at ${logFile}: ${message}`);
       }
     }
 
     log.push(validation.data);
-    await writeFile(LOG_FILE, JSON.stringify(log, null, 2), 'utf8');
+    await writeFile(logFile, JSON.stringify(log, null, 2), 'utf8');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`Failed to log decision entry to ${LOG_FILE}: ${message}`);
+    console.warn(`Failed to log decision entry to ${logFile}: ${message}`);
   }
 }
-
-/*
-Manual smoke test:
-
-await logDecision({
-  timestamp: new Date().toISOString(),
-  phase: 'observe',
-  decision: 'Started crawl',
-  reason: 'Initial discovery pass',
-  metadata: { url: 'https://example.com' },
-});
-*/

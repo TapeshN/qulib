@@ -86,6 +86,14 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
       pagesSkipped: result.routeInventory.pagesSkipped,
       budgetExceeded: result.routeInventory.budgetExceeded,
     },
+    ...(result.repoInventory?.automationMaturity && {
+      automationMaturitySummary: {
+        overallScore: result.repoInventory.automationMaturity.overallScore,
+        level: result.repoInventory.automationMaturity.level,
+        label: result.repoInventory.automationMaturity.label,
+        topRecommendations: result.repoInventory.automationMaturity.topRecommendations,
+      },
+    }),
     repoInventory: result.repoInventory,
     decisionLogPreview: result.decisionLog.slice(-8),
     ...(result.detectedAuth !== undefined && { detectedAuth: result.detectedAuth }),

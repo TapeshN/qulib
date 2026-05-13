@@ -1,6 +1,6 @@
 {
   "name": "@qulib/mcp",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "MCP server for Qulib — AI-callable QA gap analysis",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@qulib/core": "0.3.1",
+    "@qulib/core": "0.4.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
