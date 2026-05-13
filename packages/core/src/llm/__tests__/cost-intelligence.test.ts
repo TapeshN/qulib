@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hashForCostIntelligence } from './content-hash.js';
+import { hashForCostIntelligence } from '../content-hash.js';
 import {
   buildBudgetWarnings,
   findRepeatedPromptPatterns,
   computeDeterministicMaturity,
   costIntelligenceForAuthBlocked,
-} from './cost-intelligence.js';
-import { CostIntelligenceSchema } from '../schemas/cost-intelligence.schema.js';
-import { HarnessConfigSchema, resolveMaxOutputTokensPerLlmCall } from '../schemas/config.schema.js';
+} from '../cost-intelligence.js';
+import { CostIntelligenceSchema } from '../../schemas/cost-intelligence.schema.js';
+import { HarnessConfigSchema, resolveMaxOutputTokensPerLlmCall } from '../../schemas/config.schema.js';
 
 test('hashForCostIntelligence is stable 32-char hex', () => {
   const a = hashForCostIntelligence('hello');

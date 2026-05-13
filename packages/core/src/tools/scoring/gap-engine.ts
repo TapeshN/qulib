@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { GapSchema, type GapAnalysis, type Gap } from '../schemas/gap-analysis.schema.js';
-import type { RouteInventory } from '../schemas/route-inventory.schema.js';
-import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
-import type { HarnessConfig } from '../schemas/config.schema.js';
+import { GapSchema, type GapAnalysis, type Gap } from '../../schemas/gap-analysis.schema.js';
+import type { RouteInventory } from '../../schemas/route-inventory.schema.js';
+import type { RepoAnalysis } from '../../schemas/repo-analysis.schema.js';
+import type { HarnessConfig } from '../../schemas/config.schema.js';
 
 // TODO: Add category-specific weight overrides (e.g., auth-surface gaps should cost more than untested-route gaps by default).
 // Requires a 2D weight matrix: { [severity]: { [category]: number } }.

@@ -4,9 +4,9 @@ import {
   type AuthExploration,
   type AuthPath,
   type AuthPathRequirements,
-} from '../schemas/config.schema.js';
-import type { AnalyzeProgressSink } from '../harness/progress-log.js';
-import { launchBrowser } from './browser.js';
+} from '../../schemas/config.schema.js';
+import type { AnalyzeProgressSink } from '../../harness/progress-log.js';
+import { launchBrowser } from '../explorers/browser.js';
 import { BUILT_IN_OAUTH_PROVIDERS, type OAuthProvider } from './oauth-providers.js';
 import { loadUserProviders } from './user-providers.js';
 

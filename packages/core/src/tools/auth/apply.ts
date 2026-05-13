@@ -1,6 +1,6 @@
 import type { Browser, BrowserContext } from '@playwright/test';
 import { resolve } from 'node:path';
-import type { AuthConfig } from '../schemas/config.schema.js';
+import type { AuthConfig } from '../../schemas/config.schema.js';
 
 export async function createAuthenticatedContext(
   browser: Browser,

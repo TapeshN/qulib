@@ -18,9 +18,9 @@
 import { readFile } from 'node:fs/promises';
 import { relative, basename } from 'node:path';
 import glob from 'fast-glob';
-import { RepoAnalysisSchema, type RepoAnalysis } from '../schemas/repo-analysis.schema.js';
+import { RepoAnalysisSchema, type RepoAnalysis } from '../../schemas/repo-analysis.schema.js';
 import { detectFramework } from './framework-detector.js';
-import { computeAutomationMaturity } from './automation-maturity.js';
+import { computeAutomationMaturity } from '../scoring/automation-maturity.js';
 
 const IGNORE_PATTERNS = ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/build/**'];
 

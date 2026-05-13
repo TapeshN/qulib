@@ -1,6 +1,6 @@
-import type { RouteInventory } from '../schemas/route-inventory.schema.js';
-import type { Gap } from '../schemas/gap-analysis.schema.js';
-import type { PublicSurface, PublicSurfaceBrokenLink, PublicSurfaceViolation } from '../schemas/public-surface.schema.js';
+import type { RouteInventory } from '../../schemas/route-inventory.schema.js';
+import type { Gap } from '../../schemas/gap-analysis.schema.js';
+import type { PublicSurface, PublicSurfaceBrokenLink, PublicSurfaceViolation } from '../../schemas/public-surface.schema.js';
 
 export function buildPublicSurface(pages: RouteInventory['routes'], gaps: Gap[]): PublicSurface {
   const accessibilityViolations: PublicSurfaceViolation[] = [];

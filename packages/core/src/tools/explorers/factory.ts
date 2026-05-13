@@ -1,4 +1,4 @@
-import type { ExplorerType } from '../schemas/config.schema.js';
+import type { ExplorerType } from '../../schemas/config.schema.js';
 import type { AppExplorer } from './explorer.interface.js';
 import { PlaywrightExplorer } from './playwright-explorer.js';
 import { CypressExplorer } from './cypress-explorer.js';

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
-import { computeAutomationMaturity } from './automation-maturity.js';
+import type { RepoAnalysis } from '../../../schemas/repo-analysis.schema.js';
+import { computeAutomationMaturity } from '../automation-maturity.js';
 
 function baseRepo(overrides: Partial<RepoAnalysis> = {}): RepoAnalysis {
   return {

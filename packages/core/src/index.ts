@@ -5,15 +5,15 @@ export {
   evaluateStorageStateValidity,
   preflightStorageStateFile,
   waitForReturnToOrigin,
-} from './tools/auth-detector.js';
+} from './tools/auth/detector.js';
 export type {
   StorageStateInvalidReason,
   StorageStateValidationResult,
-} from './tools/auth-detector.js';
-export { exploreAuth } from './tools/auth-explorer.js';
-export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
-export { scanRepo } from './tools/repo-scanner.js';
-export { computeAutomationMaturity } from './tools/automation-maturity.js';
+} from './tools/auth/detector.js';
+export { exploreAuth } from './tools/auth/explorer.js';
+export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/user-providers.js';
+export { scanRepo } from './tools/repo/scanner.js';
+export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';

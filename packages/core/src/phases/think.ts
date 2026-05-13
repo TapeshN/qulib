@@ -1,7 +1,7 @@
 import type { HarnessConfig } from '../schemas/config.schema.js';
 import { GapAnalysisSchema, type GapAnalysis } from '../schemas/gap-analysis.schema.js';
 import type { ObserveResult } from './observe.js';
-import { analyzeGaps } from '../tools/gap-engine.js';
+import { analyzeGaps } from '../tools/scoring/gap-engine.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
 import { finalizeGapAnalysisFromDraft } from './think-finalize.js';

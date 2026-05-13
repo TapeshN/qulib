@@ -1,12 +1,12 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
+import type { RepoAnalysis } from '../../schemas/repo-analysis.schema.js';
 import type {
   AutomationMaturity,
   AutomationMaturityApplicability,
   AutomationMaturityDimension,
-} from '../schemas/automation-maturity.schema.js';
-import { AutomationMaturitySchema } from '../schemas/automation-maturity.schema.js';
+} from '../../schemas/automation-maturity.schema.js';
+import { AutomationMaturitySchema } from '../../schemas/automation-maturity.schema.js';
 
 /**
  * Dimension weights (sum = 1). Breadth + harness adoption dominate: shipping risk is mostly

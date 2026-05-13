@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { readFile, stat } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
-import type { AuthPath, DetectedAuth } from '../schemas/config.schema.js';
-import type { AnalyzeProgressSink } from '../harness/progress-log.js';
-import { launchBrowser } from './browser.js';
+import type { AuthPath, DetectedAuth } from '../../schemas/config.schema.js';
+import type { AnalyzeProgressSink } from '../../harness/progress-log.js';
+import { launchBrowser } from '../explorers/browser.js';
 import { BUILT_IN_OAUTH_PROVIDERS } from './oauth-providers.js';
 
 export type StorageStateInvalidReason =

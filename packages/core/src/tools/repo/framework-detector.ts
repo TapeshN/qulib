@@ -14,7 +14,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
-import { FrameworkDetectionSchema, type FrameworkDetectionResult } from '../schemas/repo-analysis.schema.js';
+import { FrameworkDetectionSchema, type FrameworkDetectionResult } from '../../schemas/repo-analysis.schema.js';
 
 async function fileExists(repoPath: string, rel: string): Promise<boolean> {
   try {

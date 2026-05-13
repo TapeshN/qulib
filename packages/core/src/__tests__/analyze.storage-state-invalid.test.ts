@@ -6,15 +6,15 @@
  * short-circuits at the `missing-file` preflight, never launching Playwright.
  * That keeps the test fast, deterministic, and runnable in offline CI. The full
  * reason-code surface is covered by the pure-helper tests in
- * `tools/auth-detector.test.ts`.
+ * `tools/auth/__tests__/detector.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { analyzeApp } from './analyze.js';
-import { HarnessConfigSchema, type HarnessConfig } from './schemas/config.schema.js';
-import type { TelemetryEvent, TelemetrySink } from './telemetry/telemetry.interface.js';
+import { analyzeApp } from '../analyze.js';
+import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
+import type { TelemetryEvent, TelemetrySink } from '../telemetry/telemetry.interface.js';
 
 function harness(): HarnessConfig {
   return HarnessConfigSchema.parse({

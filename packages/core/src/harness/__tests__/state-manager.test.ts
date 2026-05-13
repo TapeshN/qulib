@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
-import { resolveReportDir, resolveScanStateBaseDir } from './state-manager.js';
+import { resolveReportDir, resolveScanStateBaseDir } from '../state-manager.js';
 
 test('resolveReportDir defaults to <cwd>/output when outputDir is unset', () => {
   assert.equal(resolveReportDir(undefined), join(process.cwd(), 'output'));

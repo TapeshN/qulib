@@ -1,8 +1,8 @@
 import type { Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import type { DetectedAuth } from '../schemas/config.schema.js';
-import type { Gap } from '../schemas/gap-analysis.schema.js';
-import { launchBrowser } from './browser.js';
+import type { DetectedAuth } from '../../schemas/config.schema.js';
+import type { Gap } from '../../schemas/gap-analysis.schema.js';
+import { launchBrowser } from '../explorers/browser.js';
 
 async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
   try {

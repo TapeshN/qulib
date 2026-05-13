@@ -8,7 +8,7 @@ import {
   evaluateStorageStateValidity,
   preflightStorageStateFile,
   waitForReturnToOrigin,
-} from './auth-detector.js';
+} from '../detector.js';
 
 test('evaluateStorageStateValidity flags wrong-origin when final URL origin differs from expected', () => {
   const r = evaluateStorageStateValidity({

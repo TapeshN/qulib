@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeCoverageScore, computeQualityScoreFromGaps } from './gap-engine.js';
-import type { RouteInventory, Route } from '../schemas/route-inventory.schema.js';
-import type { Gap } from '../schemas/gap-analysis.schema.js';
+import { computeCoverageScore, computeQualityScoreFromGaps } from '../gap-engine.js';
+import type { RouteInventory, Route } from '../../../schemas/route-inventory.schema.js';
+import type { Gap } from '../../../schemas/gap-analysis.schema.js';
 
 function routesInv(partial: Partial<RouteInventory> & Pick<RouteInventory, 'routes'>): RouteInventory {
   return {

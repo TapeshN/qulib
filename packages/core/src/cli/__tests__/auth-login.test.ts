@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { AuthPath } from '../schemas/config.schema.js';
+import type { AuthPath } from '../../schemas/config.schema.js';
 import {
   assertExactlyOneCredentialSource,
   assertCredentialsCoverFields,
   parseCredentialsJsonString,
   resolveAuthLoginConfig,
   resolveFormLoginPath,
-} from './auth-login-resolve.js';
+} from '../auth-login-resolve.js';
 
 function sampleFormPath(id: string): AuthPath {
   return {

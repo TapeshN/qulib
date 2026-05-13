@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
-const pkg = require('../../package.json') as { version: string };
+const pkg = require('../../../package.json') as { version: string };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const cliEntry = resolve(__dirname, 'index.ts');
+const cliEntry = resolve(__dirname, '..', 'index.ts');
 
 test('qulib --version emits the package.json version', () => {
   const result = spawnSync(

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redactUrlForTelemetry } from './emit.js';
+import { redactUrlForTelemetry } from '../emit.js';
 
 test('redactUrlForTelemetry strips query strings (secret tokens cannot leak)', () => {
   assert.equal(

@@ -8,8 +8,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeApp } from './analyze.js';
-import { HarnessConfigSchema, type HarnessConfig } from './schemas/config.schema.js';
+import { analyzeApp } from '../analyze.js';
+import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 
 function integrationHarness(): HarnessConfig {
   return HarnessConfigSchema.parse({
