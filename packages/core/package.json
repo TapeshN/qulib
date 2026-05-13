@@ -48,7 +48,7 @@
     "analyze": "tsx src/cli/index.ts analyze",
     "clean": "tsx src/cli/index.ts clean",
     "build": "tsc",
-    "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts src/tools/gap-engine.test.ts src/tools/auth-block-gap.test.ts src/tools/auth-detector.test.ts src/tools/automation-maturity.test.ts src/cli/auth-login.test.ts src/cli/cli-version.test.ts",
+    "test": "node --import tsx/esm --test src/llm/cost-intelligence.test.ts src/tools/gap-engine.test.ts src/tools/auth-block-gap.test.ts src/tools/auth-detector.test.ts src/tools/automation-maturity.test.ts src/harness/state-manager.test.ts src/telemetry/redact-url.test.ts src/cli/auth-login.test.ts src/cli/cli-version.test.ts",
     "test:integration": "node --import tsx/esm --test src/analyze.integration.test.ts",
     "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral",
     "cost-doctor": "tsx src/cli/index.ts cost doctor"

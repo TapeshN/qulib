@@ -40,6 +40,27 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
 
   const ps = result.publicSurface;
 
+  const repo = result.repoInventory;
+  const repoInventorySummary = repo
+    ? {
+        repoPath: repo.repoPath,
+        scannedAt: repo.scannedAt,
+        routeCount: repo.routes.length,
+        testFileCount: repo.testFiles.length,
+        missingTestIdCount: repo.missingTestIds.length,
+        interactiveTsxFilesScanned: repo.interactiveTsxFilesScanned ?? null,
+        cypressDetected: repo.cypressStructure.detected,
+        ...(repo.framework && {
+          framework: {
+            primary: repo.framework.primary,
+            confidence: repo.framework.confidence,
+            testFrameworks: repo.framework.testFrameworks,
+            evidenceCount: repo.framework.evidence.length,
+          },
+        }),
+      }
+    : null;
+
   return {
     summary: {
       status: result.status,
@@ -86,18 +107,18 @@ export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullRep
       pagesSkipped: result.routeInventory.pagesSkipped,
       budgetExceeded: result.routeInventory.budgetExceeded,
     },
-    ...(result.repoInventory?.automationMaturity && {
+    ...(repo?.automationMaturity && {
       automationMaturitySummary: {
-        overallScore: result.repoInventory.automationMaturity.overallScore,
-        level: result.repoInventory.automationMaturity.level,
-        label: result.repoInventory.automationMaturity.label,
-        topRecommendations: result.repoInventory.automationMaturity.topRecommendations,
+        overallScore: repo.automationMaturity.overallScore,
+        level: repo.automationMaturity.level,
+        label: repo.automationMaturity.label,
+        topRecommendations: repo.automationMaturity.topRecommendations,
       },
     }),
-    repoInventory: result.repoInventory,
+    repoInventorySummary,
     decisionLogPreview: result.decisionLog.slice(-8),
     ...(result.detectedAuth !== undefined && { detectedAuth: result.detectedAuth }),
     includeFullReport: false,
-    note: 'Summary-first payload. Pass includeFullReport: true for full gapAnalysis (all scenarios and generatedTests).',
+    note: 'Summary-first payload. Pass includeFullReport: true for the full gapAnalysis (all scenarios, generated tests) and the full repoInventory (test files, missing test IDs).',
   };
 }

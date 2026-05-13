@@ -59,6 +59,12 @@ const mcpProgressLog: AnalyzeProgressSink = {
   debug: (message: string) => log.debug(message),
 };
 
+// NOTE: MCP `auth` shape intentionally flattens the core `AuthConfigSchema` so an LLM
+// can populate it without nested objects. We translate it back into core's nested
+// `AuthConfig` (with `credentials: { username, password }` and `selectors: { ... }`)
+// before passing it to `analyzeApp` below. If core's `AuthConfigSchema` changes, mirror
+// the change here. Drift is allowed because the surfaces serve different consumers
+// (LLM tool input vs internal harness contract), but the translation must stay 1:1.
 const FormLoginMcpAuthSchema = z.object({
   type: z.literal('form-login'),
   loginUrl: z.string().url(),

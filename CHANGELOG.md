@@ -13,20 +13,31 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 - **@qulib/core:** `qulib --version` now reads from `packages/core/package.json` instead of returning the hardcoded `0.1.0` left over from the initial Commander scaffold.
 - **@qulib/core:** Automation maturity scoring no longer awards silent partial credit for absent capabilities. `component-test-ratio` is `not_applicable` when no Cypress is detected (previously defaulted to `50`). `auth-test-coverage` is `not_applicable` when the repo shows no auth routes, auth-named test files, or auth path coverage (previously hard-coded `25`). `test-id-hygiene` is `unknown` when no interactive TSX files were scanned (previously `100`); when applicable, it now scores on the missing-id **ratio** instead of a raw count.
+- **@qulib/core:** `analyzeApp` reports now honor `HarnessConfig.outputDir`. Previously the `act` phase hard-coded `<cwd>/output` for `report.json` / `report.md` even when `outputDir` was set, despite the [0.4.0] entry claiming output directory support.
+- **@qulib/core:** `qulib auth init` creates the parent directory of `--out` before saving the storage state (parity with `qulib auth login`). Previously a missing intermediate directory failed silently at write time.
+- **@qulib/core:** Telemetry events no longer carry full URLs with query strings or fragments. `scan.started`, `phase.observe.started`, and the observe-phase decision log entry pass URLs through `redactUrlForTelemetry` (origin + pathname only), so secrets embedded in `?token=…` cannot leak via `QULIB_TELEMETRY_STDERR=1`.
 - **@qulib/mcp:** MCP server registration version follows the package version instead of being pinned at `0.4.1`.
+- **@qulib/mcp:** `analyze_app` compact response replaces the full `repoInventory` (which contained unbounded `testFiles` and `missingTestIds` arrays) with a bounded `repoInventorySummary` of counts + framework verdict. The full `repoInventory` is still returned when `includeFullReport: true`.
 
 ### Changed
 
 - **@qulib/core:** `AutomationMaturityDimension` schema gained optional `applicability` (`applicable` | `not_applicable` | `unknown`) and `reason` fields; `AutomationMaturity` gained an optional `scoreFormula` describing the normalization. The overall score is now computed as `round( Σ score·weight / Σ weight )` across applicable dimensions only, so absent or unknown signals cannot drag the headline number down. Changes are additive; existing consumers that don't read the new fields keep working.
 - **@qulib/core:** `RepoAnalysis` gained an optional `interactiveTsxFilesScanned` counter that powers the honest test-id hygiene ratio.
+- **@qulib/core:** New `resolveReportDir(outputDir?)` helper exported next to `resolveScanStateBaseDir`. When `HarnessConfig.outputDir` is set, both scan state and reports share that directory (state and report file names do not overlap); when unset, reports default to `<cwd>/output` and state defaults to `<cwd>/.scan-state` (legacy behavior).
+- **@qulib/core:** New `redactUrlForTelemetry(url)` helper exported from the public API for embedding apps that build their own `TelemetrySink`.
 
 ### Tests
 
-- **@qulib/core:** Added `automation-maturity.test.ts` covering the `applicable` / `not_applicable` / `unknown` branches for each dimension and the applicable-only overall normalization, plus `cli-version.test.ts` asserting `qulib --version` matches `packages/core/package.json`.
+- **@qulib/core:** Added `automation-maturity.test.ts` covering the `applicable` / `not_applicable` / `unknown` branches for each dimension and the applicable-only overall normalization.
+- **@qulib/core:** Added `cli-version.test.ts` asserting `qulib --version` matches `packages/core/package.json`.
+- **@qulib/core:** Added `state-manager.test.ts` covering `resolveReportDir` defaults and the shared-dir contract when `outputDir` is set.
+- **@qulib/core:** Added `redact-url.test.ts` covering query/fragment stripping and graceful fallback for non-URL inputs.
+- **@qulib/mcp:** Extended `compact-analyze-payload.test.ts` to assert the compact payload never carries the raw `testFiles` or `missingTestIds` arrays and that `includeFullReport: true` still ships the full `repoInventory`.
 
 ### Docs
 
-- **@qulib/mcp:** README tools list now documents `qulib_score_automation`, including the `applicability` field on each dimension and the applicable-only normalization.
+- **@qulib/mcp:** README tools list now documents `qulib_score_automation`, including the `applicability` field on each dimension and the applicable-only normalization. Compact vs full response table updated to call out the new `repoInventorySummary`.
+- **@qulib/mcp:** Code comment on the MCP `auth` schemas documents the intentional flat shape vs core's nested `AuthConfigSchema` and the 1:1 translation contract.
 
 ## [0.4.1] — 2026-05-13
 

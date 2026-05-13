@@ -11,6 +11,22 @@ export function resolveScanStateBaseDir(outputDir?: string): string {
   return isAbsolute(outputDir) ? resolve(outputDir) : resolve(process.cwd(), outputDir);
 }
 
+/**
+ * Where qulib writes `report.json` and `report.md` for non-ephemeral runs.
+ *
+ * When `outputDir` is set in HarnessConfig, both scan state and reports share that
+ * directory (state files and report files have non-overlapping names). When unset,
+ * reports default to `<cwd>/output` (the legacy default) while state defaults to
+ * `<cwd>/.scan-state` — separate so a casual `git add output/` doesn't accidentally
+ * commit scan state.
+ */
+export function resolveReportDir(outputDir?: string): string {
+  if (outputDir === undefined || outputDir === '') {
+    return join(process.cwd(), 'output');
+  }
+  return isAbsolute(outputDir) ? resolve(outputDir) : resolve(process.cwd(), outputDir);
+}
+
 export class StateManager {
   private readonly stateDir: string;
 

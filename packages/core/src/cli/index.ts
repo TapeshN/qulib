@@ -339,6 +339,7 @@ authCmd
     const fs = await import('node:fs/promises');
     const pathMod = await import('node:path');
     const outPath = pathMod.resolve(options.out);
+    await fs.mkdir(pathMod.dirname(outPath), { recursive: true });
     await context.storageState({ path: outPath });
 
     console.log(`\n[qulib] Saved storage state to ${outPath}`);

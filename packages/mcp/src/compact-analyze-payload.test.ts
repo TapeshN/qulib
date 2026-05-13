@@ -108,3 +108,72 @@ test('buildCompactAnalyzePayload summary includes publicSurface counts when pres
   assert.equal(out.summary.publicSurface.accessibilityViolationCount, 1);
   assert.equal(out.summary.publicSurface.brokenLinkCount, 1);
 });
+
+test('buildCompactAnalyzePayload replaces repoInventory with a bounded repoInventorySummary in compact mode', () => {
+  const r = minimalResult();
+  r.repoInventory = {
+    scannedAt: new Date().toISOString(),
+    repoPath: '/tmp/repo',
+    routes: Array.from({ length: 50 }, (_, i) => ({
+      path: `/route-${i}`,
+      file: `app/route-${i}/page.tsx`,
+      method: 'GET' as const,
+    })),
+    testFiles: Array.from({ length: 200 }, (_, i) => ({
+      file: `tests/test-${i}.spec.ts`,
+      type: 'playwright' as const,
+      coveredPaths: [`/route-${i % 10}`],
+    })),
+    missingTestIds: Array.from({ length: 300 }, (_, i) => `src/components/comp-${i}.tsx`),
+    interactiveTsxFilesScanned: 350,
+    cypressStructure: {
+      detected: false,
+      hasCommandsFile: false,
+      existingE2eFiles: [],
+      existingComponentFiles: [],
+    },
+    framework: {
+      primary: 'nextjs-app-router',
+      confidence: 'high',
+      evidence: ['read package.json', 'found next.config.*', 'Next.js app/ directory present'],
+      testFrameworks: ['playwright'],
+    },
+  };
+  const out = buildCompactAnalyzePayload(r, false) as Record<string, unknown>;
+  assert.equal((out as { repoInventory?: unknown }).repoInventory, undefined);
+  const summary = out.repoInventorySummary as Record<string, unknown>;
+  assert.ok(summary, 'repoInventorySummary is present');
+  assert.equal(summary.routeCount, 50);
+  assert.equal(summary.testFileCount, 200);
+  assert.equal(summary.missingTestIdCount, 300);
+  assert.equal(summary.interactiveTsxFilesScanned, 350);
+  assert.equal(summary.cypressDetected, false);
+  const framework = summary.framework as Record<string, unknown>;
+  assert.equal(framework.primary, 'nextjs-app-router');
+  assert.equal(framework.evidenceCount, 3);
+  // Hard-bounded: the compact payload must NEVER carry the raw testFiles or missingTestIds arrays.
+  const serialized = JSON.stringify(out);
+  assert.ok(!serialized.includes('tests/test-0.spec.ts'), 'testFiles array must not leak into compact payload');
+  assert.ok(!serialized.includes('comp-0.tsx'), 'missingTestIds array must not leak into compact payload');
+});
+
+test('buildCompactAnalyzePayload returns the full repoInventory when includeFullReport is true', () => {
+  const r = minimalResult();
+  r.repoInventory = {
+    scannedAt: new Date().toISOString(),
+    repoPath: '/tmp/repo',
+    routes: [],
+    testFiles: [{ file: 'tests/a.spec.ts', type: 'playwright', coveredPaths: ['/'] }],
+    missingTestIds: ['src/components/foo.tsx'],
+    cypressStructure: {
+      detected: false,
+      hasCommandsFile: false,
+      existingE2eFiles: [],
+      existingComponentFiles: [],
+    },
+  };
+  const out = buildCompactAnalyzePayload(r, true);
+  assert.equal(out, r);
+  const serialized = JSON.stringify(out);
+  assert.ok(serialized.includes('tests/a.spec.ts'), 'full report still ships the testFiles array');
+});
