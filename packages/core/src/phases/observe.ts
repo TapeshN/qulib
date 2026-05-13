@@ -6,7 +6,7 @@ import { scanRepo } from '../tools/repo-scanner.js';
 import { StateManager } from '../harness/state-manager.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
-import { emitTelemetry } from '../telemetry/emit.js';
+import { emitTelemetry, redactUrlForTelemetry } from '../telemetry/emit.js';
 
 export interface ObserveResult {
   routes: RouteInventory;
@@ -29,7 +29,7 @@ export async function observe(
   };
 
   emitTelemetry(artifacts.telemetry, 'phase.observe.started', sessionId, {
-    baseUrl,
+    baseUrl: redactUrlForTelemetry(baseUrl),
     hasRepoPath: Boolean(repoPath),
   });
 
@@ -46,7 +46,7 @@ export async function observe(
       decision: 'exploration-complete',
       reason: `Discovered ${routes.routes.length} routes; budgetExceeded=${routes.budgetExceeded}`,
       metadata: {
-        baseUrl,
+        baseUrl: redactUrlForTelemetry(baseUrl),
         scannedRoutes: routes.routes.length,
         budgetExceeded: routes.budgetExceeded,
         pagesSkipped: routes.pagesSkipped,

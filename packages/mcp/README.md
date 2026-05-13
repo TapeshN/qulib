@@ -31,6 +31,7 @@ Tools:
 - **`explore_auth(url, timeoutMs?)`** — list all sign-in paths (OAuth, unknown SSO heuristics, forms, magic link) and what the agent must collect before `analyze_app`. Prefer this on unfamiliar apps.
 - **`analyze_app`** — quality scan (optional form-login or storage-state auth). **Default payload is summary-first:** `summary`, `topGaps`, `costIntelligenceSummary`, `nextDeterministicChecks`, small previews. Set **`includeFullReport: true`** for the full `analyzeApp` result (all scenarios). Optional harness overrides: **`llmMaxOutputTokensPerCall`**, **`llmTokenBudget`** (legacy), **`testGenerationLimit`**, **`enableLlmScenarios`** (default true when omitted).
 - **`detect_auth(url, timeoutMs?)`** — single-pattern auth guess with a short recommendation (lighter than `explore_auth`).
+- **`qulib_score_automation(repoPath, includeFullDimensions?)`** — score a local automation repo across six dimensions (test coverage breadth, framework adoption, test-id hygiene, CI integration, auth test coverage, component test ratio). Returns an overall 0–100 score, maturity level (L1–L5), and top recommendations. Each dimension carries an **`applicability`** field (`applicable` / `not_applicable` / `unknown`); the overall score normalizes across applicable dimensions only so absent capabilities never get silent partial credit. **`repoPath`** must be an absolute path on the MCP host. Pass **`includeFullDimensions: true`** for per-dimension evidence and reasons.
 
 Returns from `analyze_app`:
 
@@ -87,8 +88,10 @@ When the model sees **`unrecognizedButtons`**, it can ask the user to register a
 
 | | Default (`includeFullReport` omitted or false) | `includeFullReport: true` |
 |--|--|--|
-| Size | Small: top gaps, cost summary, next checks | Full `gapAnalysis` with every scenario |
+| Size | Small: top gaps, cost summary, next checks, `repoInventorySummary` (counts only) | Full `gapAnalysis` (all scenarios) and full `repoInventory` (test files, missing test IDs) |
 | When to use | Routine agent turns, chat context limits | Deep dives, exporting full scenario JSON |
+
+> **0.4.2 note:** The compact response now ships `repoInventorySummary` (route/test/missing-id counts plus framework verdict) instead of the full `repoInventory`. Agents that need the raw `testFiles` or `missingTestIds` arrays should pass `includeFullReport: true`.
 
 Example (full):
 

@@ -63,6 +63,7 @@ export const RepoAnalysisSchema = z.object({
   routes: z.array(RepoRouteSchema),
   testFiles: z.array(TestFileSchema),
   missingTestIds: z.array(z.string()),
+  interactiveTsxFilesScanned: z.number().int().min(0).optional(),
   cypressStructure: CypressStructureSchema,
   framework: FrameworkDetectionSchema.optional(),
   automationMaturity: AutomationMaturitySchema.optional(),

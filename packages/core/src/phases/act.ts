@@ -6,7 +6,7 @@ import { writeMarkdownReport } from '../reporters/markdown-reporter.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
 import { emitTelemetry } from '../telemetry/emit.js';
-import { resolveScanStateBaseDir } from '../harness/state-manager.js';
+import { resolveReportDir, resolveScanStateBaseDir } from '../harness/state-manager.js';
 
 export async function act(
   analysis: GapAnalysis,
@@ -14,7 +14,7 @@ export async function act(
   artifacts: RunArtifactsOptions = { writeArtifacts: true }
 ): Promise<void> {
   const sessionId = artifacts.telemetrySessionId ?? 'none';
-  const reportDir = join(process.cwd(), 'output');
+  const reportDir = resolveReportDir(config.outputDir);
   const logOpts = {
     persist: artifacts.writeArtifacts,
     memory: artifacts.decisionMemory,
@@ -67,7 +67,7 @@ export async function act(
   if (config.requireHumanReview) {
     log('\n[qulib] Human review required before applying any generated output.');
     if (artifacts.writeArtifacts) {
-      log('  Reports:   output/report.json and output/report.md');
+      log(`  Reports:   ${join(reportDir, 'report.json')} and ${join(reportDir, 'report.md')}`);
       log(`  Decisions: ${join(resolveScanStateBaseDir(config.outputDir), 'decision-log.json')}`);
     } else {
       log('  Ephemeral run: inspect JSON printed to stdout (no files written).');

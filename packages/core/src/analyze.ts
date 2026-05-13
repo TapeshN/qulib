@@ -16,7 +16,7 @@ import { buildAuthBlockGap } from './tools/auth-block-gap.js';
 import { finalizeGapAnalysisFromDraft, type GapAnalysisDraft } from './phases/think-finalize.js';
 import type { AnalyzeProgressSink } from './harness/progress-log.js';
 import type { TelemetrySink } from './telemetry/telemetry.interface.js';
-import { emitTelemetry } from './telemetry/emit.js';
+import { emitTelemetry, redactUrlForTelemetry } from './telemetry/emit.js';
 
 export type AnalyzeStatus = 'complete' | 'blocked' | 'partial';
 
@@ -73,7 +73,7 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   };
 
   emitTelemetry(options.telemetry, 'scan.started', sessionId, {
-    url: options.url,
+    url: redactUrlForTelemetry(options.url),
     maxPagesToScan: options.config.maxPagesToScan,
     hasAuth: Boolean(options.config.auth),
   });

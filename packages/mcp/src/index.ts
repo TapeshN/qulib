@@ -9,9 +9,13 @@
 // Today: all tools are equally trusted. Future: read-only tools (detect_auth, explore_auth)
 // vs. write-capable tools (analyze_app with writeArtifacts) should carry different trust levels.
 
+import { createRequire } from 'node:module';
 import { isAbsolute, normalize, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const requirePkg = createRequire(import.meta.url);
+const pkg = requirePkg('../package.json') as { version: string };
 import {
   analyzeApp,
   detectAuth,
@@ -55,6 +59,12 @@ const mcpProgressLog: AnalyzeProgressSink = {
   debug: (message: string) => log.debug(message),
 };
 
+// NOTE: MCP `auth` shape intentionally flattens the core `AuthConfigSchema` so an LLM
+// can populate it without nested objects. We translate it back into core's nested
+// `AuthConfig` (with `credentials: { username, password }` and `selectors: { ... }`)
+// before passing it to `analyzeApp` below. If core's `AuthConfigSchema` changes, mirror
+// the change here. Drift is allowed because the surfaces serve different consumers
+// (LLM tool input vs internal harness contract), but the translation must stay 1:1.
 const FormLoginMcpAuthSchema = z.object({
   type: z.literal('form-login'),
   loginUrl: z.string().url(),
@@ -105,7 +115,7 @@ function validateAbsoluteRepoPath(repoPath: string): string {
 const mcpServer = new McpServer(
   {
     name: 'qulib-mcp',
-    version: '0.4.1',
+    version: pkg.version,
     description:
       'Qulib QA intelligence platform — gap analysis, auth exploration, and quality scoring for deployed web applications',
   },

@@ -6,7 +6,7 @@ export { scanRepo } from './tools/repo-scanner.js';
 export { computeAutomationMaturity } from './tools/automation-maturity.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
-export { resolveScanStateBaseDir } from './harness/state-manager.js';
+export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';
 export type { AnalyzeOptions, AnalyzeResult, AnalyzeStatus } from './analyze.js';
 export type { AnalyzeProgressSink } from './harness/progress-log.js';
 export type {
@@ -15,6 +15,7 @@ export type {
   TelemetryEventKind,
 } from './telemetry/telemetry.interface.js';
 export { NoopTelemetrySink } from './telemetry/telemetry.interface.js';
+export { redactUrlForTelemetry } from './telemetry/emit.js';
 export type { LlmCallResult, LlmProvider } from './llm/provider.interface.js';
 export type { CallLlmConfigSlice } from './llm/provider.js';
 export type {
