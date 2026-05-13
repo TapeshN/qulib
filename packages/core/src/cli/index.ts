@@ -43,10 +43,13 @@ function redactConfigForLog(config: HarnessConfig): Record<string, unknown> {
     base.auth = {
       ...config.auth,
       credentials: {
-        username: config.auth.credentials.username,
+        username: '***',
         password: '***',
       },
     };
+  }
+  if (config.auth?.type === 'storage-state') {
+    base.auth = { type: 'storage-state', path: '<provided>' };
   }
   return base;
 }

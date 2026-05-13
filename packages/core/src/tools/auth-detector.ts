@@ -1,9 +1,25 @@
 import { resolve } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import type { AuthPath, DetectedAuth } from '../schemas/config.schema.js';
 import type { AnalyzeProgressSink } from '../harness/progress-log.js';
 import { launchBrowser } from './browser.js';
 import { BUILT_IN_OAUTH_PROVIDERS } from './oauth-providers.js';
+
+export type StorageStateInvalidReason =
+  | 'missing-file'
+  | 'unreadable-file'
+  | 'invalid-json'
+  | 'wrong-origin'
+  | 'expired-or-unauthorized'
+  | 'no-auth-cookies'
+  | 'unknown';
+
+export interface StorageStateValidationResult {
+  valid: boolean;
+  reasonCode: StorageStateInvalidReason | 'ok';
+  reason: string;
+}
 
 async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
   try {
@@ -270,17 +286,92 @@ export function evaluateStorageStateValidity(signals: {
   finalUrl: string;
   visiblePasswordCount: number;
   hadUnauthorizedHttp: boolean;
-}): { valid: boolean; reason: string } {
-  if (new URL(signals.finalUrl).origin !== signals.expectedOrigin) {
-    return { valid: false, reason: 'session redirected to external IdP' };
+}): StorageStateValidationResult {
+  let finalOrigin: string | null = null;
+  try {
+    finalOrigin = new URL(signals.finalUrl).origin;
+  } catch {
+    finalOrigin = null;
+  }
+  if (finalOrigin === null || finalOrigin !== signals.expectedOrigin) {
+    return {
+      valid: false,
+      reasonCode: 'wrong-origin',
+      reason: 'session redirected to a different origin than the target app',
+    };
   }
   if (signals.visiblePasswordCount > 0) {
-    return { valid: false, reason: 'login form still visible after loading storage state' };
+    return {
+      valid: false,
+      reasonCode: 'expired-or-unauthorized',
+      reason: 'login form still visible after loading storage state (session likely expired)',
+    };
   }
   if (signals.hadUnauthorizedHttp) {
-    return { valid: false, reason: 'HTTP 401/403 on authenticated request' };
+    return {
+      valid: false,
+      reasonCode: 'expired-or-unauthorized',
+      reason: 'HTTP 401/403 on authenticated request (session likely expired or invalid)',
+    };
   }
-  return { valid: true, reason: 'session appears active' };
+  return { valid: true, reasonCode: 'ok', reason: 'session appears active' };
+}
+
+interface ParsedStorageState {
+  cookies?: unknown[];
+  origins?: Array<{ origin?: string; localStorage?: unknown[] }>;
+}
+
+export async function preflightStorageStateFile(
+  storagePath: string
+): Promise<StorageStateValidationResult | null> {
+  let exists = false;
+  try {
+    const s = await stat(storagePath);
+    exists = s.isFile();
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    return {
+      valid: false,
+      reasonCode: 'missing-file',
+      reason: 'storage state file does not exist',
+    };
+  }
+  let raw: string;
+  try {
+    raw = await readFile(storagePath, 'utf8');
+  } catch {
+    return {
+      valid: false,
+      reasonCode: 'unreadable-file',
+      reason: 'storage state file is not readable',
+    };
+  }
+  let parsed: ParsedStorageState;
+  try {
+    parsed = JSON.parse(raw) as ParsedStorageState;
+  } catch {
+    return {
+      valid: false,
+      reasonCode: 'invalid-json',
+      reason: 'storage state file is not valid JSON',
+    };
+  }
+  const cookieCount = Array.isArray(parsed?.cookies) ? parsed.cookies.length : 0;
+  const originEntries = Array.isArray(parsed?.origins) ? parsed.origins : [];
+  const localStorageEntryCount = originEntries.reduce<number>((sum, entry) => {
+    return sum + (Array.isArray(entry?.localStorage) ? entry.localStorage.length : 0);
+  }, 0);
+  if (cookieCount === 0 && localStorageEntryCount === 0) {
+    return {
+      valid: false,
+      reasonCode: 'no-auth-cookies',
+      reason: 'storage state file contains no cookies and no localStorage entries',
+    };
+  }
+  return null;
 }
 
 export async function waitForReturnToOrigin(
@@ -308,11 +399,26 @@ export async function validateStorageState(
   url: string,
   storagePath: string,
   timeoutMs = 10000
-): Promise<{ valid: boolean; reason: string }> {
-  const storageAbs = resolve(process.cwd(), storagePath);
-  const expectedOrigin = new URL(url).origin;
-  let hadUnauthorizedHttp = false;
+): Promise<StorageStateValidationResult> {
+  let expectedOrigin: string;
+  try {
+    expectedOrigin = new URL(url).origin;
+  } catch {
+    return {
+      valid: false,
+      reasonCode: 'unknown',
+      reason: 'target URL could not be parsed for origin matching',
+    };
+  }
 
+  const storageAbs = resolve(process.cwd(), storagePath);
+
+  const preflight = await preflightStorageStateFile(storageAbs);
+  if (preflight !== null) {
+    return preflight;
+  }
+
+  let hadUnauthorizedHttp = false;
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext({ storageState: storageAbs });
@@ -324,11 +430,22 @@ export async function validateStorageState(
       }
     });
 
-    await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+    try {
+      await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+    } catch {
+      return {
+        valid: false,
+        reasonCode: 'unknown',
+        reason: 'navigation to target URL failed while validating storage state',
+      };
+    }
     await waitNetworkIdleBestEffort(page);
 
     const finalUrl = page.url();
-    const visiblePasswordCount = await page.locator('input[type="password"]:visible').count();
+    const visiblePasswordCount = await page
+      .locator('input[type="password"]:visible')
+      .count()
+      .catch(() => 0);
 
     return evaluateStorageStateValidity({
       expectedOrigin,

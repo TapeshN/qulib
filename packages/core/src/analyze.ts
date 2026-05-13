@@ -8,11 +8,11 @@ import { PublicSurfaceSchema, type PublicSurface } from './schemas/public-surfac
 import { observe } from './phases/observe.js';
 import { think } from './phases/think.js';
 import { act } from './phases/act.js';
-import { detectAuth } from './tools/auth-detector.js';
+import { detectAuth, validateStorageState } from './tools/auth-detector.js';
 import { analyzeGaps, computeCoverageScore, computeQualityScoreFromGaps } from './tools/gap-engine.js';
 import { analyzeAuthSurfaceGaps } from './tools/auth-surface-analyzer.js';
 import { buildPublicSurface } from './tools/public-surface.js';
-import { buildAuthBlockGap } from './tools/auth-block-gap.js';
+import { buildAuthBlockGap, buildStorageStateInvalidGap } from './tools/auth-block-gap.js';
 import { finalizeGapAnalysisFromDraft, type GapAnalysisDraft } from './phases/think-finalize.js';
 import type { AnalyzeProgressSink } from './harness/progress-log.js';
 import type { TelemetrySink } from './telemetry/telemetry.interface.js';
@@ -79,6 +79,109 @@ export async function analyzeApp(options: AnalyzeOptions): Promise<AnalyzeResult
   });
 
   progress?.info(`Starting scan → ${options.url} maxPagesToScan=${options.config.maxPagesToScan}`);
+
+  if (options.config.auth?.type === 'storage-state') {
+    progress?.info('Validating provided storage state before crawl…');
+    const validation = await validateStorageState(
+      options.url,
+      options.config.auth.path,
+      options.config.timeoutMs
+    );
+
+    let targetOriginForTelemetry: string;
+    try {
+      targetOriginForTelemetry = new URL(options.url).origin;
+    } catch {
+      targetOriginForTelemetry = '[unparseable-target-url]';
+    }
+    emitTelemetry(options.telemetry, 'auth.storage-state.validated', sessionId, {
+      targetOrigin: targetOriginForTelemetry,
+      valid: validation.valid,
+      reasonCode: validation.reasonCode,
+      storageStateProvided: true,
+    });
+
+    if (!validation.valid) {
+      progress?.warn(
+        `Storage state rejected (${validation.reasonCode}): ${validation.reason}. Skipping crawl.`
+      );
+
+      decisionLog.push({
+        timestamp: new Date().toISOString(),
+        phase: 'observe',
+        decision: 'storage-state-invalid',
+        reason: `${validation.reasonCode}: ${validation.reason}`,
+        metadata: {
+          reasonCode: validation.reasonCode,
+          targetOrigin: targetOriginForTelemetry,
+        },
+      });
+
+      const invalidGap = buildStorageStateInvalidGap({
+        url: options.url,
+        reasonCode: validation.reasonCode === 'ok' ? 'unknown' : validation.reasonCode,
+        reason: validation.reason,
+      });
+
+      const draft: GapAnalysisDraft = {
+        analyzedAt: new Date().toISOString(),
+        mode: 'auth-required',
+        releaseConfidence: 0,
+        coveragePagesScanned: 0,
+        coverageBudgetExceeded: false,
+        coverageWarning: 'auth-required',
+        gaps: [invalidGap],
+      };
+
+      const costContext: Pick<
+        GapAnalysis,
+        'mode' | 'coveragePagesScanned' | 'releaseConfidence' | 'gaps'
+      > = {
+        mode: 'auth-required',
+        coveragePagesScanned: 0,
+        releaseConfidence: 0,
+        gaps: [invalidGap],
+      };
+
+      const gapAnalysis = await finalizeGapAnalysisFromDraft(
+        draft,
+        options.config,
+        artifacts,
+        costContext
+      );
+
+      const emptyAuthRoutes = RouteInventorySchema.parse({
+        scannedAt: new Date().toISOString(),
+        baseUrl: options.url,
+        routes: [],
+        pagesSkipped: 0,
+        budgetExceeded: false,
+      });
+
+      await act(gapAnalysis, options.config, artifacts);
+
+      const blockedResult: AnalyzeResult = {
+        status: 'blocked',
+        coverageScore: null,
+        releaseConfidence: 0,
+        gaps: gapAnalysis.gaps,
+        gapAnalysis,
+        routeInventory: emptyAuthRoutes,
+        repoInventory: null,
+        decisionLog,
+        publicSurface: null,
+      };
+      logScanEnd(progress, blockedResult);
+      emitTelemetry(options.telemetry, 'scan.blocked', sessionId, {
+        status: blockedResult.status,
+        coverageScore: blockedResult.coverageScore,
+        releaseConfidence: blockedResult.releaseConfidence,
+        gapCount: blockedResult.gaps.length,
+        reasonCode: validation.reasonCode,
+      });
+      return blockedResult;
+    }
+  }
 
   let detectedAuth: DetectedAuth | undefined;
   let authWall = false;

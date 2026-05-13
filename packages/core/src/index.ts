@@ -1,5 +1,15 @@
 export { analyzeApp } from './analyze.js';
-export { detectAuth } from './tools/auth-detector.js';
+export {
+  detectAuth,
+  validateStorageState,
+  evaluateStorageStateValidity,
+  preflightStorageStateFile,
+  waitForReturnToOrigin,
+} from './tools/auth-detector.js';
+export type {
+  StorageStateInvalidReason,
+  StorageStateValidationResult,
+} from './tools/auth-detector.js';
 export { exploreAuth } from './tools/auth-explorer.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
 export { scanRepo } from './tools/repo-scanner.js';

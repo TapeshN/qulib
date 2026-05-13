@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { AuthPath } from '../schemas/config.schema.js';
 import { BUILT_IN_OAUTH_PROVIDERS } from '../tools/oauth-providers.js';
+import { waitForReturnToOrigin } from '../tools/auth-detector.js';
 
 const builtInOAuthIds = new Set(BUILT_IN_OAUTH_PROVIDERS.map((p) => p.id));
 
@@ -122,9 +123,33 @@ export async function runAutomatedAuthLogin(params: {
       }
     }
 
+    const originReturn = await waitForReturnToOrigin(page, params.baseUrlHint, params.timeoutMs);
+    if (!originReturn.returned) {
+      let targetOrigin = '<unknown>';
+      let finalOrigin = '<unknown>';
+      try {
+        targetOrigin = new URL(params.baseUrlHint).origin;
+      } catch {
+        /* targetOrigin stays <unknown> */
+      }
+      try {
+        finalOrigin = new URL(originReturn.finalUrl).origin;
+      } catch {
+        /* finalOrigin stays <unknown> */
+      }
+      throw new Error(
+        `Login flow did not return to the app origin (expected ${targetOrigin}, final ${finalOrigin}). ` +
+          `Refusing to save the storage state — it would belong to the wrong domain and produce ` +
+          `false-confidence scans. Retry the login (the federated provider may need a redirect tweak) ` +
+          `or capture the session manually with \`qulib auth init --base-url ${params.baseUrlHint}\`.`
+      );
+    }
+
     if (!confirmed) {
       console.error(
-        '[qulib] Could not confirm login success. Storage state saved; verify manually before relying on it.'
+        '[qulib] Could not confirm login success heuristically, but the browser ended on the app origin. ' +
+          'Storage state will be saved; verify the session before relying on it (run `qulib analyze` ' +
+          'and check that releaseConfidence is not null).'
       );
     }
 
