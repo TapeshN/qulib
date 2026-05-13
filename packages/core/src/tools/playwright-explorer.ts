@@ -2,7 +2,7 @@ import type { BrowserContext } from '@playwright/test';
 import { launchBrowser } from './browser.js';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { AppExplorer } from './explorer.interface.js';
-import { createAuthenticatedContext } from './auth.js';
+import { createAuthenticatedContext } from './apply-auth.js';
 import { RouteInventorySchema, type RouteInventory, type Route } from '../schemas/route-inventory.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
