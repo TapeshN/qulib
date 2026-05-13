@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import type { DetectedAuth } from '../schemas/config.schema.js';
 import type { AnalyzeProgressSink } from '../harness/progress-log.js';
 import { launchBrowser } from './browser.js';
+import { BUILT_IN_OAUTH_PROVIDERS } from './oauth-providers.js';
 
 async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
   try {
@@ -11,30 +12,21 @@ async function waitNetworkIdleBestEffort(page: Page): Promise<void> {
   }
 }
 
-const OAUTH_PROVIDERS: Array<{ provider: string; patterns: RegExp[] }> = [
-  { provider: 'github', patterns: [/github/i, /sign in with github/i] },
-  {
-    provider: 'google',
-    patterns: [/google/i, /sign in with google/i, /accounts\.google\.com/i],
-  },
-  {
-    provider: 'microsoft',
-    patterns: [/microsoft/i, /sign in with microsoft/i, /login\.microsoftonline\.com/i],
-  },
-  { provider: 'apple', patterns: [/apple/i, /sign in with apple/i] },
-  { provider: 'auth0', patterns: [/auth0/i] },
-  { provider: 'okta', patterns: [/okta/i] },
-];
+const PROVIDER_LABELS = new Set(BUILT_IN_OAUTH_PROVIDERS.map((p) => p.label.toLowerCase()));
 
 function textLooksLikeOAuthIdpButton(text: string): boolean {
   const t = text.trim();
   if (t.length === 0 || t.length > 120) {
     return false;
   }
-  return (
-    /\b(sign in with|log in with|continue with|sign up with)\b/i.test(t) ||
-    /^(github|google|microsoft|apple)$/i.test(t)
-  );
+  if (/\b(sign in with|log in with|continue with|sign up with)\b/i.test(t)) {
+    return true;
+  }
+  // Accept single-word / short labels that exactly match a known provider name
+  if (PROVIDER_LABELS.has(t.toLowerCase())) {
+    return true;
+  }
+  return false;
 }
 
 const MAGIC_LINK_PATTERNS = [
@@ -120,16 +112,22 @@ export async function detectAuth(
         }
         continue;
       }
-      for (const { provider, patterns } of OAUTH_PROVIDERS) {
+      let matchedAny = false;
+      for (const { id, patterns } of BUILT_IN_OAUTH_PROVIDERS) {
         const matched = patterns.some((p) => p.test(trimmed));
         if (debugAuth()) {
-          progress?.debug(`detect_auth oauth pattern try provider=${provider} matched=${matched}`);
+          progress?.debug(`detect_auth oauth pattern try provider=${id} matched=${matched}`);
         }
         if (matched) {
-          if (!oauthButtons.find((b) => b.provider === provider)) {
-            oauthButtons.push({ provider, text: trimmed.slice(0, 100) });
+          if (!oauthButtons.find((b) => b.provider === id)) {
+            oauthButtons.push({ provider: id, text: trimmed.slice(0, 100) });
           }
+          matchedAny = true;
         }
+      }
+      // Capture unrecognized SSO-like buttons so they appear in the result
+      if (!matchedAny && !oauthButtons.find((b) => b.text === trimmed.slice(0, 100))) {
+        oauthButtons.push({ provider: 'unknown', text: trimmed.slice(0, 100) });
       }
     }
 
