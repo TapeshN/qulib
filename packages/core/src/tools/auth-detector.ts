@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
 import type { AuthPath, DetectedAuth } from '../schemas/config.schema.js';
 import type { AnalyzeProgressSink } from '../harness/progress-log.js';
@@ -191,6 +192,8 @@ async function probeClickToRevealForms(
     seenLabels.add(label);
     candidateAttempts += 1;
 
+    const originBefore = new URL(page.url()).origin;
+
     if (debugAuth()) {
       progress?.debug(`detect_auth click-reveal try label="${label.slice(0, 80)}"`);
     }
@@ -216,7 +219,23 @@ async function probeClickToRevealForms(
     }
 
     try {
-      await page.locator('input[type="password"]').first().waitFor({ state: 'visible', timeout: 2000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 });
+    } catch {
+      /* best-effort after navigation */
+    }
+    if (new URL(page.url()).origin !== originBefore) {
+      if (debugAuth()) {
+        progress?.debug(
+          `detect_auth click-reveal aborted (cross-origin after click): was ${originBefore} now ${new URL(page.url()).origin}`
+        );
+      }
+      await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+      await waitNetworkIdleBestEffort(page);
+      continue;
+    }
+
+    try {
+      await page.locator('input[type="password"]:visible').first().waitFor({ state: 'visible', timeout: 2000 });
     } catch {
       await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
       await waitNetworkIdleBestEffort(page);
@@ -246,6 +265,82 @@ async function probeClickToRevealForms(
   return out;
 }
 
+export function evaluateStorageStateValidity(signals: {
+  expectedOrigin: string;
+  finalUrl: string;
+  visiblePasswordCount: number;
+  hadUnauthorizedHttp: boolean;
+}): { valid: boolean; reason: string } {
+  if (new URL(signals.finalUrl).origin !== signals.expectedOrigin) {
+    return { valid: false, reason: 'session redirected to external IdP' };
+  }
+  if (signals.visiblePasswordCount > 0) {
+    return { valid: false, reason: 'login form still visible after loading storage state' };
+  }
+  if (signals.hadUnauthorizedHttp) {
+    return { valid: false, reason: 'HTTP 401/403 on authenticated request' };
+  }
+  return { valid: true, reason: 'session appears active' };
+}
+
+export async function waitForReturnToOrigin(
+  page: Page,
+  baseUrl: string,
+  timeoutMs = 15000
+): Promise<{ returned: boolean; finalUrl: string }> {
+  const targetOrigin = new URL(baseUrl).origin;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const finalUrl = page.url();
+    try {
+      if (new URL(finalUrl).origin === targetOrigin) {
+        return { returned: true, finalUrl };
+      }
+    } catch {
+      /* ignore transient invalid URLs */
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return { returned: false, finalUrl: page.url() };
+}
+
+export async function validateStorageState(
+  url: string,
+  storagePath: string,
+  timeoutMs = 10000
+): Promise<{ valid: boolean; reason: string }> {
+  const storageAbs = resolve(process.cwd(), storagePath);
+  const expectedOrigin = new URL(url).origin;
+  let hadUnauthorizedHttp = false;
+
+  const browser = await launchBrowser();
+  try {
+    const context = await browser.newContext({ storageState: storageAbs });
+    const page = await context.newPage();
+    page.on('response', (res) => {
+      const s = res.status();
+      if (s === 401 || s === 403) {
+        hadUnauthorizedHttp = true;
+      }
+    });
+
+    await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+    await waitNetworkIdleBestEffort(page);
+
+    const finalUrl = page.url();
+    const visiblePasswordCount = await page.locator('input[type="password"]:visible').count();
+
+    return evaluateStorageStateValidity({
+      expectedOrigin,
+      finalUrl,
+      visiblePasswordCount,
+      hadUnauthorizedHttp,
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
 export async function detectAuth(
   url: string,
   timeoutMs = 15000,
@@ -269,7 +364,7 @@ export async function detectAuth(
     let loginUrl = url;
     const looksLikeLoginPage =
       /login|sign[- ]?in|auth/i.test(page.url()) ||
-      (await page.locator('input[type="password"]').count()) > 0;
+      (await page.locator('input[type="password"]:visible').count()) > 0;
 
     if (!looksLikeLoginPage) {
       const loginLink = page.locator('a').filter({ hasText: /^(log ?in|sign ?in|sign in)$/i }).first();
@@ -286,7 +381,7 @@ export async function detectAuth(
       }
     }
 
-    const passwordInputs = page.locator('input[type="password"]');
+    const passwordInputs = page.locator('input[type="password"]:visible');
     const passwordCount = await passwordInputs.count();
     progress?.debug(`detect_auth selector input[type=password] count=${passwordCount}`);
     const hasFormLogin = passwordCount > 0;
@@ -315,16 +410,19 @@ export async function detectAuth(
           matchedAny = true;
         }
       }
-      // Capture unrecognized SSO-like buttons so they appear in the result
-      if (!matchedAny && !oauthButtons.find((b) => b.text === trimmed.slice(0, 100))) {
-        oauthButtons.push({ provider: 'unknown', text: trimmed.slice(0, 100) });
+      if (!matchedAny) {
+        const builtIn = BUILT_IN_OAUTH_PROVIDERS.find((p) => p.label.toLowerCase() === trimmed.toLowerCase());
+        if (builtIn) {
+          if (!oauthButtons.find((b) => b.provider === builtIn.id)) {
+            oauthButtons.push({ provider: builtIn.id, text: trimmed.slice(0, 100) });
+          }
+        } else if (!oauthButtons.find((b) => b.text === trimmed.slice(0, 100))) {
+          oauthButtons.push({ provider: 'unknown', text: trimmed.slice(0, 100) });
+        }
       }
     }
 
-    // Only skip buttons already tied to a built-in IdP — leave `unknown` labels probe-able for click-to-reveal forms.
-    const skipProbeLabels = new Set(
-      oauthButtons.filter((b) => b.provider !== 'unknown').map((b) => b.text.trim())
-    );
+    const skipProbeLabels = new Set(oauthButtons.map((b) => b.text.trim()));
     const clickRevealForms = await probeClickToRevealForms(page, loginUrl, skipProbeLabels, timeoutMs, progress);
 
     const pageText = await page.locator('body').innerText().catch(() => '');
