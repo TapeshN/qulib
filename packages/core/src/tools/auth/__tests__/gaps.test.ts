@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAuthBlockGap, buildStorageStateInvalidGap } from '../block-gap.js';
+import { buildAuthBlockGap, buildStorageStateInvalidGap } from '../gaps.js';
 
 test('buildAuthBlockGap matches coverage auth-block contract', () => {
   const g = buildAuthBlockGap('https://platform.example.com/login');

@@ -2,7 +2,7 @@ import type { HarnessConfig } from '../schemas/config.schema.js';
 import { RouteInventorySchema, type RouteInventory } from '../schemas/route-inventory.schema.js';
 import { RepoAnalysisSchema, type RepoAnalysis } from '../schemas/repo-analysis.schema.js';
 import { createExplorer } from '../tools/explorers/factory.js';
-import { scanRepo } from '../tools/repo/scanner.js';
+import { scanRepo } from '../tools/repo/scan.js';
 import { StateManager } from '../harness/state-manager.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';

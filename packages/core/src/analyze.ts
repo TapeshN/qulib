@@ -8,11 +8,11 @@ import { PublicSurfaceSchema, type PublicSurface } from './schemas/public-surfac
 import { observe } from './phases/observe.js';
 import { think } from './phases/think.js';
 import { act } from './phases/act.js';
-import { detectAuth, validateStorageState } from './tools/auth/detector.js';
-import { analyzeGaps, computeCoverageScore, computeQualityScoreFromGaps } from './tools/scoring/gap-engine.js';
-import { analyzeAuthSurfaceGaps } from './tools/auth/surface-analyzer.js';
+import { detectAuth, validateStorageState } from './tools/auth/detect.js';
+import { analyzeGaps, computeCoverageScore, computeQualityScoreFromGaps } from './tools/scoring/gaps.js';
+import { analyzeAuthSurfaceGaps } from './tools/auth/surface.js';
 import { buildPublicSurface } from './tools/scoring/public-surface.js';
-import { buildAuthBlockGap, buildStorageStateInvalidGap } from './tools/auth/block-gap.js';
+import { buildAuthBlockGap, buildStorageStateInvalidGap } from './tools/auth/gaps.js';
 import { finalizeGapAnalysisFromDraft, type GapAnalysisDraft } from './phases/think-finalize.js';
 import type { AnalyzeProgressSink } from './harness/progress-log.js';
 import type { TelemetrySink } from './telemetry/telemetry.interface.js';

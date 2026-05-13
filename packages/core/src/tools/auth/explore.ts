@@ -7,8 +7,8 @@ import {
 } from '../../schemas/config.schema.js';
 import type { AnalyzeProgressSink } from '../../harness/progress-log.js';
 import { launchBrowser } from '../explorers/browser.js';
-import { BUILT_IN_OAUTH_PROVIDERS, type OAuthProvider } from './oauth-providers.js';
-import { loadUserProviders } from './user-providers.js';
+import { BUILT_IN_OAUTH_PROVIDERS, type OAuthProvider } from './providers.js';
+import { loadUserProviders } from './custom-providers.js';
 
 type ProviderWithSource = OAuthProvider & { source: 'built-in' | 'user-local' };
 

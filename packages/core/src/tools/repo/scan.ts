@@ -1,5 +1,5 @@
 /**
- * @module repo-scanner
+ * @module tools/repo/scan
  * @packageBoundary @qulib/core (candidate: @qulib/analyzer)
  *
  * This module performs static analysis of a repository's file structure.
@@ -19,7 +19,7 @@ import { readFile } from 'node:fs/promises';
 import { relative, basename } from 'node:path';
 import glob from 'fast-glob';
 import { RepoAnalysisSchema, type RepoAnalysis } from '../../schemas/repo-analysis.schema.js';
-import { detectFramework } from './framework-detector.js';
+import { detectFramework } from './detect-framework.js';
 import { computeAutomationMaturity } from '../scoring/automation-maturity.js';
 
 const IGNORE_PATTERNS = ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/build/**'];

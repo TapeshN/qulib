@@ -212,15 +212,23 @@ TypeScript (strict, NodeNext), Commander, Zod, Playwright, @axe-core/playwright,
 ```text
 src/
   adapters/      # test rendering adapters
-  analyze.ts     # programmatic API (also used by @qulib/mcp)
-  cli/           # CLI entry
-  harness/       # state + decision logging
-  llm/           # LLM contracts
-  phases/        # observe / think / act
-  reporters/     # JSON + Markdown reports
-  schemas/       # Zod schemas
-  tools/         # explorers, auth, gap engine, repo scanner
+  analyze.ts        # programmatic API (also used by @qulib/mcp)
+  cli/              # CLI entry
+  harness/          # state + decision logging
+  llm/              # LLM contracts
+  phases/           # observe / think / act
+  reporters/        # JSON + Markdown reports
+  schemas/          # Zod schemas
+  telemetry/        # event sink + URL redaction
+  tools/
+    auth/           # detection, exploration, validation, providers, gap builders
+    explorers/      # browser launch, Playwright/Cypress crawlers, factory
+    repo/           # repo scanner, framework detection
+    scoring/        # gap engine, automation maturity, public surface
+  __tests__/        # integration and wiring tests live in __tests__/ in each folder
 ```
+
+A contributor map of which folder to touch for each kind of change lives at [`docs/source-map.md`](../../docs/source-map.md).
 
 Repo rules: see [`CLAUDE.md`](../../CLAUDE.md).
 

@@ -6,7 +6,5 @@ packages/*/dist
 qulib.test-auth.config.ts
 quilib.test-auth.config.ts
 qulib-storage-state.json
-.scan-state/*
-!.scan-state/.gitkeep
-output/*
-!output/.gitkeep
+.scan-state/
+output/

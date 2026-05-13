@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { AuthPath } from '../schemas/config.schema.js';
-import { BUILT_IN_OAUTH_PROVIDERS } from '../tools/auth/oauth-providers.js';
-import { waitForReturnToOrigin } from '../tools/auth/detector.js';
+import { BUILT_IN_OAUTH_PROVIDERS } from '../tools/auth/providers.js';
+import { waitForReturnToOrigin } from '../tools/auth/detect.js';
 
 const builtInOAuthIds = new Set(BUILT_IN_OAUTH_PROVIDERS.map((p) => p.id));
 

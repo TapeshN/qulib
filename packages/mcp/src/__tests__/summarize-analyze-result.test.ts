@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
+import { summarizeAnalyzeResult } from '../summarize-analyze-result.js';
 import type { AnalyzeResult } from '@qulib/core';
 
 const minimalResult = (): AnalyzeResult => {
@@ -62,15 +62,15 @@ const minimalResult = (): AnalyzeResult => {
   };
 };
 
-test('buildCompactAnalyzePayload returns full result when includeFullReport', () => {
+test('summarizeAnalyzeResult returns full result when includeFullReport', () => {
   const r = minimalResult();
-  const out = buildCompactAnalyzePayload(r, true);
+  const out = summarizeAnalyzeResult(r, true);
   assert.equal(out, r);
 });
 
-test('buildCompactAnalyzePayload summary-first shape', () => {
+test('summarizeAnalyzeResult summary-first shape', () => {
   const r = minimalResult();
-  const out = buildCompactAnalyzePayload(r, false) as Record<string, unknown>;
+  const out = summarizeAnalyzeResult(r, false) as Record<string, unknown>;
   assert.equal(out.includeFullReport, false);
   assert.equal((out.summary as { status: string }).status, 'complete');
   assert.equal((out.summary as { coverageScore: number }).coverageScore, 0);
@@ -81,7 +81,7 @@ test('buildCompactAnalyzePayload summary-first shape', () => {
   assert.ok(Array.isArray(out.nextDeterministicChecks));
 });
 
-test('buildCompactAnalyzePayload orders critical ahead of high in topGaps', () => {
+test('summarizeAnalyzeResult orders critical ahead of high in topGaps', () => {
   const r = minimalResult();
   r.gaps.unshift({
     id: '0',
@@ -91,11 +91,11 @@ test('buildCompactAnalyzePayload orders critical ahead of high in topGaps', () =
     category: 'coverage',
   });
   r.gapAnalysis.gaps = r.gaps;
-  const out = buildCompactAnalyzePayload(r, false) as { topGaps: { severity: string }[] };
+  const out = summarizeAnalyzeResult(r, false) as { topGaps: { severity: string }[] };
   assert.equal(out.topGaps[0]!.severity, 'critical');
 });
 
-test('buildCompactAnalyzePayload summary includes publicSurface counts when present', () => {
+test('summarizeAnalyzeResult summary includes publicSurface counts when present', () => {
   const r = minimalResult();
   r.publicSurface = {
     pages: [{ path: '/', pageTitle: 'x', links: [], formCount: 0, buttonLabels: [], consoleErrors: [], brokenLinks: [], a11yViolations: [] }],
@@ -103,13 +103,13 @@ test('buildCompactAnalyzePayload summary includes publicSurface counts when pres
     accessibilityViolations: [{ id: 'a', impact: 'serious', helpUrl: 'u', nodeCount: 1, path: '/' }],
     brokenLinks: [{ url: 'https://x', status: 404, path: '/' }],
   };
-  const out = buildCompactAnalyzePayload(r, false) as { summary: { publicSurface: Record<string, number> } };
+  const out = summarizeAnalyzeResult(r, false) as { summary: { publicSurface: Record<string, number> } };
   assert.equal(out.summary.publicSurface.pageCount, 1);
   assert.equal(out.summary.publicSurface.accessibilityViolationCount, 1);
   assert.equal(out.summary.publicSurface.brokenLinkCount, 1);
 });
 
-test('buildCompactAnalyzePayload replaces repoInventory with a bounded repoInventorySummary in compact mode', () => {
+test('summarizeAnalyzeResult replaces repoInventory with a bounded repoInventorySummary in compact mode', () => {
   const r = minimalResult();
   r.repoInventory = {
     scannedAt: new Date().toISOString(),
@@ -139,7 +139,7 @@ test('buildCompactAnalyzePayload replaces repoInventory with a bounded repoInven
       testFrameworks: ['playwright'],
     },
   };
-  const out = buildCompactAnalyzePayload(r, false) as Record<string, unknown>;
+  const out = summarizeAnalyzeResult(r, false) as Record<string, unknown>;
   assert.equal((out as { repoInventory?: unknown }).repoInventory, undefined);
   const summary = out.repoInventorySummary as Record<string, unknown>;
   assert.ok(summary, 'repoInventorySummary is present');
@@ -157,7 +157,7 @@ test('buildCompactAnalyzePayload replaces repoInventory with a bounded repoInven
   assert.ok(!serialized.includes('comp-0.tsx'), 'missingTestIds array must not leak into compact payload');
 });
 
-test('buildCompactAnalyzePayload returns the full repoInventory when includeFullReport is true', () => {
+test('summarizeAnalyzeResult returns the full repoInventory when includeFullReport is true', () => {
   const r = minimalResult();
   r.repoInventory = {
     scannedAt: new Date().toISOString(),
@@ -172,7 +172,7 @@ test('buildCompactAnalyzePayload returns the full repoInventory when includeFull
       existingComponentFiles: [],
     },
   };
-  const out = buildCompactAnalyzePayload(r, true);
+  const out = summarizeAnalyzeResult(r, true);
   assert.equal(out, r);
   const serialized = JSON.stringify(out);
   assert.ok(serialized.includes('tests/a.spec.ts'), 'full report still ships the testFiles array');

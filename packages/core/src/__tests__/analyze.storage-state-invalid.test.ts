@@ -6,7 +6,7 @@
  * short-circuits at the `missing-file` preflight, never launching Playwright.
  * That keeps the test fast, deterministic, and runnable in offline CI. The full
  * reason-code surface is covered by the pure-helper tests in
- * `tools/auth/__tests__/detector.test.ts`.
+ * `tools/auth/__tests__/detect.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

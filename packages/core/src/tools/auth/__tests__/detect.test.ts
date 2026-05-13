@@ -8,7 +8,7 @@ import {
   evaluateStorageStateValidity,
   preflightStorageStateFile,
   waitForReturnToOrigin,
-} from '../detector.js';
+} from '../detect.js';
 
 test('evaluateStorageStateValidity flags wrong-origin when final URL origin differs from expected', () => {
   const r = evaluateStorageStateValidity({

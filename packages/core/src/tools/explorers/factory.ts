@@ -1,7 +1,7 @@
 import type { ExplorerType } from '../../schemas/config.schema.js';
-import type { AppExplorer } from './explorer.interface.js';
-import { PlaywrightExplorer } from './playwright-explorer.js';
-import { CypressExplorer } from './cypress-explorer.js';
+import type { AppExplorer } from './types.js';
+import { PlaywrightExplorer } from './playwright.js';
+import { CypressExplorer } from './cypress.js';
 
 export function createExplorer(type: ExplorerType): AppExplorer {
   switch (type) {

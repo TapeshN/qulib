@@ -1,5 +1,5 @@
 /**
- * @module framework-detector
+ * @module tools/repo/detect-framework
  * @packageBoundary @qulib/core (candidate: @qulib/analyzer)
  *
  * Framework detection runs during the observe phase as part of repo scanning.

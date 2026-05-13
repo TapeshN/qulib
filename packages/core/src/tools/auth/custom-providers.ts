@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
-import type { OAuthProvider } from './oauth-providers.js';
+import type { OAuthProvider } from './providers.js';
 
 const USER_PROVIDERS_PATH = join(homedir(), '.qulib', 'providers.json');
 

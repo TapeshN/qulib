@@ -19,7 +19,7 @@ function nextDeterministicChecks(gaps: AnalyzeResult['gaps'], conversion: string
   return out.slice(0, 5);
 }
 
-export function buildCompactAnalyzePayload(result: AnalyzeResult, includeFullReport: boolean) {
+export function summarizeAnalyzeResult(result: AnalyzeResult, includeFullReport: boolean) {
   if (includeFullReport) {
     return result;
   }

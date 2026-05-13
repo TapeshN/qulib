@@ -1,5 +1,5 @@
 import type { Gap } from '../../schemas/gap-analysis.schema.js';
-import type { StorageStateInvalidReason } from './detector.js';
+import type { StorageStateInvalidReason } from './detect.js';
 
 function safeOriginAndPath(url: string): string {
   try {

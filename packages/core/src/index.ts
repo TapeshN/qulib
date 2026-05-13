@@ -5,14 +5,14 @@ export {
   evaluateStorageStateValidity,
   preflightStorageStateFile,
   waitForReturnToOrigin,
-} from './tools/auth/detector.js';
+} from './tools/auth/detect.js';
 export type {
   StorageStateInvalidReason,
   StorageStateValidationResult,
-} from './tools/auth/detector.js';
-export { exploreAuth } from './tools/auth/explorer.js';
-export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/user-providers.js';
-export { scanRepo } from './tools/repo/scanner.js';
+} from './tools/auth/detect.js';
+export { exploreAuth } from './tools/auth/explore.js';
+export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/custom-providers.js';
+export { scanRepo } from './tools/repo/scan.js';
 export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
