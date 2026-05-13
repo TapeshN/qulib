@@ -105,7 +105,7 @@ function validateAbsoluteRepoPath(repoPath: string): string {
 const mcpServer = new McpServer(
   {
     name: 'qulib-mcp',
-    version: '0.3.1',
+    version: '0.4.0',
     description:
       'Qulib QA intelligence platform — gap analysis, auth exploration, and quality scoring for deployed web applications',
   },
