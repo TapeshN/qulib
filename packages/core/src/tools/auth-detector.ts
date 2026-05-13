@@ -72,7 +72,7 @@ function escapeRegExp(s: string): string {
 async function resolveVisibleFieldLabel(page: Page, el: import('@playwright/test').Locator): Promise<string> {
   const id = await el.getAttribute('id');
   if (id) {
-    const lt = await page.locator(`label[for="${CSS.escape(id)}"]`).first().textContent().catch(() => null);
+    const lt = await page.locator(`label[for="${id.replace(/"/g, '\\"')}"]`).first().textContent().catch(() => null);
     const fromLabel = (lt ?? '').trim();
     if (fromLabel) return fromLabel;
   }
