@@ -9,7 +9,9 @@ An opinionated QA harness that analyzes deployed web apps and emits honest quali
 ### Git
 
 - Do **not** push directly to **`main`** on the remote. Land changes via **PR from a branch** (even when using an agent).
-- Branch naming: `feature/short-description`, `fix/short-description`, `chore/short-description`
+- Branch naming: `feature/short-description`, `fix/short-description`, `chore/short-description` (one kebab slug; **no version in the branch name**).
+- **`fix/`** — wrong behavior, missing cases, regressions, or parity fixes (e.g. detector gaps, incorrect scoring). **`feature/`** — new user-facing capability or a meaningful new surface. When unsure for analyzer/auth/MCP behavior fixes, prefer **`fix/`**.
+- Version drops (bump `package.json`, `package-lock.json`, `CHANGELOG.md`): use **`chore/release-0.x.y`** (semver **without** a `v` — matches existing PRs). Land product changes on **`fix/`** or **`feature/`** first when possible; keep release branches mostly version + changelog unless bundling is unavoidable.
 - Run `git branch` (and `git status`) before writing code so you are not committing on `main` by accident.
 - Commit messages: `type: short description` (types: `feat`, `fix`, `chore`, `refactor`, `docs`).
 - User-facing releases: bump versions in `packages/*/package.json`, refresh `package-lock.json` with `npm install`, update **`CHANGELOG.md`**, then tag if you use tags (see existing entries for format).
