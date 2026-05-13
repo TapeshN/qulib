@@ -1,6 +1,6 @@
 {
   "name": "@qulib/mcp",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "MCP server for Qulib — AI-callable QA gap analysis",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
@@ -29,11 +29,11 @@
   "scripts": {
     "build": "npm --prefix ../.. run build -w @qulib/core && tsc && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "node --import tsx/esm --test src/compact-analyze-payload.test.ts"
+    "test": "node --import tsx/esm --test src/__tests__/summarize-analyze-result.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@qulib/core": "0.4.2",
+    "@qulib/core": "0.4.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {

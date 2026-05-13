@@ -43,9 +43,13 @@ qulib/
 ├── packages/
 │   ├── core/          # The analyzer engine + CLI (@qulib/core)
 │   └── mcp/           # MCP server wrapper (@qulib/mcp)
+├── docs/
+│   └── source-map.md  # Where each kind of change lives — read this first
 ├── CLAUDE.md          # Project rules (read this before contributing)
 └── README.md
 ```
+
+New contributors should start with **[`docs/source-map.md`](./docs/source-map.md)** to understand the codebase layout — it maps each kind of change (CLI, crawling, auth, scoring, reports, MCP, …) to the folder where the work goes.
 
 `@qulib/mcp` depends on `@qulib/core`. The MCP wraps the programmatic `analyzeApp()` function exported from core. Do not duplicate logic — extend core, then expose it through mcp.
 

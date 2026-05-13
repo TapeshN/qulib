@@ -1,9 +1,19 @@
 export { analyzeApp } from './analyze.js';
-export { detectAuth } from './tools/auth-detector.js';
-export { exploreAuth } from './tools/auth-explorer.js';
-export { addUserProvider, removeUserProvider, listUserProviders } from './tools/user-providers.js';
-export { scanRepo } from './tools/repo-scanner.js';
-export { computeAutomationMaturity } from './tools/automation-maturity.js';
+export {
+  detectAuth,
+  validateStorageState,
+  evaluateStorageStateValidity,
+  preflightStorageStateFile,
+  waitForReturnToOrigin,
+} from './tools/auth/detect.js';
+export type {
+  StorageStateInvalidReason,
+  StorageStateValidationResult,
+} from './tools/auth/detect.js';
+export { exploreAuth } from './tools/auth/explore.js';
+export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/custom-providers.js';
+export { scanRepo } from './tools/repo/scan.js';
+export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';

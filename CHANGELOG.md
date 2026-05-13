@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.4.3] — 2026-05-13
+
+### Fixed
+
+- **@qulib/core:** `qulib analyze` now validates the provided `--auth-storage-state` file **before** crawling. Invalid, missing, wrong-origin, or expired storage state produces an honest `status: 'blocked'` result with `releaseConfidence: 0`, `coverageScore: null`, and a structured `storage-state-invalid` gap explaining how to recover, instead of a misleading `releaseConfidence: 80`-style outcome from crawling 401 pages. The browser is never launched when the file is missing, unreadable, not JSON, or empty — those preflights are pure file checks.
+- **@qulib/core:** `validateStorageState` now returns a stable reason code (`missing-file` · `unreadable-file` · `invalid-json` · `no-auth-cookies` · `wrong-origin` · `expired-or-unauthorized` · `unknown`) alongside the human-readable reason, so MCP clients and reports can branch on a fixed enum instead of free-text matching. Origin matching is strict — scheme + host + port must match exactly; subdomain, port, and protocol differences are all rejected.
+- **@qulib/core:** `qulib auth login` now refuses to save a storage state when the browser ends the login flow on an origin different from `--base-url` (federated/SSO redirect that never returned to the app). Previously the storage state was saved on the IdP domain with only a soft warning, which caused later `analyze` runs to fail with 401s and (before the validator) misleading release confidence. The new failure message names both the expected and final origins and points the user at `qulib auth init` as the fallback.
+- **@qulib/core:** Hardened CLI debug logging — `[qulib] Active config:` now redacts the form-login username as well as the password, and replaces the storage-state file path with `<provided>`. Recovery text in the `auth-block` and `storage-state-invalid` gaps now strips query strings and fragments from echoed URLs so a `?token=…` in `--url` cannot land in `report.md`, `report.json`, or `decision-log.json`.
+- **@qulib/core:** New telemetry event `auth.storage-state.validated` (kind only) carrying `{ targetOrigin, valid, reasonCode, storageStateProvided }` — no file path, no cookies, no storage state contents. The existing `scan.blocked` event also carries the `reasonCode` when blocking on storage state validation.
+
+### Changed
+
+- **@qulib/core:** `evaluateStorageStateValidity` and `validateStorageState` now return `StorageStateValidationResult` (`{ valid, reasonCode, reason }`); the old `{ valid, reason }` fields are preserved so existing consumers keep working. A new `preflightStorageStateFile(path)` helper is exported for callers that want a fast file-shape check without launching a browser. `StorageStateInvalidReason` and `StorageStateValidationResult` are exported from `@qulib/core`.
+- **@qulib/core:** New `buildStorageStateInvalidGap({ url, reasonCode, reason })` helper exported next to `buildAuthBlockGap`, used by `analyzeApp` and available to embedders building their own report renderers.
+
+### Tests
+
+- **@qulib/core:** Extended `auth-detector.test.ts` to assert every reason code on `evaluateStorageStateValidity` and `preflightStorageStateFile`, including strict-origin cases (`www`-subdomain, http-vs-https, differing port), unparseable final URLs, missing files, invalid JSON, empty storage state (cookies and localStorage both empty), localStorage-only storage state (still valid), and a POSIX-only `unreadable-file` case skipped on Windows/root.
+- **@qulib/core:** New `analyze.storage-state-invalid.test.ts` wiring test asserts `analyzeApp` short-circuits to `status: 'blocked'` with `releaseConfidence: 0`, a `storage-state-invalid` gap, a `storage-state-invalid` decision-log entry, and an `auth.storage-state.validated` telemetry event — all without launching Playwright (uses a missing storage state path so the preflight short-circuits).
+- **@qulib/core:** Extended `auth-block-gap.test.ts` with a per-reason-code recovery-text assertion for `buildStorageStateInvalidGap`.
+
+### Docs
+
+- **@qulib/core:** README "Scanning authenticated apps" section now documents the storage-state validator, the seven stable reason codes, the strict-origin rule, and the new `auth login` refusal-to-save behavior for federated flows that never return to the app origin.
+
 ## [0.4.2] — 2026-05-13
 
 ### Fixed

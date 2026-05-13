@@ -98,6 +98,7 @@ Details: [packages/core/README.md](./packages/core/README.md).
 
 - [Core (CLI, API, Cost Intelligence)](./packages/core/README.md)
 - [MCP server](./packages/mcp/README.md)
+- [Source map](./docs/source-map.md) — new contributors: start here to navigate the codebase
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)
 - [Code of Conduct](./CODE_OF_CONDUCT.md)

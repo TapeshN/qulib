@@ -25,7 +25,7 @@ import {
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { z } from 'zod';
-import { buildCompactAnalyzePayload } from './compact-analyze-payload.js';
+import { summarizeAnalyzeResult } from './summarize-analyze-result.js';
 import { log } from './logger.js';
 
 function toolError(code: string, message: string, detail?: unknown): {
@@ -257,7 +257,7 @@ mcpServer.registerTool(
         telemetry: telemetrySink,
       });
 
-      const payload = buildCompactAnalyzePayload(result, input.includeFullReport === true);
+      const payload = summarizeAnalyzeResult(result, input.includeFullReport === true);
 
       return {
         content: [

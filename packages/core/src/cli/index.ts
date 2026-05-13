@@ -9,8 +9,8 @@ const requirePkg = createRequire(import.meta.url);
 const pkg = requirePkg('../../package.json') as { version: string };
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 import { analyzeApp } from '../analyze.js';
-import { detectAuth } from '../tools/auth-detector.js';
-import { exploreAuth } from '../tools/auth-explorer.js';
+import { detectAuth } from '../tools/auth/detect.js';
+import { exploreAuth } from '../tools/auth/explore.js';
 import {
   assertExactlyOneCredentialSource,
   parseCredentialsJsonString,
@@ -43,10 +43,13 @@ function redactConfigForLog(config: HarnessConfig): Record<string, unknown> {
     base.auth = {
       ...config.auth,
       credentials: {
-        username: config.auth.credentials.username,
+        username: '***',
         password: '***',
       },
     };
+  }
+  if (config.auth?.type === 'storage-state') {
+    base.auth = { type: 'storage-state', path: '<provided>' };
   }
   return base;
 }
@@ -274,7 +277,7 @@ providersCmd
   .command('list')
   .description('List user-local providers registered on this machine')
   .action(async () => {
-    const { listUserProviders } = await import('../tools/user-providers.js');
+    const { listUserProviders } = await import('../tools/auth/custom-providers.js');
     const providers = listUserProviders();
     console.log(JSON.stringify(providers, null, 2));
   });
@@ -290,7 +293,7 @@ providersCmd
     } catch {
       throw new Error(`Invalid regex pattern: ${opts.pattern}`);
     }
-    const { addUserProvider } = await import('../tools/user-providers.js');
+    const { addUserProvider } = await import('../tools/auth/custom-providers.js');
     addUserProvider({ id: opts.id, label: opts.label, pattern: opts.pattern });
     console.log(`[qulib] Added provider "${opts.label}" (id: ${opts.id}) to ~/.qulib/providers.json`);
   });
@@ -299,7 +302,7 @@ providersCmd
   .description('Remove a user-local provider by id')
   .requiredOption('--id <id>', 'Provider id to remove')
   .action(async (opts: { id: string }) => {
-    const { removeUserProvider } = await import('../tools/user-providers.js');
+    const { removeUserProvider } = await import('../tools/auth/custom-providers.js');
     const removed = removeUserProvider(opts.id);
     console.log(removed ? `[qulib] Removed "${opts.id}"` : `[qulib] No provider with id "${opts.id}" found`);
   });

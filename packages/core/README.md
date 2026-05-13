@@ -77,6 +77,24 @@ qulib analyze --url https://app.example.com --auth-storage-state ./qulib-storage
 
 The storage state is just a JSON file of cookies and localStorage — keep it private, treat it like a credential.
 
+#### Storage state is validated before crawl
+
+Qulib now validates the provided storage state before doing any work. If the file is missing, unreadable, empty, on the wrong origin, or carries a session that is already expired, Qulib stops with an honest `blocked` result (no fake `releaseConfidence`) and a structured gap explaining how to recover. The validator reports one of these stable reason codes:
+
+| Reason code               | Meaning                                                                 |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `missing-file`            | Path passed to `--auth-storage-state` does not exist.                   |
+| `unreadable-file`         | File exists but the process can't read it (permissions).                |
+| `invalid-json`            | File is present and readable but not valid JSON.                        |
+| `no-auth-cookies`         | File parses, but has zero cookies and zero localStorage entries.        |
+| `wrong-origin`            | Session redirects to a different origin (host/port/scheme mismatch).    |
+| `expired-or-unauthorized` | Loaded session shows the login form again, or the app returns 401/403. |
+| `unknown`                 | Validation could not be completed for an unexpected reason.             |
+
+Origin matching is strict — `https://app.example` and `https://www.app.example` are different origins, as are `http://localhost:3000` and `http://localhost:4000`. Re-run `qulib auth login` against the same origin you plan to `analyze`.
+
+Relatedly, `qulib auth login` will now refuse to save a storage state if the browser ends the flow on a different origin than `--base-url` (a federated/SSO redirect that never returned to the app). This prevents Qulib from quietly persisting an IdP-domain session that would later produce false-confidence scans.
+
 ### Multi-path auth exploration (`explore-auth`)
 
 For unfamiliar apps (especially enterprise SSO with several buttons), run **`qulib explore-auth --url <url>`** before `analyze`. The JSON lists every detected path (built-in OAuth names like Google/Clever, **heuristic** unknown buttons such as tenant-specific SSO labels, password forms, and magic-link copy) plus **`suggestedAgentBehavior`** for the agent.
@@ -194,15 +212,23 @@ TypeScript (strict, NodeNext), Commander, Zod, Playwright, @axe-core/playwright,
 ```text
 src/
   adapters/      # test rendering adapters
-  analyze.ts     # programmatic API (also used by @qulib/mcp)
-  cli/           # CLI entry
-  harness/       # state + decision logging
-  llm/           # LLM contracts
-  phases/        # observe / think / act
-  reporters/     # JSON + Markdown reports
-  schemas/       # Zod schemas
-  tools/         # explorers, auth, gap engine, repo scanner
+  analyze.ts        # programmatic API (also used by @qulib/mcp)
+  cli/              # CLI entry
+  harness/          # state + decision logging
+  llm/              # LLM contracts
+  phases/           # observe / think / act
+  reporters/        # JSON + Markdown reports
+  schemas/          # Zod schemas
+  telemetry/        # event sink + URL redaction
+  tools/
+    auth/           # detection, exploration, validation, providers, gap builders
+    explorers/      # browser launch, Playwright/Cypress crawlers, factory
+    repo/           # repo scanner, framework detection
+    scoring/        # gap engine, automation maturity, public surface
+  __tests__/        # integration and wiring tests live in __tests__/ in each folder
 ```
+
+A contributor map of which folder to touch for each kind of change lives at [`docs/source-map.md`](../../docs/source-map.md).
 
 Repo rules: see [`CLAUDE.md`](../../CLAUDE.md).
 

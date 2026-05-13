@@ -13,6 +13,7 @@ export type TelemetryEventKind =
   | 'llm.call.failed'
   | 'gap.detected'
   | 'auth.detected'
+  | 'auth.storage-state.validated'
   | 'repo.scanned';
 
 export interface TelemetryEvent {
