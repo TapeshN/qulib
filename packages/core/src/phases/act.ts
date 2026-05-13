@@ -5,19 +5,30 @@ import { writeJsonReport } from '../reporters/json-reporter.js';
 import { writeMarkdownReport } from '../reporters/markdown-reporter.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
+import { emitTelemetry } from '../telemetry/emit.js';
+import { resolveScanStateBaseDir } from '../harness/state-manager.js';
 
 export async function act(
   analysis: GapAnalysis,
   config: HarnessConfig,
   artifacts: RunArtifactsOptions = { writeArtifacts: true }
 ): Promise<void> {
-  const outputDir = join(process.cwd(), 'output');
-  const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
+  const sessionId = artifacts.telemetrySessionId ?? 'none';
+  const reportDir = join(process.cwd(), 'output');
+  const logOpts = {
+    persist: artifacts.writeArtifacts,
+    memory: artifacts.decisionMemory,
+    outputDir: config.outputDir,
+  };
   const log = artifacts.writeArtifacts ? console.log : console.error;
 
+  emitTelemetry(artifacts.telemetry, 'phase.act.started', sessionId, {
+    writeArtifacts: artifacts.writeArtifacts,
+  });
+
   if (artifacts.writeArtifacts) {
-    await writeJsonReport(analysis, outputDir);
-    await writeMarkdownReport(analysis, outputDir);
+    await writeJsonReport(analysis, reportDir);
+    await writeMarkdownReport(analysis, reportDir);
   }
 
   await logDecision(
@@ -26,7 +37,7 @@ export async function act(
       phase: 'act',
       decision: 'reports-written',
       reason: artifacts.writeArtifacts
-        ? `Wrote JSON and Markdown reports to ${outputDir}`
+        ? `Wrote JSON and Markdown reports to ${reportDir}`
         : 'Skipped writing reports (ephemeral run)',
       metadata: {
         gapCount: analysis.gaps.length,
@@ -37,6 +48,11 @@ export async function act(
     },
     logOpts
   );
+
+  emitTelemetry(artifacts.telemetry, 'phase.act.completed', sessionId, {
+    gapCount: analysis.gaps.length,
+    wroteReports: artifacts.writeArtifacts,
+  });
 
   log('\n[qulib] Analysis complete');
   log(`  Gaps found:          ${analysis.gaps.length}`);
@@ -52,7 +68,7 @@ export async function act(
     log('\n[qulib] Human review required before applying any generated output.');
     if (artifacts.writeArtifacts) {
       log('  Reports:   output/report.json and output/report.md');
-      log('  Decisions: .scan-state/decision-log.json');
+      log(`  Decisions: ${join(resolveScanStateBaseDir(config.outputDir), 'decision-log.json')}`);
     } else {
       log('  Ephemeral run: inspect JSON printed to stdout (no files written).');
     }

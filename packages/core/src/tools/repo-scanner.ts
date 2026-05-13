@@ -1,7 +1,26 @@
+/**
+ * @module repo-scanner
+ * @packageBoundary @qulib/core (candidate: @qulib/analyzer)
+ *
+ * This module performs static analysis of a repository's file structure.
+ * It is currently embedded in @qulib/core because repo scanning is part of
+ * the observe phase and @qulib/core is the only consumer.
+ *
+ * Extraction to @qulib/analyzer is appropriate when:
+ *   1. A consumer needs repo analysis without URL crawling
+ *   2. The module grows to include PRD/Jira/Confluence ingestion
+ *   3. A standalone CLI command `qulib analyze-repo` is needed
+ *
+ * Before extraction: ensure RepoAnalysis schema is re-exported from @qulib/analyzer
+ * and @qulib/core depends on @qulib/analyzer (not the reverse).
+ */
+
 import { readFile } from 'node:fs/promises';
 import { relative, basename } from 'node:path';
 import glob from 'fast-glob';
 import { RepoAnalysisSchema, type RepoAnalysis } from '../schemas/repo-analysis.schema.js';
+import { detectFramework } from './framework-detector.js';
+import { computeAutomationMaturity } from './automation-maturity.js';
 
 const IGNORE_PATTERNS = ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/build/**'];
 
@@ -141,7 +160,7 @@ export async function scanRepo(repoPath: string): Promise<RepoAnalysis> {
     }
   }
 
-  return RepoAnalysisSchema.parse({
+  const base: Omit<RepoAnalysis, 'framework' | 'automationMaturity'> = {
     scannedAt: new Date().toISOString(),
     repoPath,
     routes,
@@ -157,5 +176,18 @@ export async function scanRepo(repoPath: string): Promise<RepoAnalysis> {
       existingE2eFiles,
       existingComponentFiles,
     },
-  });
+  };
+
+  let parsed = RepoAnalysisSchema.parse(base);
+
+  try {
+    const framework = await detectFramework(repoPath);
+    parsed = RepoAnalysisSchema.parse({ ...parsed, framework });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`[qulib] framework detection failed for ${repoPath}: ${msg}`);
+  }
+
+  const automationMaturity = computeAutomationMaturity(parsed);
+  return RepoAnalysisSchema.parse({ ...parsed, automationMaturity });
 }

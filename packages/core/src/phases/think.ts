@@ -5,14 +5,22 @@ import { analyzeGaps } from '../tools/gap-engine.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
 import { finalizeGapAnalysisFromDraft } from './think-finalize.js';
+import { emitTelemetry } from '../telemetry/emit.js';
 
 export async function think(
   observed: ObserveResult,
   config: HarnessConfig,
   artifacts: RunArtifactsOptions = { writeArtifacts: true }
 ): Promise<GapAnalysis> {
+  const sessionId = artifacts.telemetrySessionId ?? 'none';
   const mode = observed.repo ? 'url-repo' : 'url-only';
-  const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
+  const logOpts = {
+    persist: artifacts.writeArtifacts,
+    memory: artifacts.decisionMemory,
+    outputDir: config.outputDir,
+  };
+
+  emitTelemetry(artifacts.telemetry, 'phase.think.started', sessionId, { mode });
 
   const gapBlock = analyzeGaps(observed.routes, observed.repo, mode, config);
   const draft = {
@@ -46,7 +54,14 @@ export async function think(
     logOpts
   );
 
-  return finalizeGapAnalysisFromDraft(draft, config, artifacts);
+  const finalized = await finalizeGapAnalysisFromDraft(draft, config, artifacts);
+
+  emitTelemetry(artifacts.telemetry, 'phase.think.completed', sessionId, {
+    gapCount: finalized.gaps.length,
+    mode: finalized.mode,
+  });
+
+  return finalized;
 }
 
 export { finalizeGapAnalysisFromDraft } from './think-finalize.js';

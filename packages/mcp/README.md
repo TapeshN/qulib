@@ -2,6 +2,28 @@
 
 **@qulib/mcp** is an MCP server that exposes Qulib so AI clients can analyze a deployed URL for release confidence, accessibility, broken links, console noise, and prioritized gaps (CLI entry `qulib-mcp`).
 
+## Setup
+
+To enable LLM-powered scenario generation, add your Anthropic API key to the
+`env` block in your MCP host config (Claude Desktop, Claude Code, Cursor, etc.):
+
+```json
+{
+  "mcpServers": {
+    "qulib": {
+      "command": "npx",
+      "args": ["@qulib/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+Without this key, qulib still runs but uses built-in template scenarios only.
+Your key is never stored by qulib — it is read from your local config at runtime.
+
 ## What it does
 
 Tools:

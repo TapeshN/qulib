@@ -4,7 +4,16 @@ import type { RouteInventory } from '../schemas/route-inventory.schema.js';
 import type { RepoAnalysis } from '../schemas/repo-analysis.schema.js';
 import type { HarnessConfig } from '../schemas/config.schema.js';
 
-export function computeQualityScoreFromGaps(gaps: Gap[]): number {
+// TODO: Add category-specific weight overrides (e.g., auth-surface gaps should cost more than untested-route gaps by default).
+// Requires a 2D weight matrix: { [severity]: { [category]: number } }.
+// Deferred until there is empirical data from real scan runs to calibrate.
+
+const DEFAULT_SCORING_WEIGHTS = { critical: 25, high: 20, medium: 8, low: 3 } as const;
+
+export function computeQualityScoreFromGaps(
+  gaps: Gap[],
+  scoringWeights?: HarnessConfig['scoringWeights']
+): number {
   let critical = 0;
   let high = 0;
   let medium = 0;
@@ -15,7 +24,13 @@ export function computeQualityScoreFromGaps(gaps: Gap[]): number {
     else if (g.severity === 'medium') medium++;
     else low++;
   }
-  return Math.max(0, 100 - critical * 25 - high * 20 - medium * 8 - low * 3);
+  const w = {
+    critical: scoringWeights?.critical ?? DEFAULT_SCORING_WEIGHTS.critical,
+    high: scoringWeights?.high ?? DEFAULT_SCORING_WEIGHTS.high,
+    medium: scoringWeights?.medium ?? DEFAULT_SCORING_WEIGHTS.medium,
+    low: scoringWeights?.low ?? DEFAULT_SCORING_WEIGHTS.low,
+  };
+  return Math.max(0, 100 - critical * w.critical - high * w.high - medium * w.medium - low * w.low);
 }
 
 export function computeCoverageScore(routes: RouteInventory): number | null {
@@ -118,7 +133,7 @@ export function analyzeGaps(
     }
   }
 
-  const releaseConfidence = computeQualityScoreFromGaps(gaps);
+  const releaseConfidence = computeQualityScoreFromGaps(gaps, config.scoringWeights);
 
   const pagesScanned = routes.routes.length;
   let coverageWarning: GapAnalysis['coverageWarning'];

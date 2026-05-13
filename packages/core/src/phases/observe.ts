@@ -6,6 +6,7 @@ import { scanRepo } from '../tools/repo-scanner.js';
 import { StateManager } from '../harness/state-manager.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
+import { emitTelemetry } from '../telemetry/emit.js';
 
 export interface ObserveResult {
   routes: RouteInventory;
@@ -18,9 +19,19 @@ export async function observe(
   config: HarnessConfig,
   artifacts: RunArtifactsOptions = { writeArtifacts: true }
 ): Promise<ObserveResult> {
+  const sessionId = artifacts.telemetrySessionId ?? 'none';
   const explorer = createExplorer(config.explorer);
-  const stateManager = new StateManager();
-  const logOpts = { persist: artifacts.writeArtifacts, memory: artifacts.decisionMemory };
+  const stateManager = new StateManager(config.outputDir);
+  const logOpts = {
+    persist: artifacts.writeArtifacts,
+    memory: artifacts.decisionMemory,
+    outputDir: config.outputDir,
+  };
+
+  emitTelemetry(artifacts.telemetry, 'phase.observe.started', sessionId, {
+    baseUrl,
+    hasRepoPath: Boolean(repoPath),
+  });
 
   const rawRoutes = await explorer.explore(baseUrl, config, artifacts);
   const routes = RouteInventorySchema.parse(rawRoutes);
@@ -48,6 +59,10 @@ export async function observe(
   if (repoPath) {
     const rawRepo = await scanRepo(repoPath);
     repo = RepoAnalysisSchema.parse(rawRepo);
+    emitTelemetry(artifacts.telemetry, 'repo.scanned', sessionId, {
+      routeCount: repo.routes.length,
+      testFileCount: repo.testFiles.length,
+    });
     if (artifacts.writeArtifacts) {
       await stateManager.writeState('repo-inventory.json', repo, RepoAnalysisSchema);
     }
@@ -67,6 +82,11 @@ export async function observe(
       logOpts
     );
   }
+
+  emitTelemetry(artifacts.telemetry, 'phase.observe.completed', sessionId, {
+    routeCount: routes.routes.length,
+    repoScanned: Boolean(repo),
+  });
 
   return { routes, repo };
 }
