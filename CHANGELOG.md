@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.5.1] — 2026-05-14
+
+### Fixed
+
+- **@qulib/core:** `detect-auth` now probes `[role="button"]` elements in addition to `<button>` tags, and waits up to 5 s for a password field after navigation (was 2 s), so custom SSO providers that navigate to a dedicated login page are correctly detected.
+- **@qulib/core:** `explore-auth` now click-probes user-local provider buttons (registered via `qulib auth providers add`) before classifying them as non-automatable OAuth. When clicking reveals a form, the path is returned as `automatable: true` with discovered field names and types.
+- **@qulib/core:** `qulib auth login` now accepts `form-multi` paths (3+ fields such as username/password/district) and triggers click-reveal navigation for `user-local` source paths, completing the `qulib auth providers add` → `qulib auth login --auth-path <id>` workflow.
+
 ## [0.5.0] — 2026-05-14
 
 ### Added
