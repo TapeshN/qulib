@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.5.0] — 2026-05-14
+
+### Added
+
+- **PR #30** — local HTML fixtures + deterministic fixture server for offline integration baselines (`packages/core/fixtures/*`, `fixture-server.ts`, `analyze.fixtures.test.ts`).
+- **PR #32** — offline CI smoke path using fixtures (`cli-smoke-fixture.ts`) plus a dedicated unit+fixture test job.
+- **PR #33** — SKIP semantics now include actionable guidance on non-applicable/unknown automation maturity dimensions, with guidance surfaced in MCP compact summaries.
+- **PR #31** — Claude 4 LLM scenario generation hardening: model default update, markdown fence stripping before JSON parse, and `--skip-auth-detection` CLI option.
+
+### Changed
+
+- `smoke-test-cli` CI workflow now runs offline against the local fixture server instead of a live `https://example.com` dependency.
+- Core and MCP docs now include copy-paste walkthroughs for public/auth-blocked/authenticated flows, MCP tool mapping, and host env setup/troubleshooting.
+
+### Fixed
+
+- LLM scenario generation no longer fails silently on Claude 4 API keys due to a stale default model and fenced JSON parse path.
+
+### Internal
+
+- v0.5.0 **Runtime QA Intelligence Baseline** — Phase 1 complete.
+
 ## [0.4.3] — 2026-05-13
 
 ### Fixed
