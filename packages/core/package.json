@@ -48,7 +48,7 @@
     "analyze": "tsx src/cli/index.ts analyze",
     "clean": "tsx src/cli/index.ts clean",
     "build": "tsc",
-    "test": "node --import tsx/esm --test src/llm/__tests__/cost-intelligence.test.ts src/tools/scoring/__tests__/gaps.test.ts src/tools/auth/__tests__/gaps.test.ts src/tools/auth/__tests__/detect.test.ts src/tools/scoring/__tests__/automation-maturity.test.ts src/harness/__tests__/state-manager.test.ts src/telemetry/__tests__/redact-url.test.ts src/cli/__tests__/auth-login.test.ts src/cli/__tests__/cli-version.test.ts src/__tests__/analyze.storage-state-invalid.test.ts src/__tests__/analyze.fixtures.test.ts",
+    "test": "node --import tsx/esm --test src/llm/__tests__/cost-intelligence.test.ts src/llm/__tests__/context-builder.test.ts src/tools/scoring/__tests__/gaps.test.ts src/tools/auth/__tests__/gaps.test.ts src/tools/auth/__tests__/detect.test.ts src/tools/scoring/__tests__/automation-maturity.test.ts src/harness/__tests__/state-manager.test.ts src/telemetry/__tests__/redact-url.test.ts src/cli/__tests__/auth-login.test.ts src/cli/__tests__/cli-version.test.ts src/__tests__/analyze.storage-state-invalid.test.ts src/__tests__/analyze.fixtures.test.ts",
     "test:integration": "node --import tsx/esm --test src/__tests__/analyze.integration.test.ts",
     "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral",
     "cost-doctor": "tsx src/cli/index.ts cost doctor"

@@ -9,7 +9,7 @@ export function buildGapPrompt(gaps: Gap[], limit: number): string {
     .slice(0, limit);
 
   const gapList = topGaps
-    .map((g, i) => `${i + 1}. [${g.severity}] ${g.category} at ${g.path}: ${g.reason}`)
+    .map((g) => `- id:${g.id} [${g.severity}] ${g.category} at ${g.path}: ${g.reason}`)
     .join('\n');
 
   return `You are a QA engineer. Given these quality gaps found in a web application, generate test scenarios.
@@ -32,6 +32,6 @@ Each item must match this exact shape:
   "recommendations": [
     { "adapter": "playwright|cypress-e2e|cypress-component|api|accessibility", "reason": "string", "confidence": "high|medium|low" }
   ],
-  "sourceGapIds": ["string"]
+  "sourceGapIds": ["<one or more gap ids from the list, copied exactly as id:xxxx>"]
 }`;
 }

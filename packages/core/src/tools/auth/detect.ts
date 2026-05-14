@@ -73,6 +73,10 @@ function debugAuth(): boolean {
   return process.env.QULIB_DEBUG === '1';
 }
 
+function isLoginishPath(pathname: string): boolean {
+  return /login|sign[- ]?in|auth|sso|oauth|signin/i.test(pathname);
+}
+
 function slugify(label: string): string {
   const s = label
     .toLowerCase()
@@ -209,6 +213,7 @@ async function probeClickToRevealForms(
     candidateAttempts += 1;
 
     const originBefore = new URL(page.url()).origin;
+    const pathBefore = new URL(page.url()).pathname;
 
     if (debugAuth()) {
       progress?.debug(`detect_auth click-reveal try label="${label.slice(0, 80)}"`);
@@ -244,6 +249,16 @@ async function probeClickToRevealForms(
         progress?.debug(
           `detect_auth click-reveal aborted (cross-origin after click): was ${originBefore} now ${new URL(page.url()).origin}`
         );
+      }
+      await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+      await waitNetworkIdleBestEffort(page);
+      continue;
+    }
+
+    const afterUrl = new URL(page.url());
+    if (afterUrl.pathname !== pathBefore && !isLoginishPath(afterUrl.pathname)) {
+      if (debugAuth()) {
+        progress?.debug(`detect_auth click-reveal skip (CTA navigation to non-login path): ${afterUrl.pathname}`);
       }
       await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
       await waitNetworkIdleBestEffort(page);
