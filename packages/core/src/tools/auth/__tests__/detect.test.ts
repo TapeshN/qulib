@@ -9,6 +9,9 @@ import {
   preflightStorageStateFile,
   waitForReturnToOrigin,
 } from '../detect.js';
+import { resolveFormLoginPath } from '../../../cli/auth-login-resolve.js';
+import { authPathNeedsClickReveal } from '../../../cli/auth-login-run.js';
+import type { AuthPath } from '../../../schemas/config.schema.js';
 
 test('evaluateStorageStateValidity flags wrong-origin when final URL origin differs from expected', () => {
   const r = evaluateStorageStateValidity({
@@ -256,4 +259,90 @@ test('waitForReturnToOrigin treats subdomain as foreign (strict origin)', async 
   } as unknown as Page;
   const r = await waitForReturnToOrigin(page, 'https://app.example/', 600);
   assert.equal(r.returned, false);
+});
+
+// --- resolveFormLoginPath + authPathNeedsClickReveal tests ---
+
+test('resolveFormLoginPath selects form-multi path when type is form-multi', () => {
+  const option: AuthPath = {
+    id: 'nq-login',
+    label: 'NQ Login',
+    type: 'form-multi',
+    provider: null,
+    source: 'user-local',
+    automatable: true,
+    confidence: 'medium',
+    requirements: {
+      method: 'credentials',
+      fields: [
+        { name: 'username', label: 'Username', type: 'text', observedOptions: [] },
+        { name: 'password', label: 'Password', type: 'password', observedOptions: [] },
+        { name: 'datasource', label: 'District', type: 'select', observedOptions: ['NYC', 'LA'] },
+      ],
+    },
+  };
+  const result = resolveFormLoginPath('https://example.com', [option]);
+  assert.equal(result, option);
+});
+
+test('resolveFormLoginPath rejects form-multi when requirements.method is storage-state', () => {
+  const option: AuthPath = {
+    id: 'sso-form',
+    label: 'SSO Form',
+    type: 'form-multi',
+    provider: null,
+    source: 'heuristic',
+    automatable: false,
+    confidence: 'low',
+    requirements: {
+      method: 'storage-state',
+      instruction: 'Use qulib auth init',
+    },
+  };
+  assert.throws(
+    () => resolveFormLoginPath('https://example.com', [option]),
+    /No automatable form-login path/
+  );
+});
+
+test('authPathNeedsClickReveal returns true for user-local form-login', () => {
+  const path: AuthPath = {
+    id: 'nq-login',
+    label: 'NQ Login',
+    type: 'form-login',
+    provider: null,
+    source: 'user-local',
+    automatable: true,
+    confidence: 'medium',
+    requirements: { method: 'credentials', fields: [] },
+  };
+  assert.equal(authPathNeedsClickReveal(path), true);
+});
+
+test('authPathNeedsClickReveal returns true for user-local form-multi', () => {
+  const path: AuthPath = {
+    id: 'nq-login',
+    label: 'NQ Login',
+    type: 'form-multi',
+    provider: null,
+    source: 'user-local',
+    automatable: true,
+    confidence: 'medium',
+    requirements: { method: 'credentials', fields: [] },
+  };
+  assert.equal(authPathNeedsClickReveal(path), true);
+});
+
+test('authPathNeedsClickReveal returns false for built-in oauth id', () => {
+  const path: AuthPath = {
+    id: 'google',
+    label: 'Sign in with Google',
+    type: 'form-login',
+    provider: 'google',
+    source: 'heuristic',
+    automatable: false,
+    confidence: 'high',
+    requirements: { method: 'credentials', fields: [] },
+  };
+  assert.equal(authPathNeedsClickReveal(path), false);
 });
