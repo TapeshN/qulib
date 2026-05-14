@@ -33,7 +33,7 @@ export function parseCredentialsJsonString(json: string): Record<string, string>
 
 export function resolveFormLoginPath(baseUrl: string, authOptions: AuthPath[] | undefined, authPathId?: string): AuthPath {
   const formPaths = (authOptions ?? []).filter(
-    (o) => o.type === 'form-login' && o.requirements.method === 'credentials'
+    (o) => (o.type === 'form-login' || o.type === 'form-multi') && o.requirements.method === 'credentials'
   );
   if (formPaths.length === 0) {
     throw new Error(

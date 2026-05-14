@@ -214,6 +214,48 @@ async function buildFormPaths(page: Page): Promise<AuthPath[]> {
   ];
 }
 
+async function probeUserLocalProviderClick(
+  page: Page,
+  providerLabel: string,
+  loginUrl: string,
+  timeoutMs: number
+): Promise<AuthPath[]> {
+  const originBefore = new URL(page.url()).origin;
+  let clicked = false;
+  try {
+    await page.getByRole('button', { name: providerLabel, exact: true }).first().click({ timeout: 3000 });
+    clicked = true;
+  } catch {
+    try {
+      const escaped = providerLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await page
+        .locator('button, [role="button"]')
+        .filter({ hasText: new RegExp(`^\\s*${escaped}\\s*$`, 'i') })
+        .first()
+        .click({ timeout: 3000 });
+      clicked = true;
+    } catch {
+      /* skip */
+    }
+  }
+  if (!clicked) return [];
+
+  try {
+    await page.waitForLoadState('domcontentloaded', { timeout: 5000 });
+  } catch { /* best-effort */ }
+  await waitNetworkIdleBestEffort(page);
+
+  if (new URL(page.url()).origin !== originBefore) {
+    await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+    return [];
+  }
+
+  const formPaths = await buildFormPaths(page);
+  await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
+  await waitNetworkIdleBestEffort(page);
+  return formPaths;
+}
+
 export async function exploreAuth(
   url: string,
   timeoutMs = 20000,
@@ -288,6 +330,23 @@ export async function exploreAuth(
           continue;
         }
         consumed.add(id);
+
+        if (p.source === 'user-local') {
+          const probed = await probeUserLocalProviderClick(page, p.label, finalUrl, timeoutMs);
+          if (probed.length > 0) {
+            for (const fp of probed) {
+              authPaths.push({
+                ...fp,
+                id: p.id,
+                label: p.label,
+                source: 'user-local',
+              });
+              progress?.info(`explore_auth path id=${p.id} type=${fp.type} automatable=${fp.automatable} (user-local probe)`);
+            }
+            continue;
+          }
+        }
+
         authPaths.push({
           id,
           label: p.label,

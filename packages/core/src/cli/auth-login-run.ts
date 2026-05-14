@@ -22,7 +22,11 @@ function sleep(ms: number): Promise<void> {
 }
 
 export function authPathNeedsClickReveal(path: AuthPath): boolean {
-  return path.type === 'form-login' && path.source === 'heuristic' && !builtInOAuthIds.has(path.id);
+  return (
+    (path.type === 'form-login' || path.type === 'form-multi') &&
+    (path.source === 'heuristic' || path.source === 'user-local') &&
+    !builtInOAuthIds.has(path.id)
+  );
 }
 
 export async function runAutomatedAuthLogin(params: {

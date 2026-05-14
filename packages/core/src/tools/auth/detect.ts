@@ -193,7 +193,7 @@ async function probeClickToRevealForms(
   progress?: AnalyzeProgressSink
 ): Promise<AuthPath[]> {
   const out: AuthPath[] = [];
-  const buttons = page.locator('button');
+  const buttons = page.locator('button, [role="button"]');
   const n = await buttons.count();
   const seenLabels = new Set<string>();
   const SUBMIT_RE = /^(sign in|log in|submit|continue|next|cancel|close)$/i;
@@ -250,8 +250,10 @@ async function probeClickToRevealForms(
       continue;
     }
 
+    await waitNetworkIdleBestEffort(page);
+
     try {
-      await page.locator('input[type="password"]:visible').first().waitFor({ state: 'visible', timeout: 2000 });
+      await page.locator('input[type="password"]:visible').first().waitFor({ state: 'visible', timeout: 5000 });
     } catch {
       await page.goto(loginUrl, { timeout: timeoutMs, waitUntil: 'domcontentloaded' });
       await waitNetworkIdleBestEffort(page);
