@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sign-in wall fixture with OAuth buttons for Qulib offline testing.">
+  <title>Sign in — Qulib Fixture</title>
+</head>
+<body>
+  <h1>Sign in to continue</h1>
+  <main>
+    <div role="group" aria-label="Sign-in options">
+      <button data-provider="google" aria-label="Sign in with Google">Sign in with Google</button>
+      <button data-provider="clever" aria-label="Sign in with Clever">Sign in with Clever</button>
+    </div>
+    <div id="auth-error" role="alert" aria-live="assertive" style="display:none">Authentication failed.</div>
+  </main>
+  <footer>
+    <a href="/help">Need help signing in?</a>
+  </footer>
+</body>
+</html>
