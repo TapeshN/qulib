@@ -104,7 +104,13 @@ export async function finalizeGapAnalysisFromDraft(
             : undefined,
       });
       try {
-        const parsed = JSON.parse(llmResult.text) as unknown;
+        // Claude 4 models wrap JSON in markdown fences despite instructions.
+        // Strip ```json ... ``` or ``` ... ``` before parsing.
+        const rawText = llmResult.text.trim();
+        const stripped = rawText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        // Also handle models that embed the array mid-prose — grab first [...] block
+        const jsonText = stripped.startsWith('[') ? stripped : (stripped.match(/\[[\s\S]*\]/)?.[0] ?? stripped);
+        const parsed = JSON.parse(jsonText) as unknown;
         const candidates = Array.isArray(parsed) ? parsed : [];
 
         for (const item of candidates) {

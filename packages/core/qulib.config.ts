@@ -7,8 +7,9 @@ const config: HarnessConfig = {
   timeoutMs: 30000,
   retryCount: 2,
   llmTokenBudget: 4000,
-  // llmMaxOutputTokensPerCall: 2048,
-  // enableLlmScenarios: true,
+  llmMaxOutputTokensPerCall: 8192,
+  // enableLlmScenarios: true, // set to true + add ANTHROPIC_API_KEY to enable LLM scenarios
+  // llmModel: 'claude-sonnet-4-5-20250929', // override the provider default — see available models in your Anthropic console
   testGenerationLimit: 10,
   readOnlyMode: true,
   requireHumanReview: true,

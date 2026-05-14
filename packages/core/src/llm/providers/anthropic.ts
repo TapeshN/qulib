@@ -2,7 +2,7 @@ import type { LlmCallResult, LlmProvider } from '../provider.interface.js';
 import type { TelemetrySink } from '../../telemetry/telemetry.interface.js';
 import { emitTelemetry } from '../../telemetry/emit.js';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 
 function estimateTokensFromChars(chars: number): number {
   return Math.max(0, Math.ceil(chars / 4));

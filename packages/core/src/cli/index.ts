@@ -108,6 +108,7 @@ async function runAnalyze(options: {
   repo?: string;
   configFile?: string;
   ephemeral?: boolean;
+  skipAuthDetection?: boolean;
   authStorageState?: string;
   authFormLogin?: boolean;
   loginUrl?: string;
@@ -136,6 +137,7 @@ async function runAnalyze(options: {
     repoPath: options.repo,
     config,
     writeArtifacts,
+    skipAuthDetection: options.skipAuthDetection,
   });
 
   if (ephemeral) {
@@ -213,6 +215,7 @@ program
     'playwright'
   )
   .option('--ephemeral', 'Do not write to disk — return full report as JSON on stdout (use for MCP/CI)', false)
+  .option('--skip-auth-detection', 'Crawl the public surface even if auth is detected (useful for sites with sign-in CTAs on public pages)', false)
   .option(
     '--auth-storage-state <path>',
     'Path to a storage state JSON file (use after `qulib auth init`)'
@@ -238,6 +241,7 @@ program
       repo: options.repo,
       configFile: options.config,
       ephemeral: options.ephemeral,
+      skipAuthDetection: Boolean(options.skipAuthDetection),
       authStorageState: options.authStorageState,
       authFormLogin,
       loginUrl,
