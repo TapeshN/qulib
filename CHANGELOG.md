@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.5.2] — 2026-05-14
+
+### Fixed
+- **@qulib/core:** `detect-auth` now skips click-probe candidates that navigate to a non-login path after click (e.g. a marketing CTA that happens to lead to a sign-up form). Only paths whose post-click URL contains `/login`, `/sign-in`, `/auth`, `/sso`, or `/oauth` are treated as click-to-reveal auth forms. Eliminates false-positive automatable paths from homepage CTA buttons.
+- **@qulib/core:** LLM scenario generation now receives each gap's real UUID in the prompt (prefixed `id:xxxx`) instead of a positional counter. Fixes `sourceGapIds` in generated scenarios returning `["1"]`, `["2"]` instead of actual gap UUIDs.
+
 ## [0.5.1] — 2026-05-14
 
 ### Fixed
