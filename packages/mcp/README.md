@@ -24,6 +24,25 @@ To enable LLM-powered scenario generation, add your Anthropic API key to the
 Without this key, qulib still runs but uses built-in template scenarios only.
 Your key is never stored by qulib — it is read from your local config at runtime.
 
+After updating this config, restart your MCP host (Claude Desktop / Claude Code / Cursor) so the new environment variables are picked up.
+
+For verbose server-side stderr logs while troubleshooting host wiring, add:
+
+```json
+{
+  "mcpServers": {
+    "qulib": {
+      "command": "npx",
+      "args": ["@qulib/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "QULIB_DEBUG": "1"
+      }
+    }
+  }
+}
+```
+
 ## What it does
 
 Tools:

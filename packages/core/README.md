@@ -277,6 +277,107 @@ npm run analyze -- --url https://example.com --ephemeral > report.bundle.json
 npm run clean
 ```
 
+## Minimum config
+
+Smallest legal `qulib.config.ts`:
+
+```ts
+import type { HarnessConfig } from './src/schemas/config.schema.js';
+
+const config: HarnessConfig = {
+  maxPagesToScan: 20,
+  maxDepth: 3,
+  timeoutMs: 30000,
+};
+
+export default config;
+```
+
+All other fields inherit from schema defaults or CLI/runtime defaults.
+
+## Scan walkthroughs (copy-paste)
+
+### 1) Public scan
+
+```bash
+npx @qulib/core analyze --url https://yourapp.com
+```
+
+### 2) Auth-blocked scan (honest blocked mode)
+
+```bash
+npx @qulib/core analyze --url https://yourapp.com/auth
+```
+
+When auth blocks access and no auth config is supplied, Qulib reports `status: "blocked"` (or `partial` if it could still crawl some public pages). This is intentional honesty, not a failure mode.
+
+### 3) Authenticated scan with storage state
+
+```bash
+# Capture once (manual OAuth/SSO-safe flow)
+qulib auth init --base-url https://yourapp.com
+
+# Reuse saved session
+qulib analyze --url https://yourapp.com --auth-storage-state ./qulib-storage-state.json
+```
+
+## Sample report (fixture baseline)
+
+From the local fixture baseline used in v0.5.0 PR 1/2:
+
+```json
+{
+  "status": "complete",
+  "releaseConfidence": 68,
+  "gaps": [
+    "... 4 total gap items ..."
+  ]
+}
+```
+
+Use these as conservative reference numbers:
+- public fixture (`/`): `releaseConfidence: 68/100`, `gaps: 4`
+- auth-wall fixture (`/auth`): `releaseConfidence: 24/100`, `gaps: 2`
+- broken fixture (`/broken`): `releaseConfidence: 0/100`, `gaps: 6`
+
+## MCP tools quick map
+
+| Tool | When to use | Key input |
+|---|---|---|
+| `analyze_app` | Main QA scan for release confidence + gaps | `url`, optional `auth`, optional LLM knobs |
+| `detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
+| `explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |
+| `qulib_score_automation` | Score local repo automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
+
+## Output directories
+
+Qulib writes runtime artifacts to:
+
+- `.scan-state/` — intermediate state (discovered routes, gap analysis snapshots, decision log)
+- `output/` — final `report.json` and `report.md`
+
+Both are gitignored and safe to delete; Qulib recreates them on the next non-ephemeral run.
+
+## ANTHROPIC_API_KEY (LLM scenarios)
+
+For MCP-hosted usage, set `ANTHROPIC_API_KEY` in your host's `env` block:
+
+```json
+{
+  "mcpServers": {
+    "qulib": {
+      "command": "npx",
+      "args": ["@qulib/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+Without this key, Qulib still runs deterministic checks (crawl, a11y, links, console, scoring) and falls back to template scenarios instead of LLM-generated ones.
+
 ## Playwright browsers
 
 ```bash
