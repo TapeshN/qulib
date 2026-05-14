@@ -40,6 +40,7 @@ export const AutomationMaturityDimensionSchema = z.object({
   recommendations: z.array(z.string()),
   applicability: AutomationMaturityApplicabilitySchema.optional(),
   reason: z.string().optional(),
+  guidance: z.string().optional(),
 });
 
 export const AutomationMaturitySchema = z.object({

@@ -157,6 +157,74 @@ test('summarizeAnalyzeResult replaces repoInventory with a bounded repoInventory
   assert.ok(!serialized.includes('comp-0.tsx'), 'missingTestIds array must not leak into compact payload');
 });
 
+test('summarizeAnalyzeResult includes maturity dimensions with applicability and guidance', () => {
+  const r = minimalResult();
+  r.repoInventory = {
+    scannedAt: new Date().toISOString(),
+    repoPath: '/tmp/repo',
+    routes: [],
+    testFiles: [],
+    missingTestIds: [],
+    cypressStructure: {
+      detected: false,
+      hasCommandsFile: false,
+      existingE2eFiles: [],
+      existingComponentFiles: [],
+    },
+    automationMaturity: {
+      computedAt: new Date().toISOString(),
+      repoPath: '/tmp/repo',
+      overallScore: 30,
+      level: 2,
+      label: 'L2 — emerging coverage',
+      dimensions: [
+        {
+          dimension: 'component-test-ratio',
+          score: 0,
+          weight: 0.08,
+          evidence: ['no cypress'],
+          recommendations: [],
+          applicability: 'not_applicable',
+          reason: 'No Cypress (e2e or component) tests detected.',
+          guidance: 'No Cypress component test setup detected. Add cypress/component/ tests and a component config to enable this dimension.',
+        },
+        {
+          dimension: 'test-coverage-breadth',
+          score: 80,
+          weight: 0.28,
+          evidence: ['8/10 routes covered'],
+          recommendations: [],
+          applicability: 'applicable',
+        },
+      ],
+      topRecommendations: [],
+      scoreFormula: 'overallScore = ...',
+    },
+  };
+  const out = summarizeAnalyzeResult(r, false) as {
+    automationMaturitySummary?: {
+      dimensions: Array<{ dimension: string; applicability: string; guidance?: string }>;
+    };
+  };
+
+  const summary = out.automationMaturitySummary;
+  assert.ok(summary, 'automationMaturitySummary should be present');
+  assert.ok(Array.isArray(summary.dimensions), 'dimensions array should be present');
+
+  const compDim = summary.dimensions.find((d) => d.dimension === 'component-test-ratio');
+  assert.ok(compDim, 'component-test-ratio dimension should be in summary');
+  assert.equal(compDim.applicability, 'not_applicable');
+  assert.ok(
+    typeof compDim.guidance === 'string' && compDim.guidance.length > 0,
+    'guidance should be carried through to the summary'
+  );
+
+  const breadthDim = summary.dimensions.find((d) => d.dimension === 'test-coverage-breadth');
+  assert.ok(breadthDim, 'test-coverage-breadth dimension should be in summary');
+  assert.equal(breadthDim.applicability, 'applicable');
+  assert.equal(breadthDim.guidance, undefined, 'applicable dimension without guidance should omit the field');
+});
+
 test('summarizeAnalyzeResult returns the full repoInventory when includeFullReport is true', () => {
   const r = minimalResult();
   r.repoInventory = {

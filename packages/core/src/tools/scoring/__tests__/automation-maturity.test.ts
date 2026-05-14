@@ -151,3 +151,30 @@ test('scoreFormula is documented on the result', () => {
   assert.ok(maturity.scoreFormula, 'scoreFormula present');
   assert.match(maturity.scoreFormula!, /applicable/i);
 });
+
+test('not_applicable dimensions carry a non-empty guidance string', () => {
+  const maturity = computeAutomationMaturity(baseRepo());
+  const naDims = maturity.dimensions.filter((d) => d.applicability === 'not_applicable');
+  assert.ok(naDims.length > 0, 'baseRepo() should produce at least one not_applicable dimension');
+  for (const d of naDims) {
+    assert.ok(
+      typeof d.guidance === 'string' && d.guidance.length > 0,
+      `dimension ${d.dimension} (not_applicable) must carry guidance, got: ${JSON.stringify(d.guidance)}`
+    );
+  }
+});
+
+test('guidance text is actionable', () => {
+  const maturity = computeAutomationMaturity(baseRepo());
+  const dimsWithGuidance = maturity.dimensions.filter(
+    (d) => typeof d.guidance === 'string' && d.guidance.length > 0
+  );
+  assert.ok(dimsWithGuidance.length > 0, 'expected at least one dimension to carry guidance');
+  for (const d of dimsWithGuidance) {
+    const g = d.guidance!;
+    assert.ok(
+      g.includes('Add') || g.includes('Run') || g.includes('No'),
+      `guidance for ${d.dimension} should include actionable verb (Add/Run/No), got: ${g}`
+    );
+  }
+});

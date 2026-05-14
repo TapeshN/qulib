@@ -110,10 +110,13 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
   let hygieneScore = 0;
   let hygieneApplicability: AutomationMaturityApplicability = 'applicable';
   let hygieneReason: string | undefined;
+  let hygieneGuidance: string | undefined;
   const hygieneEvidence: string[] = [];
   if (interactiveTsxScanned === 0) {
     hygieneApplicability = 'unknown';
     hygieneReason = 'No interactive TSX files scanned — cannot compute a missing-id ratio honestly.';
+    hygieneGuidance =
+      'Qulib could not collect enough signal to score this dimension. Run against a repo with more test files or a larger page scan to improve signal.';
     hygieneEvidence.push(hygieneReason);
   } else {
     const missingRatio = missingIds / interactiveTsxScanned;
@@ -133,6 +136,7 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
         : [],
     applicability: hygieneApplicability,
     ...(hygieneReason && { reason: hygieneReason }),
+    ...(hygieneGuidance && { guidance: hygieneGuidance }),
   };
 
   const ci = hasCiAtRoot(repo.repoPath);
@@ -153,10 +157,13 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
   let authScore = 0;
   let authApplicability: AutomationMaturityApplicability = 'applicable';
   let authReason: string | undefined;
+  let authGuidance: string | undefined;
   const authEvidence: string[] = [];
   if (!repoHasAnyAuthSignal) {
     authApplicability = 'not_applicable';
     authReason = 'No auth routes, auth-named test files, or auth path coverage detected — repo appears auth-free.';
+    authGuidance =
+      'No auth signal detected in this app. If authentication exists, run qulib with a storage-state file to enable auth-test-coverage scoring.';
     authEvidence.push(authReason);
   } else {
     authScore = authCovered ? 90 : 25;
@@ -177,6 +184,7 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
         : [],
     applicability: authApplicability,
     ...(authReason && { reason: authReason }),
+    ...(authGuidance && { guidance: authGuidance }),
   };
 
   const cypressE2e = repo.testFiles.filter((t) => t.type === 'cypress-e2e').length;
@@ -185,10 +193,13 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
   let compRatioScore = 0;
   let compApplicability: AutomationMaturityApplicability = 'applicable';
   let compReason: string | undefined;
+  let compGuidance: string | undefined;
   const compEvidence: string[] = [];
   if (cypressTotal === 0) {
     compApplicability = 'not_applicable';
     compReason = 'No Cypress (e2e or component) tests detected — component-test-ratio does not apply.';
+    compGuidance =
+      'No Cypress component test setup detected. Add cypress/component/ tests and a component config to enable this dimension.';
     compEvidence.push(compReason);
   } else {
     compRatioScore = Math.round((100 * cypressComp) / cypressTotal);
@@ -205,6 +216,7 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
         : [],
     applicability: compApplicability,
     ...(compReason && { reason: compReason }),
+    ...(compGuidance && { guidance: compGuidance }),
   };
 
   const dimensions = [breadthDim, frameworkDim, hygieneDim, ciDim, authDim, compDim];

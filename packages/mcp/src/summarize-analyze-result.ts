@@ -113,6 +113,12 @@ export function summarizeAnalyzeResult(result: AnalyzeResult, includeFullReport:
         level: repo.automationMaturity.level,
         label: repo.automationMaturity.label,
         topRecommendations: repo.automationMaturity.topRecommendations,
+        dimensions: repo.automationMaturity.dimensions.map((d) => ({
+          dimension: d.dimension,
+          score: d.score,
+          applicability: d.applicability ?? 'applicable',
+          ...(d.guidance !== undefined && { guidance: d.guidance }),
+        })),
       },
     }),
     repoInventorySummary,
