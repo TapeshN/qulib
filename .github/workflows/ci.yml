@@ -31,30 +31,21 @@ jobs:
           npx tsc --noEmit -p packages/mcp/tsconfig.json
 
   smoke-test-cli:
-    name: Smoke test CLI
+    name: CLI smoke (offline fixture)
     runs-on: ubuntu-latest
     needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Build
-        run: npm run build
-
-      - name: Run analyze on example.com (ephemeral)
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: CLI smoke against local fixture
         working-directory: packages/core
-        run: node bin/qulib.js analyze --url https://example.com --ephemeral
+        run: node --import tsx/esm src/__tests__/cli-smoke-fixture.ts
         timeout-minutes: 3
 
   fixture-tests:
@@ -80,6 +71,23 @@ jobs:
         working-directory: packages/core
         run: node --import tsx/esm --test src/__tests__/analyze.fixtures.test.ts
         timeout-minutes: 5
+
+  unit-tests:
+    name: Unit + fixture tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run all tests
+        working-directory: packages/core
+        run: npm test
+        timeout-minutes: 8
 
   publish-check:
     name: Verify packages are publishable
