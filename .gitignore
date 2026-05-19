@@ -8,3 +8,14 @@ quilib.test-auth.config.ts
 qulib-storage-state.json
 .scan-state/
 output/
+
+# Agent / LLM infrastructure — local to dev machine, not published
+# CLAUDE.md stays tracked — it holds project rules any contributor or agent needs
+AGENTS.md
+.cursor/
+.github/copilot-instructions.md
+.copilot/
+.aider*
+.continue/
+datasets/
+roadmap.json
