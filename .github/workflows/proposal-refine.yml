@@ -31,6 +31,15 @@ jobs:
       - name: Install dependencies
         run: pip install anthropic
 
+      - name: Resolve Slack channel from repo
+        id: channel
+        run: |
+          case "${{ github.repository }}" in
+            TapeshN/qulib)          echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_QULIB }}" >> "$GITHUB_OUTPUT" ;;
+            TapeshN/notquality-app) echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_NOTQUALITY }}" >> "$GITHUB_OUTPUT" ;;
+            *)                      echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Extract feedback from comment
         id: feedback
         run: |
@@ -46,5 +55,5 @@ jobs:
           ISSUE_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REFINE_FEEDBACK: ${{ steps.feedback.outputs.text }}
-          SLACK_WEBHOOK_URL_PROPOSALS: ${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}
+          SLACK_WEBHOOK_URL_PROPOSALS: ${{ steps.channel.outputs.webhook }}
         run: python scripts/proposal_refine.py

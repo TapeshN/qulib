@@ -28,13 +28,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Resolve project number from repo
+      - name: Resolve project number and Slack channel from repo
         id: project
         run: |
           case "${{ github.repository }}" in
-            TapeshN/qulib)           echo "number=3" >> "$GITHUB_OUTPUT" ;;
-            TapeshN/notquality-app)  echo "number=4" >> "$GITHUB_OUTPUT" ;;
-            *)                       echo "number=3" >> "$GITHUB_OUTPUT" ;;
+            TapeshN/qulib)
+              echo "number=3" >> "$GITHUB_OUTPUT"
+              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_QULIB }}" >> "$GITHUB_OUTPUT"
+              ;;
+            TapeshN/notquality-app)
+              echo "number=4" >> "$GITHUB_OUTPUT"
+              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_NOTQUALITY }}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "number=3" >> "$GITHUB_OUTPUT"
+              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}" >> "$GITHUB_OUTPUT"
+              ;;
           esac
 
       - name: Fetch issue node ID
@@ -52,5 +61,5 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_NODE_ID: ${{ steps.issue_meta.outputs.node_id }}
           PROJECT_NUMBER: ${{ steps.project.outputs.number }}
-          SLACK_WEBHOOK_URL_PROPOSALS: ${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}
+          SLACK_WEBHOOK_URL_PROPOSALS: ${{ steps.project.outputs.webhook }}
         run: python scripts/proposal_approve.py
