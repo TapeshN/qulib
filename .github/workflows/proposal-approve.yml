@@ -9,5 +9,5 @@ jobs:
     if: |
       startsWith(github.event.comment.body, '/approve') &&
       contains(github.event.issue.labels.*.name, 'proposal')
-    uses: TapeshN/Tap-Agent/.github/workflows/proposal-approve-reusable.yml@main
+    uses: TapeshN/Tap-Agent/.github/workflows/_reusable-proposal-approve.yml@main
     secrets: inherit
