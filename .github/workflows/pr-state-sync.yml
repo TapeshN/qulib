@@ -1,0 +1,20 @@
+name: PR State Sync
+
+on:
+  pull_request:
+    types: [opened, closed]
+
+jobs:
+  on_opened:
+    if: github.event.action == 'opened'
+    uses: TapeshN/Tap-Agent/.github/workflows/_reusable-pr-state-sync.yml@main
+    secrets: inherit
+    with:
+      mode: opened
+
+  on_merged:
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    uses: TapeshN/Tap-Agent/.github/workflows/_reusable-pr-state-sync.yml@main
+    secrets: inherit
+    with:
+      mode: merged
