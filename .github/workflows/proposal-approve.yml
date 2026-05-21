@@ -1,0 +1,56 @@
+name: Proposal — Approve
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  approve:
+    name: Approve proposal (ORCH-013)
+    if: |
+      startsWith(github.event.comment.body, '/approve') &&
+      contains(github.event.issue.labels.*.name, 'proposal')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout Tap-Agent
+        uses: actions/checkout@v4
+        with:
+          repository: TapeshN/Tap-Agent
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve project number from repo
+        id: project
+        run: |
+          case "${{ github.repository }}" in
+            TapeshN/qulib)           echo "number=3" >> "$GITHUB_OUTPUT" ;;
+            TapeshN/notquality-app)  echo "number=4" >> "$GITHUB_OUTPUT" ;;
+            *)                       echo "number=3" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Fetch issue node ID
+        id: issue_meta
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          NODE_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }} --jq '.node_id')
+          echo "node_id=$NODE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run approve script
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ISSUE_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NODE_ID: ${{ steps.issue_meta.outputs.node_id }}
+          PROJECT_NUMBER: ${{ steps.project.outputs.number }}
+          SLACK_WEBHOOK_URL_PROPOSALS: ${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}
+        run: python scripts/proposal_approve.py
