@@ -15,6 +15,7 @@ jobs:
 
     permissions:
       issues: write
+      contents: write
 
     steps:
       - name: Checkout Tap-Agent
@@ -32,6 +33,10 @@ jobs:
         id: project
         run: |
           case "${{ github.repository }}" in
+            TapeshN/Tap-Agent)
+              echo "number=2" >> "$GITHUB_OUTPUT"
+              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_TAP_AGENT }}" >> "$GITHUB_OUTPUT"
+              ;;
             TapeshN/qulib)
               echo "number=3" >> "$GITHUB_OUTPUT"
               echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_QULIB }}" >> "$GITHUB_OUTPUT"
@@ -41,8 +46,8 @@ jobs:
               echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_NOTQUALITY }}" >> "$GITHUB_OUTPUT"
               ;;
             *)
-              echo "number=3" >> "$GITHUB_OUTPUT"
-              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}" >> "$GITHUB_OUTPUT"
+              echo "number=2" >> "$GITHUB_OUTPUT"
+              echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_TAP_AGENT }}" >> "$GITHUB_OUTPUT"
               ;;
           esac
 
@@ -54,6 +59,16 @@ jobs:
           NODE_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }} --jq '.node_id')
           echo "node_id=$NODE_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve project ID
+        id: proj_id
+        run: |
+          case "${{ github.repository }}" in
+            TapeshN/Tap-Agent)      echo "id=tap-agent" >> "$GITHUB_OUTPUT" ;;
+            TapeshN/qulib)          echo "id=qulib" >> "$GITHUB_OUTPUT" ;;
+            TapeshN/notquality-app) echo "id=notquality" >> "$GITHUB_OUTPUT" ;;
+            *)                      echo "id=tap-agent" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Run approve script
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -63,3 +78,32 @@ jobs:
           PROJECT_NUMBER: ${{ steps.project.outputs.number }}
           SLACK_WEBHOOK_URL_PROPOSALS: ${{ steps.project.outputs.webhook }}
         run: python scripts/proposal_approve.py
+
+      - name: Checkout project repo for state sync
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GH_TOKEN }}
+          path: state-repo
+
+      - name: Sync initiative state to initiatives.json
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          mkdir -p ~/.tapagent
+          printf '{"projects":[{"id":"%s","path":"%s/state-repo"}]}' \
+            "${{ steps.proj_id.outputs.id }}" "$GITHUB_WORKSPACE" \
+            > ~/.tapagent/portfolio.json
+          python scripts/initiative_sync.py pull "${{ steps.proj_id.outputs.id }}" --apply
+          cd state-repo
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          mkdir -p .cursor/state
+          if git diff --quiet -- .cursor/state/initiatives.json 2>/dev/null && \
+             ! git ls-files --others --exclude-standard -- .cursor/state/initiatives.json | grep -q .; then
+            echo "initiatives.json unchanged — nothing to commit"
+          else
+            git add .cursor/state/initiatives.json
+            git commit -m "chore(state): sync initiatives after approving #${{ github.event.issue.number }}"
+            git push
+          fi
