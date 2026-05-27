@@ -1,4 +1,6 @@
 export { analyzeApp } from './analyze.js';
+export { toAgentSummary } from './agent-summary.js';
+export type { AgentSummary } from './agent-summary.js';
 export {
   detectAuth,
   validateStorageState,
