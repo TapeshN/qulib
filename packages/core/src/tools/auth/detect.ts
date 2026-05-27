@@ -107,16 +107,45 @@ async function resolveVisibleFieldLabel(page: Page, el: import('@playwright/test
   return typ && typ !== 'select' ? typ : 'text';
 }
 
-async function deriveCredentialFieldName(el: import('@playwright/test').Locator): Promise<string> {
-  const name = (await el.getAttribute('name'))?.trim();
+function looksLikeExampleValue(s: string): boolean {
+  return /@|:\/\//.test(s);
+}
+
+export function pickCredentialFieldName(attrs: {
+  name?: string | null;
+  id?: string | null;
+  autocomplete?: string | null;
+  type?: string | null;
+  placeholder?: string | null;
+  ariaLabel?: string | null;
+}): string {
+  const name = attrs.name?.trim();
   if (name) return name;
-  const placeholder = (await el.getAttribute('placeholder'))?.trim();
-  if (placeholder) return slugify(placeholder);
-  const aria = (await el.getAttribute('aria-label'))?.trim();
-  if (aria) return slugify(aria);
-  const id = (await el.getAttribute('id'))?.trim();
+  const id = attrs.id?.trim();
   if (id) return slugify(id);
+  const autocomplete = attrs.autocomplete?.trim().toLowerCase();
+  if (autocomplete === 'username' || autocomplete === 'email') return autocomplete;
+  if (autocomplete === 'current-password' || autocomplete === 'new-password') return 'password';
+  const type = attrs.type?.trim().toLowerCase();
+  if (type === 'email') return 'email';
+  if (type === 'password') return 'password';
+  const placeholder = attrs.placeholder?.trim();
+  if (placeholder && !looksLikeExampleValue(placeholder)) return slugify(placeholder);
+  const aria = attrs.ariaLabel?.trim();
+  if (aria && !looksLikeExampleValue(aria)) return slugify(aria);
   return 'field';
+}
+
+async function deriveCredentialFieldName(el: import('@playwright/test').Locator): Promise<string> {
+  const [name, id, autocomplete, type, placeholder, ariaLabel] = await Promise.all([
+    el.getAttribute('name'),
+    el.getAttribute('id'),
+    el.getAttribute('autocomplete'),
+    el.getAttribute('type'),
+    el.getAttribute('placeholder'),
+    el.getAttribute('aria-label'),
+  ]);
+  return pickCredentialFieldName({ name, id, autocomplete, type, placeholder, ariaLabel });
 }
 
 async function buildCredentialFieldsFromVisibleForm(page: Page): Promise<
