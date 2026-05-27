@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
-## [0.5.3] — 2026-05-26
+## [0.5.3] — 2026-05-27
+
+### Fixed
+- **@qulib/core:** `detect-auth` no longer derives credential field names from placeholder example values. An email input with `placeholder="you@example.com"` and no `name` attribute previously produced a field name like `"youexamplecom"`; the fallback chain now prefers stable identifiers (`name` → `id` → `autocomplete` → input `type`) and guards placeholder/aria-label fallbacks against values containing `@` or `://`.
 
 ### Changed
 - Example provider references in docs and tests updated to use notquality.com as the canonical demo target — qulib's own primary test surface.
