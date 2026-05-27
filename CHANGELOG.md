@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.6.0] — 2026-05-27
+
+### Added
+- **@qulib/core:** `toAgentSummary(result, policy?)` — a pure, no-I/O helper that projects an `AnalyzeResult` into a small versioned JSON shape (`schemaVersion: 1`) with `gate: 'pass' | 'warn' | 'fail'`, `coverageStatus`, `topRisks`, `recommendedNextChecks`, `honestyNotes`, `costSummary`, and `deterministicFollowUps`. Designed for orchestrators (CI gates, AI agents) that need a single small payload to decide whether a scan is good enough to ship. Conservative defaults — critical gaps, blocked status, or `auth-required` mode never silently pass.
+- **@qulib/core CLI:** `qulib analyze --agent-summary` — emits the agent-summary JSON on stdout and writes nothing to disk. Mutually exclusive with `--ephemeral`.
+- **@qulib/mcp:** `analyze_app` now accepts `agentSummary: true` to return the compact gate JSON instead of the summary-first envelope. Overrides `includeFullReport`.
+- **docs:** `docs/agent-summary-output.md` — public spec for the shape, gate-derivation rules, policy overrides, and the `schemaVersion: 1` stability contract. Also adds the QLIB-001 PRD, implementation chunk plan, and design note.
+
 ## [0.5.3] — 2026-05-27
 
 ### Fixed
