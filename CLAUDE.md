@@ -30,7 +30,7 @@ packages/mcp/src/    — MCP tool wrappers over core
 
 The release plan lives in `roadmap.json` at the repo root. Any agent planning work reads it first.
 
-**Current:** v0.5.2 on main, v0.5.1 on npm registry.
+**Current:** v0.5.3 on main and npm registry.
 
 **Target:** v1.0.0 — full auth intelligence, composable audit tools, CI integration.
 
@@ -208,7 +208,7 @@ When spawning subagents, include:
 When shipping multiple dependent changes:
 
 ```
-main (v0.5.2)
+main (v0.5.3)
   └── fix/thing           → PR, CI green, merge
         └── chore/release-0.5.3  → PR, CI green, merge, PUBLISH
               └── feature/next   → PR, CI green, merge
