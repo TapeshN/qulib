@@ -9,6 +9,7 @@ const requirePkg = createRequire(import.meta.url);
 const pkg = requirePkg('../../package.json') as { version: string };
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
 import { analyzeApp } from '../analyze.js';
+import { toAgentSummary } from '../agent-summary.js';
 import { detectAuth } from '../tools/auth/detect.js';
 import { exploreAuth } from '../tools/auth/explore.js';
 import {
@@ -108,6 +109,7 @@ async function runAnalyze(options: {
   repo?: string;
   configFile?: string;
   ephemeral?: boolean;
+  agentSummary?: boolean;
   skipAuthDetection?: boolean;
   authStorageState?: string;
   authFormLogin?: boolean;
@@ -118,15 +120,21 @@ async function runAnalyze(options: {
   passwordSelector?: string;
   submitSelector?: string;
 }): Promise<void> {
+  if (options.ephemeral && options.agentSummary) {
+    throw new Error('Use either --agent-summary or --ephemeral, not both — pick one stdout output mode.');
+  }
   const validatedUrl = AnalyzeUrlSchema.parse(options.url);
   const mode: AnalyzeMode = options.repo ? 'url-repo' : 'url-only';
   const baseConfig = await loadConfigFile(options.configFile ?? 'qulib.config.ts');
   const config = mergeAuthFromCli(baseConfig, options);
   const ephemeral = options.ephemeral ?? false;
-  const writeArtifacts = !ephemeral;
+  const agentSummary = options.agentSummary ?? false;
+  const writeArtifacts = !ephemeral && !agentSummary;
 
   if (ephemeral) {
     console.error('[qulib] Ephemeral mode: no disk writes; full result JSON on stdout');
+  } else if (agentSummary) {
+    console.error('[qulib] Agent-summary mode: no disk writes; agent gate JSON on stdout');
   } else {
     console.log('[qulib] Detected mode:', mode);
     console.log('[qulib] Active config:', redactConfigForLog(config));
@@ -140,6 +148,10 @@ async function runAnalyze(options: {
     skipAuthDetection: options.skipAuthDetection,
   });
 
+  if (agentSummary) {
+    console.log(JSON.stringify(toAgentSummary(result), null, 2));
+    return;
+  }
   if (ephemeral) {
     console.log(
       JSON.stringify(
@@ -215,6 +227,7 @@ program
     'playwright'
   )
   .option('--ephemeral', 'Do not write to disk — return full report as JSON on stdout (use for MCP/CI)', false)
+  .option('--agent-summary', 'Do not write to disk — return the compact agent-summary gate JSON on stdout (pass/warn/fail with honesty notes). Mutually exclusive with --ephemeral.', false)
   .option('--skip-auth-detection', 'Crawl the public surface even if auth is detected (useful for sites with sign-in CTAs on public pages)', false)
   .option(
     '--auth-storage-state <path>',
@@ -241,6 +254,7 @@ program
       repo: options.repo,
       configFile: options.config,
       ephemeral: options.ephemeral,
+      agentSummary: options.agentSummary,
       skipAuthDetection: Boolean(options.skipAuthDetection),
       authStorageState: options.authStorageState,
       authFormLogin,
