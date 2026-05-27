@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.5.3] — 2026-05-26
+
+### Changed
+- Example provider references in docs and tests updated to use notquality.com as the canonical demo target — qulib's own primary test surface.
+
 ## [0.5.2] — 2026-05-14
 
 ### Fixed

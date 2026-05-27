@@ -6,54 +6,8 @@ on:
 
 jobs:
   refine:
-    name: Refine proposal (ORCH-013)
     if: |
       startsWith(github.event.comment.body, '/refine') &&
       contains(github.event.issue.labels.*.name, 'proposal')
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    permissions:
-      issues: write
-
-    steps:
-      - name: Checkout Tap-Agent
-        uses: actions/checkout@v4
-        with:
-          repository: TapeshN/Tap-Agent
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install anthropic
-
-      - name: Resolve Slack channel from repo
-        id: channel
-        run: |
-          case "${{ github.repository }}" in
-            TapeshN/qulib)          echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_QULIB }}" >> "$GITHUB_OUTPUT" ;;
-            TapeshN/notquality-app) echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_NOTQUALITY }}" >> "$GITHUB_OUTPUT" ;;
-            *)                      echo "webhook=${{ secrets.SLACK_WEBHOOK_URL_PROPOSALS }}" >> "$GITHUB_OUTPUT" ;;
-          esac
-
-      - name: Extract feedback from comment
-        id: feedback
-        run: |
-          COMMENT="${{ github.event.comment.body }}"
-          FEEDBACK="${COMMENT#/refine}"
-          FEEDBACK="${FEEDBACK#" "}"
-          echo "text=$FEEDBACK" >> "$GITHUB_OUTPUT"
-
-      - name: Run refine script
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          ISSUE_REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REFINE_FEEDBACK: ${{ steps.feedback.outputs.text }}
-          SLACK_WEBHOOK_URL_PROPOSALS: ${{ steps.channel.outputs.webhook }}
-        run: python scripts/proposal_refine.py
+    uses: TapeshN/Tap-Agent/.github/workflows/_reusable-proposal-refine.yml@main
+    secrets: inherit

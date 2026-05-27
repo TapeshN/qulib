@@ -1,0 +1,13 @@
+name: Proposal — Plan Done
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  plan_done:
+    if: |
+      startsWith(github.event.comment.body, '/plan-done') &&
+      contains(github.event.issue.labels.*.name, 'in-plans')
+    uses: TapeshN/Tap-Agent/.github/workflows/_reusable-proposal-plan-done.yml@main
+    secrets: inherit
