@@ -25,7 +25,7 @@ import {
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { z } from 'zod';
-import { summarizeAnalyzeResult } from './summarize-analyze-result.js';
+import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
 import { log } from './logger.js';
 
 function toolError(code: string, message: string, detail?: unknown): {
@@ -87,6 +87,12 @@ const AnalyzeInputSchema = z.object({
   timeoutMs: z.number().int().positive().optional(),
   auth: z.discriminatedUnion('type', [FormLoginMcpAuthSchema, StorageStateMcpAuthSchema]).optional(),
   includeFullReport: z.boolean().optional(),
+  agentSummary: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true, return only the versioned agent-summary JSON ({ schemaVersion: 1, gate, coverageStatus, topRisks, recommendedNextChecks, honestyNotes, costSummary, deterministicFollowUps }). Use this for CI gates and orchestrators that need a single small payload to decide pass/warn/fail. Overrides includeFullReport.'
+    ),
   llmTokenBudget: z.number().int().positive().optional(),
   llmMaxOutputTokensPerCall: z.number().int().positive().optional(),
   testGenerationLimit: z.number().int().positive().max(50).optional(),
@@ -201,7 +207,7 @@ mcpServer.registerTool(
   'analyze_app',
   {
     description:
-      'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.',
+      'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Set agentSummary for the compact gate-decision payload (pass/warn/fail with honesty notes) — use this when calling from a CI gate or orchestrator. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.',
     inputSchema: AnalyzeInputSchema,
   },
   async (input) => {
@@ -257,7 +263,10 @@ mcpServer.registerTool(
         telemetry: telemetrySink,
       });
 
-      const payload = summarizeAnalyzeResult(result, input.includeFullReport === true);
+      const payload = buildAnalyzeAppMcpPayload(result, {
+        includeFullReport: input.includeFullReport,
+        agentSummary: input.agentSummary,
+      });
 
       return {
         content: [
