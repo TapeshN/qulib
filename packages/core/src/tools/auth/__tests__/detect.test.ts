@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import {
   evaluateStorageStateValidity,
+  pickCredentialFieldName,
   preflightStorageStateFile,
   waitForReturnToOrigin,
 } from '../detect.js';
@@ -345,4 +346,69 @@ test('authPathNeedsClickReveal returns false for built-in oauth id', () => {
     requirements: { method: 'credentials', fields: [] },
   };
   assert.equal(authPathNeedsClickReveal(path), false);
+});
+
+// --- pickCredentialFieldName tests ---
+
+test('pickCredentialFieldName returns name attribute when present', () => {
+  assert.equal(pickCredentialFieldName({ name: 'email', type: 'text' }), 'email');
+});
+
+test('pickCredentialFieldName falls back to slugified id when name is missing', () => {
+  assert.equal(pickCredentialFieldName({ id: 'user-email-input', type: 'text' }), 'user-email-input');
+});
+
+test('pickCredentialFieldName uses autocomplete=email when no name or id', () => {
+  assert.equal(pickCredentialFieldName({ autocomplete: 'email', type: 'text' }), 'email');
+});
+
+test('pickCredentialFieldName uses autocomplete=username when no name or id', () => {
+  assert.equal(pickCredentialFieldName({ autocomplete: 'username', type: 'text' }), 'username');
+});
+
+test('pickCredentialFieldName maps autocomplete=current-password to "password"', () => {
+  assert.equal(pickCredentialFieldName({ autocomplete: 'current-password' }), 'password');
+});
+
+test('pickCredentialFieldName falls back to type=email semantic default', () => {
+  assert.equal(pickCredentialFieldName({ type: 'email' }), 'email');
+});
+
+test('pickCredentialFieldName falls back to type=password semantic default', () => {
+  assert.equal(pickCredentialFieldName({ type: 'password' }), 'password');
+});
+
+test('pickCredentialFieldName skips placeholder that looks like an example email', () => {
+  // Regression: placeholder "you@notquality.com" must not become "younotqualitycom"
+  assert.equal(pickCredentialFieldName({ type: 'email', placeholder: 'you@notquality.com' }), 'email');
+});
+
+test('pickCredentialFieldName skips placeholder that looks like a URL example', () => {
+  assert.equal(pickCredentialFieldName({ placeholder: 'https://your-site.com' }), 'field');
+});
+
+test('pickCredentialFieldName uses placeholder when it looks like a field-name hint', () => {
+  // "District" has no @ or :// — safe to slugify
+  assert.equal(pickCredentialFieldName({ placeholder: 'District' }), 'district');
+});
+
+test('pickCredentialFieldName uses aria-label as last resort before "field"', () => {
+  assert.equal(pickCredentialFieldName({ ariaLabel: 'Choose your school' }), 'choose-your-school');
+});
+
+test('pickCredentialFieldName returns "field" when no usable signal exists', () => {
+  assert.equal(pickCredentialFieldName({}), 'field');
+});
+
+test('pickCredentialFieldName prefers name attribute over all other signals', () => {
+  assert.equal(
+    pickCredentialFieldName({
+      name: 'real_name',
+      id: 'i-am-ignored',
+      autocomplete: 'email',
+      type: 'password',
+      placeholder: 'ignored',
+    }),
+    'real_name'
+  );
 });
