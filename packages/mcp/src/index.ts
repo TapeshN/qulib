@@ -22,6 +22,7 @@ import {
   exploreAuth,
   scanRepo,
   computeAutomationMaturity,
+  scaffoldTests,
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { z } from 'zod';
@@ -322,6 +323,64 @@ mcpServer.registerTool(
       }
       log.error(`qulib_score_automation failed: ${msg}`);
       return toolError('QULIB_REPO_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    }
+  }
+);
+
+const ScaffoldTestsInputSchema = z.object({
+  url: z.string().url().describe('URL of the deployed web app to scaffold tests for'),
+  framework: z
+    .enum(['cypress-e2e', 'playwright'])
+    .optional()
+    .describe('Test framework to generate. Default: cypress-e2e'),
+  maxPagesToScan: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .optional()
+    .describe('Max pages to crawl when running analyze_app internally. Default: 10'),
+});
+
+mcpServer.registerTool(
+  'qulib_scaffold_tests',
+  {
+    description:
+      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files (Cypress or Playwright) plus the project config (cypress.config.ts or playwright.config.ts) and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing.',
+    inputSchema: ScaffoldTestsInputSchema,
+  },
+  async ({ url, framework, maxPagesToScan }) => {
+    try {
+      log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}`);
+      const result = await scaffoldTests(url, {
+        framework: framework ?? 'cypress-e2e',
+        maxPagesToScan: maxPagesToScan ?? 10,
+        progressLog: mcpProgressLog,
+        telemetry: telemetrySink,
+      });
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                url: result.url,
+                framework: result.framework,
+                scenarioCount: result.scenarios.length,
+                testCount: result.generatedTests.length,
+                generatedTests: result.generatedTests,
+                projectConfig: result.projectConfig,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`qulib_scaffold_tests failed: ${msg}`);
+      return toolError('QULIB_SCAFFOLD_FAILED', msg, err instanceof Error ? err.stack : undefined);
     }
   }
 );

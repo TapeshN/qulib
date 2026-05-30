@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.7.0] — 2026-05-30
+
+### Added
+- **@qulib/core:** `scaffoldTests(url, options?)` — crawls a URL via `analyzeApp`, renders
+  `NeutralScenario[]` through the adapter layer, and returns `GeneratedTest[]` + `ProjectConfig`
+  (ready-to-write `cypress.config.ts` / `playwright.config.ts` + `package.json` deps +
+  support files). Framework: `cypress-e2e` (default) or `playwright`.
+- **@qulib/core:** `CypressE2EAdapter.render()` fully implemented — handles all 10 `TestStep`
+  action types: `navigate`, `click`, `type`, `assert-visible`, `assert-hidden`, `assert-text`,
+  `assert-disabled`, `assert-count`, `wait`, `api-call`.
+- **@qulib/mcp:** `qulib_scaffold_tests` tool — accepts `url` + optional `framework` +
+  `maxPagesToScan`; returns `generatedTests` (array of `{filename, code, outputPath}`) and
+  `projectConfig` so an agent can write the files directly to a repo with no manual test-writing.
+- **@qulib/core exports:** `scaffoldTests`, `ScaffoldOptions`, `ScaffoldResult`, `ProjectConfig`
+  re-exported from `@qulib/core` root.
+
 ## [0.6.0] — 2026-05-27
 
 ### Added
