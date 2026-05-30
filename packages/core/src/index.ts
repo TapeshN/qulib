@@ -22,6 +22,8 @@ export { exploreAuth } from './tools/auth/explore.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/custom-providers.js';
 export { scanRepo } from './tools/repo/scan.js';
 export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
+export { scaffoldTests } from './scaffold-tests.js';
+export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';
