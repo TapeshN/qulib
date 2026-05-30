@@ -18,6 +18,16 @@
     "test": "npm run test --workspaces --if-present",
     "test:integration": "npm run test:integration -w @qulib/core",
     "smoke": "npm run smoke -w @qulib/core",
-    "clean": "npm run clean -w @qulib/core --if-present"
+    "clean": "npm run clean -w @qulib/core --if-present",
+    "version": "changeset version",
+    "release": "changeset publish",
+    "changeset:status": "changeset status --since=origin/main",
+    "lint:packages": "publint packages/core && publint packages/mcp && attw --pack packages/core --profile esm-only && attw --pack packages/mcp --profile esm-only"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
+    "publint": "^0.3.21"
   }
 }

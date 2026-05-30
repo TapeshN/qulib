@@ -25,6 +25,7 @@ You should see a JSON report on stdout with a `releaseConfidence` score.
 1. Open an issue first if the change is non-trivial — saves wasted effort if the direction needs discussion.
 2. Read `CLAUDE.md` — it documents the project's rules, branch conventions, and design principles.
 3. Run `npm run build` and confirm it passes before submitting.
+4. If your PR changes package code (`packages/*/src`, `bin`, or a `package.json`), add a changeset: run `npx changeset`, pick the bump level, and commit the generated file. CI enforces this. See [`docs/releasing.md`](./docs/releasing.md) for the full release flow.
 
 ## Branch and commit conventions
 

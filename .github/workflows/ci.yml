@@ -113,3 +113,72 @@ jobs:
 
       - name: Dry-run publish @qulib/mcp
         run: cd packages/mcp && npm publish --dry-run
+
+      # Catch broken "exports"/"types"/packaging before it can reach npm.
+      - name: publint @qulib/core
+        run: npx publint packages/core
+
+      - name: publint @qulib/mcp
+        run: npx publint packages/mcp
+
+      # Both packages are pure ESM ("type": "module"); esm-only profile makes
+      # attw ignore the expected "no CJS entrypoint" case and fail only on real
+      # type-resolution breakage.
+      - name: Are the types wrong? @qulib/core
+        run: npx attw --pack packages/core --profile esm-only
+
+      - name: Are the types wrong? @qulib/mcp
+        run: npx attw --pack packages/mcp --profile esm-only
+
+  changeset-check:
+    name: Changeset present
+    runs-on: ubuntu-latest
+    # PR-only: pushes to main are handled by the release workflow, and the
+    # "Version Packages" PR intentionally has no changeset of its own.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Skip the gate for docs/chore-only PRs that touch no package source.
+      - name: Detect package-source changes
+        id: changed
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          if git diff --name-only "$base"...HEAD | grep -Eq '^packages/(core|mcp)/(src|bin)/|^packages/(core|mcp)/package\.json$'; then
+            echo "needs_changeset=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_changeset=false" >> "$GITHUB_OUTPUT"
+            echo "No package source changed — changeset not required."
+          fi
+
+      - name: Require a changeset for package-source changes
+        if: steps.changed.outputs.needs_changeset == 'true'
+        run: npx changeset status --since=origin/${{ github.base_ref }}
+
+  mcp-smoke:
+    name: MCP server smoke (lists tools)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - name: Start MCP server and assert tool list
+        run: node packages/mcp/scripts/smoke-tools.mjs
+        timeout-minutes: 2

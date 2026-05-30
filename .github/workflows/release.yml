@@ -1,0 +1,80 @@
+name: Release
+
+# Changesets-driven release automation with npm OIDC trusted publishing.
+#
+# Flow:
+#   1. A push to `main` that carries pending changesets (files under `.changeset/`)
+#      makes `changesets/action` open or update a "Version Packages" PR. That PR
+#      applies the version bumps and promotes the CHANGELOG entries.
+#   2. Merging the "Version Packages" PR is another push to `main` — this time with
+#      no pending changesets — so the action runs the `publish` script instead and
+#      publishes to npm in topological order (@qulib/core before @qulib/mcp).
+#
+# Publishing uses npm OIDC trusted publishing — there is NO NPM_TOKEN secret.
+# The `id-token: write` permission lets the runner mint a short-lived OIDC token
+# that npm exchanges for publish rights, and it also enables build provenance.
+#
+# ONE-TIME HUMAN SETUP (required before the first automated publish succeeds):
+#   On npmjs.com, for BOTH @qulib/core and @qulib/mcp, open the package's
+#   Settings -> Trusted Publisher and add a GitHub Actions publisher pointing at:
+#       Repository:     TapeshN/qulib
+#       Workflow file:  .github/workflows/release.yml
+#   Until both packages have this configured, the publish step fails by design —
+#   that failure is the gate, not a bug. See docs/releasing.md.
+
+on:
+  push:
+    branches: [main]
+
+# Avoid two release runs racing on the same branch.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create the Version Packages PR / push tags
+  pull-requests: write # open & update the Version Packages PR
+  id-token: write # OIDC trusted publishing + npm provenance
+
+jobs:
+  release:
+    name: Version or publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so changesets can resolve the changelog range.
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+
+      # npm OIDC trusted publishing requires npm >= 11.5. The Node 22 runner
+      # ships an older npm, so pin a recent one explicitly.
+      - name: Upgrade npm (OIDC trusted publishing needs npm >= 11.5)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all workspaces
+        run: npm run build
+
+      - name: Create Version PR or publish to npm
+        uses: changesets/action@v1
+        with:
+          # Applies pending changesets: bumps versions + updates CHANGELOGs.
+          version: npm run version
+          # Publishes in topological order with provenance once versions land.
+          publish: npm run release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Emit npm provenance attestations (uses the OIDC id-token above).
+          NPM_CONFIG_PROVENANCE: "true"
