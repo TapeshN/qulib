@@ -1,0 +1,19 @@
+openapi: "3.0.0"
+info:
+  title: Fixture API
+  version: "1.0.0"
+paths:
+  /api/ping:
+    get:
+      summary: Health check
+      parameters:
+        - name: verbose
+          in: query
+  /api/users:
+    get:
+      summary: List users
+    post:
+      summary: Create user
+      parameters:
+        - name: dryRun
+          in: query

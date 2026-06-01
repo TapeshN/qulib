@@ -23,6 +23,8 @@ import {
   scanRepo,
   computeAutomationMaturity,
   scaffoldTests,
+  discoverApiSurfaceWithRepo,
+  computeApiCoverage,
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { z } from 'zod';
@@ -381,6 +383,72 @@ mcpServer.registerTool(
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`qulib_scaffold_tests failed: ${msg}`);
       return toolError('QULIB_SCAFFOLD_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    }
+  }
+);
+
+const ScoreApiInputSchema = z.object({
+  repoPath: z.string().describe('Absolute path to the repository on the MCP host filesystem'),
+  enableTier3: z
+    .boolean()
+    .optional()
+    .describe(
+      'Enable Tier3 heuristic discovery (currently: tRPC router definitions). Default false. Tier1=OpenAPI specs, Tier2=framework routes (Next.js, Express, Fastify, NestJS), Tier3=heuristic.'
+    ),
+  includeEndpointDetail: z
+    .boolean()
+    .optional()
+    .describe('When true, includes per-endpoint coverage detail in the response. Default false.'),
+});
+
+mcpServer.registerTool(
+  'qulib_score_api',
+  {
+    description:
+      'Discover API endpoints in a repository and score their test coverage. Returns an api-test-coverage dimension score (0–100) with per-endpoint contextual evidence — which endpoints are covered by tests and which are not. Discovery is evidence-only: Tier1=OpenAPI/Swagger specs, Tier2=framework routes (Next.js App-Router route.ts exports, Pages API routes, Express, Fastify, Hono, NestJS decorators), Tier3=heuristic opt-in (tRPC). Never fabricates endpoints. Returns "not_applicable" when no API endpoints are found.',
+    inputSchema: ScoreApiInputSchema,
+  },
+  async ({ repoPath, enableTier3, includeEndpointDetail }) => {
+    try {
+      const abs = validateAbsoluteRepoPath(repoPath);
+      log.info(`qulib_score_api repoPath=${abs} enableTier3=${enableTier3 ?? false}`);
+
+      const repo = await scanRepo(abs);
+      const apiSurfaceResult = await discoverApiSurfaceWithRepo(abs, repo, {
+        enableTier3: enableTier3 ?? false,
+      });
+
+      const coverageResult = computeApiCoverage(repo, apiSurfaceResult);
+
+      const payload: Record<string, unknown> = {
+        repoPath: abs,
+        computedAt: new Date().toISOString(),
+        endpointsDiscovered: apiSurfaceResult.endpoints.length,
+        openApiSpecsFound: apiSurfaceResult.openApiSpecsFound,
+        tier3Enabled: apiSurfaceResult.tier3Enabled,
+        dimension: coverageResult.dimension,
+        untestedHighSeverityCount: coverageResult.untestedHighSeverityCount,
+        untestedMediumSeverityCount: coverageResult.untestedMediumSeverityCount,
+      };
+
+      if (includeEndpointDetail === true) {
+        payload['endpointCoverage'] = coverageResult.endpointCoverage;
+      }
+
+      log.info(
+        `qulib_score_api done endpoints=${apiSurfaceResult.endpoints.length} score=${coverageResult.dimension.score} applicability=${coverageResult.dimension.applicability ?? 'applicable'}`
+      );
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('repoPath must')) {
+        return toolError('QULIB_INPUT_INVALID', msg, undefined);
+      }
+      log.error(`qulib_score_api failed: ${msg}`);
+      return toolError('QULIB_API_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
     }
   }
 );

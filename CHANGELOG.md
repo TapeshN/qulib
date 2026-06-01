@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.8.2] — 2026-06-01
+
+### Added
+- **@qulib/core:** repo-first API toolshed — `discoverApiSurface` (tiered, evidence-only discovery across OpenAPI/Swagger specs + Next/Express/Fastify/Hono/Nest routes), `computeApiCoverage` (new `api-test-coverage` dimension; the six existing dimensions rebalanced to sum 1.0; `untested-api-endpoint` gap category), and an `ApiAdapter` for supertest test generation.
+- **@qulib/mcp:** `qulib_score_api` — repo → API discovery → contextual coverage score.
+
+### Notes
+- Backward-compatible: `computeAutomationMaturity(repo)` without an API surface is unchanged; existing scores are stable.
+
 ## [0.7.0] — 2026-05-30
 
 ### Added

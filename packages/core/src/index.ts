@@ -21,7 +21,11 @@ export type {
 export { exploreAuth } from './tools/auth/explore.js';
 export { addUserProvider, removeUserProvider, listUserProviders } from './tools/auth/custom-providers.js';
 export { scanRepo } from './tools/repo/scan.js';
+export { discoverApiSurface, discoverApiSurfaceWithRepo } from './tools/repo/api-surface.js';
+export type { ApiSurface, DiscoveredEndpoint, DiscoverApiSurfaceOptions } from './tools/repo/api-surface.js';
 export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
+export { computeApiCoverage } from './tools/scoring/api-coverage.js';
+export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api-coverage.js';
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
 export { createProvider } from './llm/provider-registry.js';
