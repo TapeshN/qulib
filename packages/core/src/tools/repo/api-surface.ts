@@ -27,6 +27,21 @@ import type { RepoAnalysis } from '../../schemas/repo-analysis.schema.js';
 
 const IGNORE_PATTERNS = ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/build/**'];
 
+/**
+ * Shared fast-glob options for every discovery tier. `suppressErrors: true` makes the
+ * recursive walk skip subtrees it cannot read (EACCES/EPERM) or that disappear mid-scan
+ * (ENOENT) instead of throwing. Real repos — and shared dirs like /tmp on CI runners
+ * (e.g. the root-owned, unreadable /tmp/snap-private-tmp on Ubuntu) — routinely contain
+ * directories the scanner cannot enter; discovery must degrade gracefully, never crash.
+ * `cwd` is supplied per-call.
+ */
+const GLOB_OPTIONS = {
+  onlyFiles: true,
+  absolute: true,
+  ignore: IGNORE_PATTERNS,
+  suppressErrors: true,
+};
+
 function toPosix(p: string): string {
   return p.split('\\').join('/');
 }
@@ -111,7 +126,7 @@ async function discoverFromOpenApi(repoPath: string): Promise<{ endpoints: Disco
       '**/api-docs.yaml',
       '**/api-docs.json',
     ],
-    { cwd: repoPath, onlyFiles: true, absolute: true, ignore: IGNORE_PATTERNS }
+    { cwd: repoPath, ...GLOB_OPTIONS }
   );
 
   let specsFound = 0;
@@ -176,9 +191,7 @@ async function discoverNextAppRouterEndpoints(repoPath: string): Promise<Discove
 
   const routeFiles = await glob(['app/**/route.ts', 'app/**/route.tsx', 'src/app/**/route.ts', 'src/app/**/route.tsx'], {
     cwd: repoPath,
-    onlyFiles: true,
-    absolute: true,
-    ignore: IGNORE_PATTERNS,
+    ...GLOB_OPTIONS,
   });
 
   for (const file of routeFiles) {
@@ -232,9 +245,7 @@ async function discoverNextPagesApiEndpoints(repoPath: string): Promise<Discover
 
   const apiFiles = await glob(['pages/api/**/*.ts', 'pages/api/**/*.tsx', 'src/pages/api/**/*.ts'], {
     cwd: repoPath,
-    onlyFiles: true,
-    absolute: true,
-    ignore: IGNORE_PATTERNS,
+    ...GLOB_OPTIONS,
   });
 
   for (const file of apiFiles) {
@@ -309,9 +320,7 @@ async function discoverFastifyEndpoints(repoPath: string): Promise<DiscoveredEnd
 
   const files = await glob(['src/**/*.ts', 'src/**/*.js', 'routes/**/*.ts', 'routes/**/*.js'], {
     cwd: repoPath,
-    onlyFiles: true,
-    absolute: true,
-    ignore: IGNORE_PATTERNS,
+    ...GLOB_OPTIONS,
   });
 
   for (const file of files) {
@@ -370,12 +379,7 @@ async function discoverTrpcEndpoints(repoPath: string): Promise<DiscoveredEndpoi
 
   const trpcFiles = await glob(
     ['src/**/*.ts', 'server/**/*.ts', 'lib/**/*.ts', 'app/**/*.ts'],
-    {
-      cwd: repoPath,
-      onlyFiles: true,
-      absolute: true,
-      ignore: IGNORE_PATTERNS,
-    }
+    { cwd: repoPath, ...GLOB_OPTIONS }
   );
 
   for (const file of trpcFiles) {
