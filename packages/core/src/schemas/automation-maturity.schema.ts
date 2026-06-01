@@ -33,6 +33,7 @@ export const AutomationMaturityDimensionSchema = z.object({
     'ci-integration',
     'auth-test-coverage',
     'component-test-ratio',
+    'api-test-coverage',
   ]),
   score: z.number().min(0).max(100),
   weight: z.number().min(0).max(1),

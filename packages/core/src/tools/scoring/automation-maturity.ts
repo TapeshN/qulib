@@ -7,17 +7,30 @@ import type {
   AutomationMaturityDimension,
 } from '../../schemas/automation-maturity.schema.js';
 import { AutomationMaturitySchema } from '../../schemas/automation-maturity.schema.js';
+import { REBALANCED_WEIGHTS, type ApiCoverageResult } from './api-coverage.js';
 
 /**
- * Dimension weights (sum = 1). Breadth + harness adoption dominate: shipping risk is mostly
- * untested routes and missing Playwright/Cypress-level coverage.
+ * Dimension weights (sum = 1).
+ *
+ * When apiSurface is NOT provided (backward-compat path), the original 6 dimensions
+ * continue to use the original weights (sum = 1.0). When apiSurface IS provided, the
+ * rebalanced weights from api-coverage.ts are used and the 7th dimension is added.
+ *
+ * Original weights (no API surface):
+ *   test-coverage-breadth  0.28, framework-adoption 0.22, test-id-hygiene 0.18,
+ *   ci-integration 0.14, auth-test-coverage 0.10, component-test-ratio 0.08
+ *
+ * Rebalanced weights (with API surface, sum still = 1.0 across all 7):
+ *   test-coverage-breadth  0.24, framework-adoption 0.19, test-id-hygiene 0.15,
+ *   ci-integration 0.12, auth-test-coverage 0.09, component-test-ratio 0.06,
+ *   api-test-coverage 0.15
  */
-const W_TEST_BREADTH = 0.28;
-const W_FRAMEWORK = 0.22;
-const W_TEST_ID = 0.18;
-const W_CI = 0.14;
-const W_AUTH_TESTS = 0.1;
-const W_COMPONENT_RATIO = 0.08;
+const W_TEST_BREADTH_ORIGINAL = 0.28;
+const W_FRAMEWORK_ORIGINAL = 0.22;
+const W_TEST_ID_ORIGINAL = 0.18;
+const W_CI_ORIGINAL = 0.14;
+const W_AUTH_TESTS_ORIGINAL = 0.1;
+const W_COMPONENT_RATIO_ORIGINAL = 0.08;
 
 function hasCiAtRoot(repoPath: string): { ok: boolean; evidence: string[] } {
   const ev: string[] = [];
@@ -54,7 +67,28 @@ function scoreLevel(overall: number): { level: number; label: string } {
   return { level: 5, label: 'L5 — advanced QA automation' };
 }
 
-export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturity {
+/**
+ * Compute automation maturity for a repo.
+ *
+ * @param repo - The scanned repo analysis.
+ * @param apiCoverageResult - Optional pre-computed API coverage result. When absent the
+ *   6 original dimensions are scored with the original weights (backward-compatible).
+ *   When provided, a 7th dimension (`api-test-coverage`) is added and weights are
+ *   rebalanced so the total still sums to 1.0 across applicable dimensions.
+ */
+export function computeAutomationMaturity(
+  repo: RepoAnalysis,
+  apiCoverageResult?: ApiCoverageResult
+): AutomationMaturity {
+  // Choose weights based on whether we have an API surface result
+  const hasApiDim = apiCoverageResult !== undefined;
+  const W_TEST_BREADTH = hasApiDim ? REBALANCED_WEIGHTS.TEST_BREADTH : W_TEST_BREADTH_ORIGINAL;
+  const W_FRAMEWORK = hasApiDim ? REBALANCED_WEIGHTS.FRAMEWORK : W_FRAMEWORK_ORIGINAL;
+  const W_TEST_ID = hasApiDim ? REBALANCED_WEIGHTS.TEST_ID : W_TEST_ID_ORIGINAL;
+  const W_CI = hasApiDim ? REBALANCED_WEIGHTS.CI : W_CI_ORIGINAL;
+  const W_AUTH_TESTS = hasApiDim ? REBALANCED_WEIGHTS.AUTH_TESTS : W_AUTH_TESTS_ORIGINAL;
+  const W_COMPONENT_RATIO = hasApiDim ? REBALANCED_WEIGHTS.COMPONENT_RATIO : W_COMPONENT_RATIO_ORIGINAL;
+
   const routePaths = [...new Set(repo.routes.map((r) => r.path))];
   let coveredRoutes = 0;
   for (const p of routePaths) {
@@ -219,7 +253,12 @@ export function computeAutomationMaturity(repo: RepoAnalysis): AutomationMaturit
     ...(compGuidance && { guidance: compGuidance }),
   };
 
-  const dimensions = [breadthDim, frameworkDim, hygieneDim, ciDim, authDim, compDim];
+  const dimensions: AutomationMaturityDimension[] = [breadthDim, frameworkDim, hygieneDim, ciDim, authDim, compDim];
+
+  // Append api-test-coverage dimension when an API surface result was provided
+  if (apiCoverageResult) {
+    dimensions.push(apiCoverageResult.dimension);
+  }
 
   // Overall score normalizes over applicable dimensions only.
   // overallScore = round( Σ score_i * weight_i / Σ weight_i ) for i ∈ applicable.
