@@ -22,6 +22,7 @@
 - [ ] Commit messages follow `type: short description`
 - [ ] No new dependencies added without justification in the PR description
 - [ ] Output remains honest (no features that hide failure modes or inflate confidence)
+- [ ] Labeled with an area label + assigned to the current milestone
 
 ## Related issues
 

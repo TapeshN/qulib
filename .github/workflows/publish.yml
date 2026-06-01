@@ -1,0 +1,57 @@
+name: Publish
+
+# Publishes @qulib/core then @qulib/mcp to npm WITH provenance (a signed build
+# attestation linking each tarball to this repo + commit + workflow run).
+#
+# Auth model: OIDC trusted publishing (tokenless) — no NPM_TOKEN secret stored.
+# One-time human setup on npmjs.com (see Maintainer's Guide): for BOTH @qulib/core
+# and @qulib/mcp -> package Settings -> Trusted Publisher -> GitHub Actions ->
+# repository TapeshN/qulib, workflow "publish.yml". Until that is configured this
+# job fails auth by design — it never falls back to an unverified publish.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance + OIDC trusted publishing
+
+jobs:
+  publish:
+    name: Publish (core then mcp, with provenance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Upgrade npm (OIDC trusted publishing needs npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all workspaces
+        run: npm run build
+
+      - name: Verify versions are aligned and match the release tag
+        run: |
+          CORE=$(node -p "require('./packages/core/package.json').version")
+          MCP=$(node -p "require('./packages/mcp/package.json').version")
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "core=$CORE  mcp=$MCP  tag=$TAG"
+          if [ "$CORE" != "$MCP" ]; then echo "::error::core ($CORE) != mcp ($MCP)"; exit 1; fi
+          if [ "$CORE" != "$TAG" ]; then echo "::error::package version ($CORE) != release tag ($TAG)"; exit 1; fi
+
+      # Core MUST publish before MCP — MCP depends on @qulib/core at the published version.
+      - name: Publish @qulib/core
+        run: npm publish -w @qulib/core --provenance --access public
+
+      - name: Publish @qulib/mcp
+        run: npm publish -w @qulib/mcp --provenance --access public
