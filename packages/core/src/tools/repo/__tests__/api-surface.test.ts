@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, chmod, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { discoverApiSurface } from '../api-surface.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const FIXTURE_REPO = join(__dirname, '../../../__tests__/fixtures/api-fixture-repo');
+
+// The EACCES regression test relies on POSIX permission bits: skip on Windows (different
+// chmod semantics) and when running as root (which bypasses permission checks entirely).
+const SKIP_PERM_TEST =
+  process.platform === 'win32' || (typeof process.getuid === 'function' && process.getuid() === 0);
 
 // ---------------------------------------------------------------------------
 // OpenAPI Tier1 discovery
@@ -152,7 +159,36 @@ test('tier3 is disabled by default', async () => {
 });
 
 test('empty repo path discovers no endpoints without erroring', async () => {
-  // Use a temp directory that is guaranteed to have no API files
-  const surface = await discoverApiSurface('/tmp');
-  assert.ok(Array.isArray(surface.endpoints), 'endpoints should be an array');
+  // A freshly created temp dir is guaranteed empty AND isolated from the shared system
+  // /tmp — which on CI runners contains unreadable subtrees (e.g. /tmp/snap-private-tmp on
+  // Ubuntu) that previously surfaced as EACCES during the recursive glob.
+  const emptyDir = await mkdtemp(join(tmpdir(), 'qulib-api-surface-'));
+  try {
+    const surface = await discoverApiSurface(emptyDir);
+    assert.ok(Array.isArray(surface.endpoints), 'endpoints should be an array');
+    assert.equal(surface.endpoints.length, 0, 'an empty dir should yield zero endpoints');
+    assert.equal(surface.openApiSpecsFound, 0, 'an empty dir should yield zero OpenAPI specs');
+  } finally {
+    await rm(emptyDir, { recursive: true, force: true });
+  }
 });
+
+test(
+  'unreadable subdirectory is skipped, not fatal (EACCES regression)',
+  { skip: SKIP_PERM_TEST },
+  async () => {
+    // Reproduces the CI failure: a recursive scan must skip a directory it has no
+    // permission to enter, never throw. Without suppressErrors this throws EACCES.
+    const root = await mkdtemp(join(tmpdir(), 'qulib-api-surface-eacces-'));
+    const locked = join(root, 'locked');
+    await mkdir(locked);
+    await chmod(locked, 0o000);
+    try {
+      const surface = await discoverApiSurface(root);
+      assert.ok(Array.isArray(surface.endpoints), 'should return an array, not throw');
+    } finally {
+      await chmod(locked, 0o755);
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
