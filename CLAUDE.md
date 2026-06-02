@@ -217,13 +217,14 @@ main (v0.5.3)
 
 Each branch is created from the **updated main** after the previous PR merges. Gate: `npm run build && npm test` green before each PR opens.
 
-After every release PR merge, prompt the user:
+After every release PR merge, run the pre-release gate and prompt the user:
 ```
-Ready to publish. From repo root on main:
-  npm ci && npm run build
-  npm publish -w @qulib/core --access public
-  npm publish -w @qulib/mcp --access public
-Core first, then MCP. Let me know when done (or say "publish it" and I'll try).
+Ready to publish. Gate first:
+  scripts/pre-release.sh X.Y.Z
+If PASS, create the GitHub release (triggers publish.yml — OIDC automated publish):
+  gh release create vX.Y.Z --title 'qulib vX.Y.Z' --notes-from-tag
+Then: gh run watch
+Verify: npm view @qulib/core version && npm view @qulib/mcp version
 ```
 
 ---
@@ -246,17 +247,19 @@ A release PR touches **exactly** these files and nothing else:
 - `package-lock.json` — `npm install` to refresh
 - `CHANGELOG.md` — new entry above previous version
 
-### npm publish
+### npm publish (via GitHub Actions — OIDC trusted publishing)
 
-Order: **core first, then MCP.** MCP depends on core — consumers can't install MCP if core isn't on the registry yet.
+**Never run `npm publish` locally.** qulib uses OIDC tokenless publishing via `.github/workflows/publish.yml`, which only has publish rights inside a GitHub Actions run. Local publish attempts fail by design.
 
-Pre-publish checklist:
-1. On main, clean tree, `git pull`
-2. Versions match across both packages
-3. `npm ci && npm run build && npm test` — all pass
-4. `npm publish -w @qulib/core --access public`
-5. `npm publish -w @qulib/mcp --access public`
-6. Verify: `npm view @qulib/core version && npm view @qulib/mcp version`
+**Canonical ritual — always in this order:**
+1. Run `scripts/pre-release.sh X.Y.Z` — this is the gate. It checks: on main, clean tree, core==mcp==tag version, mcp dep on core aligned, CHANGELOG `[X.Y.Z]` section present, build+test green. It aborts on any failure.
+2. If PASS: `gh release create vX.Y.Z --title 'qulib vX.Y.Z' --notes-from-tag`
+3. Monitor: `gh run watch` — confirm `publish.yml` passes green
+4. Verify: `npm view @qulib/core version && npm view @qulib/mcp version`
+
+**One-time human setup (required before first publish succeeds):** on npmjs.com, for **both** `@qulib/core` and `@qulib/mcp`: Settings → Trusted Publisher → GitHub Actions → Repository: `TapeshN/qulib`, Workflow: `publish.yml`. Without this the workflow fails auth — that failure is the gate, not a bug.
+
+**Publish order is enforced by `publish.yml`:** core publishes first, then mcp. MCP depends on core — consumers cannot install mcp if core is not on the registry.
 
 ---
 
