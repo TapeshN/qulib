@@ -51,8 +51,8 @@ if [[ "$MCP_VER" == "$VERSION" ]]; then pass "@qulib/mcp version == $VERSION"; e
 MCP_CORE_DEP=$(node -p "require('$ROOT/packages/mcp/package.json').dependencies['@qulib/core'] || 'missing'" 2>/dev/null || echo "ERR")
 if [[ "$MCP_CORE_DEP" == "$VERSION" ]]; then pass "@qulib/mcp dep on @qulib/core == $VERSION"; else fail "@qulib/mcp dep on @qulib/core" "currently $MCP_CORE_DEP, expected $VERSION — bump packages/mcp/package.json"; fi
 
-# 7. CHANGELOG has [X.Y.Z] section
-if grep -qE "^\[${VERSION}\]" "$ROOT/CHANGELOG.md" 2>/dev/null; then
+# 7. CHANGELOG has [X.Y.Z] section (matches "## [X.Y.Z]" or bare "[X.Y.Z]")
+if grep -qE "^(## )?\[${VERSION}\]" "$ROOT/CHANGELOG.md" 2>/dev/null; then
   pass "CHANGELOG [$VERSION] section exists"
 else
   fail "CHANGELOG [$VERSION] section" "no [${VERSION}] entry in CHANGELOG.md — promote [Unreleased] first"
