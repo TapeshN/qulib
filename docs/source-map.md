@@ -89,3 +89,41 @@ Both are listed in `.gitignore`. If you delete them, the next `qulib analyze` re
 - **Tests live next to code** in `__tests__/` subfolders. Each `src/foo.ts` is tested by `src/__tests__/foo.test.ts` (or the closest `__tests__/` above).
 - **No credentials in logs or telemetry.** URLs are passed through `redactUrlForTelemetry`. Credentials are masked in CLI debug output. Storage state contents are never written to telemetry.
 - **Branch + release rules** live in [`CLAUDE.md`](../CLAUDE.md).
+
+## Test runner
+
+**qulib uses `node --test` with `tsx/esm` — NOT vitest.** The `"test"` script in `packages/core/package.json` is an **explicit enumerated file list**. A test file that is not appended to that list is invisible to `npm test`. Same pattern in `packages/mcp/package.json`.
+
+```bash
+node --import tsx/esm --test <file1.test.ts> <file2.test.ts> ...
+```
+
+When adding a test file: append its path to `packages/core/package.json "test"` (or `packages/mcp/package.json "test"` for MCP tests).
+
+## Feature phases
+
+| Phase | What ships | Status |
+|---|---|---|
+| Q1 | `analyzeApp`, `detect_auth`, `explore_auth`, `analyze_app` MCP | SHIPPED |
+| Q2 | `qulib scaffold`, `qulib score-automation`, eval runner + LLM judge | SHIPPED |
+| Q3 | Baseline monitor (`saveBaseline`, `loadBaseline`, `compareBaselines`) | SHIPPED |
+| Q4 | Recipe toolshed (`auth`, `a11y`, `nav`, `seed`) | SHIPPED |
+| Q5 | API coverage scoring (`computeApiCoverage`, `qulib_score_api`) | SHIPPED |
+| Q7 | **Confidence Aggregator** (P3) — fused release confidence verdict | branch: `qulib/confidence-layer` |
+
+### Q7 — Confidence Aggregator (P3)
+
+Fuses qulib's own evidence collectors into one `ship | caution | hold | block` verdict.
+
+**Ships in P3:**
+- `schemas/confidence.schema.ts` + `schemas/views.schema.ts` — Zod schemas
+- `tools/scoring/levels.ts` — shared `scoreLevel` ladder
+- `tools/scoring/confidence.ts::computeReleaseConfidence` — pure scorer
+- `tools/scoring/confidence-from-qulib.ts::buildConfidenceInputFromQulib` — adapter
+- `tools/scoring/confidence-views.ts` — `buildReplay`, `deriveInbox`, `toAuditEntry`, `diffConfidence`
+- `qulib_score_confidence` MCP tool (composes `analyze_app` / `qulib_score_automation` / `qulib_score_api`)
+- `qulib confidence --url [--repo] [--json]` CLI command
+- Eval suite `confidence` in the runner (4 golden cases, all deterministic)
+- Tests: scorer unit, adapter, view-projection, MCP runtime-import, CLI smoke
+
+**Deferred to P4:** external evidence collectors (CI/deploy/telemetry), persistence sinks, LLM-judge for narratives, notquality dogfood (P5).

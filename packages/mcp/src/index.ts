@@ -25,6 +25,8 @@ import {
   scaffoldTests,
   discoverApiSurfaceWithRepo,
   computeApiCoverage,
+  computeReleaseConfidence,
+  buildConfidenceInputFromQulib,
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -465,6 +467,132 @@ mcpServer.registerTool(
       }
       log.error(`qulib_score_api failed: ${msg}`);
       return toolError('QULIB_API_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// qulib_score_confidence — P3 Release Confidence Aggregator
+// Composes existing collectors (analyze_app, qulib_score_automation,
+// qulib_score_api) into one fused Release Confidence verdict. Honors the
+// tool-explosion guardrail by composing, not fanning out (index.ts lines 4–10).
+// ---------------------------------------------------------------------------
+
+const ScoreConfidenceInputSchema = z.object({
+  url: z.string().url().optional().describe('URL of the deployed app to analyze (runs analyze_app if provided)'),
+  repoPath: z
+    .string()
+    .optional()
+    .describe('Absolute path to the repository (runs qulib_score_automation + qulib_score_api if provided)'),
+  includeViews: z
+    .object({
+      replay: z.boolean().optional().describe('Include the Replay provenance trace in the response'),
+    })
+    .optional()
+    .describe('Optional projection flags — which views to include beyond the Release Confidence view'),
+  subject: z
+    .object({
+      kind: z.enum(['release', 'pr', 'deploy', 'app', 'repo']).optional(),
+      ref: z.string().optional(),
+      tenantId: z.string().optional(),
+    })
+    .optional()
+    .describe('Subject metadata for the confidence verdict; defaults are inferred from url/repoPath'),
+});
+
+mcpServer.registerTool(
+  'qulib_score_confidence',
+  {
+    description:
+      'Compute a fused Release Confidence verdict by composing qulib evidence collectors. ' +
+      'Given a URL and/or repo path, runs analyze_app / qulib_score_automation / qulib_score_api as applicable, ' +
+      'then fuses the signals into one verdict (ship | caution | hold | block) with a 0–100 confidence score, ' +
+      'L1–L5 level, per-source contributions, honesty notes for any excluded/unknown source, and recommended next checks. ' +
+      'Returns the Release Confidence view. Pass includeViews.replay for the full provenance trace.',
+    inputSchema: ScoreConfidenceInputSchema,
+  },
+  async ({ url, repoPath, includeViews, subject }) => {
+    try {
+      const subjectRef = subject?.ref ?? url ?? repoPath ?? 'unknown';
+      const subjectKind = subject?.kind ?? (url && repoPath ? 'release' : url ? 'app' : 'repo');
+      const tenantId = subject?.tenantId ?? 'default';
+      const confidenceSubject = { kind: subjectKind, ref: subjectRef, tenantId };
+
+      // Collect evidence from whichever collectors apply.
+      let analyzeResult: Awaited<ReturnType<typeof analyzeApp>> | undefined;
+      let maturityResult: Awaited<ReturnType<typeof computeAutomationMaturity>> | undefined;
+      let apiCoverageResult: Awaited<ReturnType<typeof computeApiCoverage>> | undefined;
+
+      if (url) {
+        log.info(`qulib_score_confidence: running analyze_app url=${url}`);
+        const harnessConfig: HarnessConfig = {
+          maxPagesToScan: 10,
+          maxDepth: 3,
+          minPagesForConfidence: 3,
+          timeoutMs: 30000,
+          retryCount: 0,
+          llmTokenBudget: 4096,
+          testGenerationLimit: 5,
+          enableLlmScenarios: false,
+          readOnlyMode: true,
+          requireHumanReview: false,
+          failOnConsoleError: false,
+          explorer: 'playwright',
+          defaultAdapter: 'playwright',
+          adapters: ['playwright'],
+        };
+        analyzeResult = await analyzeApp({
+          url,
+          writeArtifacts: false,
+          config: harnessConfig,
+          progressLog: mcpProgressLog,
+          telemetry: telemetrySink,
+        });
+      }
+
+      if (repoPath) {
+        const abs = validateAbsoluteRepoPath(repoPath);
+        log.info(`qulib_score_confidence: running qulib_score_automation + qulib_score_api repoPath=${abs}`);
+        const repo = await scanRepo(abs);
+        maturityResult = computeAutomationMaturity(repo);
+        const apiSurface = await discoverApiSurfaceWithRepo(abs, repo, { enableTier3: false });
+        apiCoverageResult = computeApiCoverage(repo, apiSurface);
+      }
+
+      // Build the evidence bundle from qulib's own collectors.
+      const confidenceInput = buildConfidenceInputFromQulib({
+        analyze: analyzeResult,
+        maturity: maturityResult,
+        apiCoverage: apiCoverageResult,
+        subject: confidenceSubject,
+      });
+
+      // Run the pure scorer.
+      const rc = computeReleaseConfidence(confidenceInput);
+
+      // Build the response payload (Release Confidence view is always included).
+      const payload: Record<string, unknown> = { releaseConfidence: rc };
+
+      if (includeViews?.replay) {
+        const { buildReplay } = await import('@qulib/core');
+        payload['replay'] = buildReplay(confidenceInput, rc);
+      }
+
+      log.info(
+        `qulib_score_confidence done verdict=${rc.verdict} confidenceScore=${rc.confidenceScore ?? 'null'} ` +
+        `level=${rc.level} evidenceSources=${confidenceInput.evidence.length}`
+      );
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('repoPath must')) {
+        return toolError('QULIB_INPUT_INVALID', msg, undefined);
+      }
+      log.error(`qulib_score_confidence failed: ${msg}`);
+      return toolError('QULIB_CONFIDENCE_FAILED', msg, err instanceof Error ? err.stack : undefined);
     }
   }
 );

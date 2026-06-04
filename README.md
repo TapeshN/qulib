@@ -94,6 +94,40 @@ Details: [packages/core/README.md](./packages/core/README.md).
 
 ---
 
+## Confidence Layer (P3)
+
+> **Qulib turns delivery signals into release confidence.** The one question: *”Given everything we know right now, should we ship this?”*
+
+The Confidence Layer (`v1`, P3) fuses qulib's own evidence collectors into a single scored verdict:
+
+| Verdict | Meaning |
+|---|---|
+| **ship** | Confidence ≥ 80, no blockers, all required sources evaluated |
+| **caution** | Confidence 30–79, or an unknown signal on a required source |
+| **hold** | Confidence < 30 |
+| **block** | A hard-blocking evidence item, or nothing evaluable |
+
+**CLI:**
+```bash
+qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
+```
+
+**MCP tool:** `qulib_score_confidence` — composes `analyze_app` / `qulib_score_automation` / `qulib_score_api` into one fused verdict.
+
+### The 5 views (data model)
+
+1. **Release Confidence** — the fused score + verdict (available now; the `computeReleaseConfidence` output)
+2. **Delivery Traffic** — time-series of verdicts per subject (schema + `diffConfidence` helper; persistence P4)
+3. **Inbox** — human-judgment items: blockers, unknown signals, approvals needed (schema + `deriveInbox`; queue P4)
+4. **Replay** — provenance trace: how each score was computed and by which tool (`buildReplay`)
+5. **Audit Trail** — tamper-evident append-only ledger entry per verdict (`toAuditEntry`; sink P4)
+
+**Honesty over fake confidence:** sources that are `not_applicable`, `unknown`, or `null` are excluded from the denominator but reported in `contributions` and `honestyNotes`. An auth wall or empty corpus forces `verdict=block` — qulib never silently passes an unevaluated surface.
+
+**Agent decisions are one evidence source.** The reserved `agent-evidence` kind in `EvidenceSourceKindSchema` lets tap-core/tap-client decisions feed into the same aggregator in P4 without touching the math.
+
+---
+
 ## Documentation
 
 - [Core (CLI, API, Cost Intelligence)](./packages/core/README.md)

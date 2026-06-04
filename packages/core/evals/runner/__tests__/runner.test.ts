@@ -363,9 +363,9 @@ test('runSuite: empty corpus rolls up to SKIP, not PASS', async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('runEval: the real corpus passes both suites green with no judge (deterministic gate)', async () => {
+test('runEval: the real corpus passes all suites green with no judge (deterministic gate)', async () => {
   const { summaries, exitCode } = await runEval({ appendLedger: false });
-  assert.equal(summaries.length, 2);
+  assert.equal(summaries.length, EVAL_SUITES.length, `expected ${EVAL_SUITES.length} suite summaries, got ${summaries.length}`);
   for (const s of summaries) {
     assert.notEqual(s.outcome, 'FAIL', `suite ${s.suite} unexpectedly FAILed: ${JSON.stringify(s.counts)}`);
   }
