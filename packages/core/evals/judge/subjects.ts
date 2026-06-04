@@ -13,6 +13,7 @@
 
 import type { GeneratedTest, NeutralScenario } from '../../src/schemas/gap-analysis.schema.js';
 import type { AutomationMaturity } from '../../src/schemas/automation-maturity.schema.js';
+import type { ReleaseConfidence } from '../../src/schemas/confidence.schema.js';
 import type { JudgeSubject } from './prompt.js';
 
 /** Input for grading a single generated scaffold spec. */
@@ -67,6 +68,53 @@ export function buildScaffoldSubject(input: ScaffoldSpecSubject): JudgeSubject {
       },
       allowedNavigationTargets: allowedRoutes,
       note: 'A navigation to any path NOT in allowedNavigationTargets is a hallucinated route.',
+    },
+    subjectModel: input.subjectModel,
+  };
+}
+
+/** Input for grading a release-confidence narrative (P4 — confidence-narrative rubric). */
+export interface ConfidenceNarrativeSubject {
+  /** The human-facing narrative text under judgment (from buildConfidenceNarrative or similar). */
+  narrative: string;
+  /** The computed ReleaseConfidence result — the truth set the narrative must be faithful to. */
+  releaseConfidence: ReleaseConfidence;
+  /** Model that produced the narrative (for the self-grade guard). */
+  subjectModel?: string;
+}
+
+/**
+ * Build the confidence-narrative judge subject. Grounding exposes the computed
+ * verdict, score, level, per-source contributions (with scores + applicability +
+ * effectiveWeight), top risks, honesty notes, and blockers — the full truth set
+ * the narrative must faithfully describe. The judge can then catch invented numbers,
+ * verdict contradictions, ungrounded claims, and mishandled abstentions.
+ */
+export function buildConfidenceSubject(input: ConfidenceNarrativeSubject): JudgeSubject {
+  const rc = input.releaseConfidence;
+  return {
+    candidate: input.narrative,
+    grounding: {
+      verdict: rc.verdict,
+      confidenceScore: rc.confidenceScore,
+      level: rc.level,
+      label: rc.label,
+      scoreFormula: rc.scoreFormula,
+      contributions: rc.contributions.map((c) => ({
+        source: c.source,
+        applicability: c.applicability,
+        score: c.score,
+        effectiveWeight: c.effectiveWeight,
+        blocking: c.blocking,
+      })),
+      topRisks: rc.topRisks,
+      recommendedNextChecks: rc.recommendedNextChecks,
+      honestyNotes: rc.honestyNotes,
+      blockers: rc.blockers,
+      note:
+        'not_applicable and unknown contributions have effectiveWeight=0 and must NOT be reported as failures. ' +
+        'A null confidenceScore means INSUFFICIENT_EVIDENCE. ' +
+        'Any fact not present in this grounding object that appears in the narrative is a hallucination.',
     },
     subjectModel: input.subjectModel,
   };

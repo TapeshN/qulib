@@ -21,11 +21,13 @@
 import type { JudgeVerdict, EvalSuite } from '../types.js';
 import type { GeneratedTest, NeutralScenario } from '../../src/schemas/gap-analysis.schema.js';
 import type { AutomationMaturity } from '../../src/schemas/automation-maturity.schema.js';
+import type { ReleaseConfidence } from '../../src/schemas/confidence.schema.js';
 import {
   judgeScaffoldSpec as realJudgeScaffoldSpec,
   judgeMaturityNarrative as realJudgeMaturityNarrative,
+  judgeConfidenceNarrative as realJudgeConfidenceNarrative,
 } from '../judge/judge.js';
-import type { ScaffoldSpecSubject, MaturityNarrativeSubject } from '../judge/subjects.js';
+import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject } from '../judge/subjects.js';
 
 /** What the runner hands the bridge for a scaffold case (one generated spec + its grounding). */
 export interface ScaffoldJudgeRequest {
@@ -46,7 +48,9 @@ export interface MaturityJudgeRequest {
 export interface ConfidenceJudgeRequest {
   suite: 'confidence';
   narrative: string;
-  releaseConfidence: unknown;
+  releaseConfidence: ReleaseConfidence;
+  /** Model that produced the narrative (for the self-grade guard). */
+  subjectModel?: string;
 }
 
 export type JudgeRequest = ScaffoldJudgeRequest | MaturityJudgeRequest | ConfidenceJudgeRequest;
@@ -55,11 +59,13 @@ export type JudgeRequest = ScaffoldJudgeRequest | MaturityJudgeRequest | Confide
 export interface JudgeImpl {
   judgeScaffoldSpec(subject: ScaffoldSpecSubject): Promise<JudgeVerdict>;
   judgeMaturityNarrative(subject: MaturityNarrativeSubject): Promise<JudgeVerdict>;
+  judgeConfidenceNarrative(subject: ConfidenceNarrativeSubject): Promise<JudgeVerdict>;
 }
 
 const defaultJudge: JudgeImpl = {
   judgeScaffoldSpec: (subject) => realJudgeScaffoldSpec(subject),
   judgeMaturityNarrative: (subject) => realJudgeMaturityNarrative(subject),
+  judgeConfidenceNarrative: (subject) => realJudgeConfidenceNarrative(subject),
 };
 
 /** A SKIP verdict with zero cost — used whenever the judge cannot honestly run. */
@@ -93,9 +99,13 @@ export async function judgeOrSkip(req: JudgeRequest, judge: JudgeImpl = defaultJ
       });
     }
     if (req.suite === 'confidence') {
-      // Confidence suite: P3 deterministic only; LLM-judge deferred to P4.
-      // SKIP the judge gracefully so deterministic asserts remain the gate.
-      return skipVerdict('confidence suite LLM-judge deferred to P4 (deterministic asserts gate P3).');
+      // P4: confidence narrative is judged by the real rubric (confidence-narrative-v1).
+      // SKIPs gracefully when no ANTHROPIC_API_KEY (RITUAL constraint — key is human-gated).
+      return await judge.judgeConfidenceNarrative({
+        narrative: req.narrative,
+        releaseConfidence: req.releaseConfidence,
+        subjectModel: req.subjectModel,
+      });
     }
     return await judge.judgeMaturityNarrative({
       narrative: req.narrative,

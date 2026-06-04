@@ -23,8 +23,8 @@ import type { JudgeVerdict, JudgeDimensionScore } from '../types.js';
 import type { Rubric } from './rubrics.js';
 import { getRubric, scoreToOutcome, validateRubric } from './rubrics.js';
 import { buildJudgePrompt, parseJudgeResponse, type JudgeSubject } from './prompt.js';
-import type { ScaffoldSpecSubject, MaturityNarrativeSubject } from './subjects.js';
-import { buildScaffoldSubject, buildMaturitySubject } from './subjects.js';
+import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject } from './subjects.js';
+import { buildScaffoldSubject, buildMaturitySubject, buildConfidenceSubject } from './subjects.js';
 
 /**
  * Default pinned judge model. Judging is a reasoning task (grounding/no-hallucination
@@ -198,4 +198,12 @@ export function judgeMaturityNarrative(
   options: RunJudgeOptions = {}
 ): Promise<JudgeVerdict> {
   return runJudge(getRubric('score-automation'), buildMaturitySubject(subject), options);
+}
+
+/** Grade a release-confidence narrative. Builds grounding from the computed result then judges. */
+export function judgeConfidenceNarrative(
+  subject: ConfidenceNarrativeSubject,
+  options: RunJudgeOptions = {}
+): Promise<JudgeVerdict> {
+  return runJudge(getRubric('confidence'), buildConfidenceSubject(subject), options);
 }
