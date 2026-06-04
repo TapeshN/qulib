@@ -81,3 +81,32 @@ export type {
   RecipeConfig,
 } from './schemas/index.js';
 export { RecipeIdSchema } from './schemas/index.js';
+// P3 — Confidence Layer exports
+export { computeReleaseConfidence } from './tools/scoring/confidence.js';
+export { buildConfidenceInputFromQulib } from './tools/scoring/confidence-from-qulib.js';
+export { diffConfidence, deriveInbox, buildReplay, toAuditEntry } from './tools/scoring/confidence-views.js';
+export type {
+  EvidenceSourceKind,
+  EvidenceItem,
+  ConfidenceSubject,
+  ConfidenceInput,
+  ConfidencePolicy,
+  ConfidenceVerdict,
+  ConfidenceContribution,
+  ReleaseConfidence,
+  DeliveryTrafficPoint,
+  InboxItem,
+  InboxItemKind,
+  ReplayStep,
+  ReplayTrace,
+  AuditEntry,
+} from './schemas/index.js';
+export {
+  EvidenceSourceKindSchema,
+  EvidenceItemSchema,
+  ConfidenceSubjectSchema,
+  ConfidenceInputSchema,
+  ConfidencePolicySchema,
+  ConfidenceVerdictSchema,
+  ReleaseConfidenceSchema,
+} from './schemas/index.js';

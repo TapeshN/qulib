@@ -20,6 +20,7 @@ import {
 import { runAutomatedAuthLogin } from './auth-login-run.js';
 import { registerScaffoldCommand } from './scaffold-run.js';
 import { registerScoreAutomationCommand } from './score-automation-run.js';
+import { registerConfidenceCommand } from './confidence-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -186,6 +187,7 @@ program
 // concurrently. Implemented in scaffold-run.ts / score-automation-run.ts.
 registerScaffoldCommand(program);
 registerScoreAutomationCommand(program);
+registerConfidenceCommand(program);
 
 program
   .command('clean')

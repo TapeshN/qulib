@@ -89,4 +89,35 @@ export {
   type RecipeId,
   type RecipeConfig,
 } from './recipe.schema.js';
-
+export {
+  EvidenceSourceKindSchema,
+  EvidenceItemSchema,
+  ConfidenceSubjectSchema,
+  ConfidenceInputSchema,
+  ConfidencePolicySchema,
+  ConfidenceVerdictSchema,
+  ConfidenceContributionSchema,
+  ReleaseConfidenceSchema,
+  type EvidenceSourceKind,
+  type EvidenceItem,
+  type ConfidenceSubject,
+  type ConfidenceInput,
+  type ConfidencePolicy,
+  type ConfidenceVerdict,
+  type ConfidenceContribution,
+  type ReleaseConfidence,
+} from './confidence.schema.js';
+export {
+  DeliveryTrafficPointSchema,
+  InboxItemKindSchema,
+  InboxItemSchema,
+  ReplayStepSchema,
+  ReplayTraceSchema,
+  AuditEntrySchema,
+  type DeliveryTrafficPoint,
+  type InboxItemKind,
+  type InboxItem,
+  type ReplayStep,
+  type ReplayTrace,
+  type AuditEntry,
+} from './views.schema.js';

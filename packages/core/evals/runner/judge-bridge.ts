@@ -42,7 +42,14 @@ export interface MaturityJudgeRequest {
   maturity: AutomationMaturity;
 }
 
-export type JudgeRequest = ScaffoldJudgeRequest | MaturityJudgeRequest;
+/** What the runner hands the bridge for a confidence case (narrative + verdict). */
+export interface ConfidenceJudgeRequest {
+  suite: 'confidence';
+  narrative: string;
+  releaseConfidence: unknown;
+}
+
+export type JudgeRequest = ScaffoldJudgeRequest | MaturityJudgeRequest | ConfidenceJudgeRequest;
 
 /** Injectable judge implementation (defaults to Q2c's real module; tests pass a stub). */
 export interface JudgeImpl {
@@ -84,6 +91,11 @@ export async function judgeOrSkip(req: JudgeRequest, judge: JudgeImpl = defaultJ
         scenario: req.scenario,
         discoveredRoutes: req.discoveredRoutes,
       });
+    }
+    if (req.suite === 'confidence') {
+      // Confidence suite: P3 deterministic only; LLM-judge deferred to P4.
+      // SKIP the judge gracefully so deterministic asserts remain the gate.
+      return skipVerdict('confidence suite LLM-judge deferred to P4 (deterministic asserts gate P3).');
     }
     return await judge.judgeMaturityNarrative({
       narrative: req.narrative,

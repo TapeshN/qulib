@@ -1,0 +1,38 @@
+{
+  "id": "block-critical-gap",
+  "suite": "confidence",
+  "description": "Live-app source has blocking=true (critical gap). Verdict must be block regardless of other sources.",
+  "tags": ["no-llm", "deterministic", "block", "blocker"],
+  "input": {
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 40,
+        "weight": 0.30,
+        "applicability": "applicable",
+        "blocking": true,
+        "evidence": ["Critical gap: crash on /checkout"],
+        "recommendations": ["Fix the critical checkout crash before shipping."],
+        "reason": "critical gap",
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "analyze_app" }
+      },
+      {
+        "source": "test-automation",
+        "score": 85,
+        "weight": 0.22,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["L4 — strong automation"],
+        "recommendations": [],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "qulib_score_automation" }
+      }
+    ],
+    "subject": { "kind": "release", "ref": "https://app.example.com", "tenantId": "golden" }
+  },
+  "expected": {
+    "verdict": "block",
+    "blockersLength": 1
+  }
+}
