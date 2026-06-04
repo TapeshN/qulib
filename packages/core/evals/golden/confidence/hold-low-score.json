@@ -1,0 +1,27 @@
+{
+  "id": "hold-low-score",
+  "suite": "confidence",
+  "description": "Single source with score=20, below failThreshold=30. Verdict must be hold.",
+  "tags": ["no-llm", "deterministic", "hold"],
+  "input": {
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 20,
+        "weight": 0.30,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Many gaps: 2 critical, 5 high"],
+        "recommendations": ["Fix critical gaps immediately."],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "analyze_app" }
+      }
+    ],
+    "subject": { "kind": "release", "ref": "https://broken.example.com", "tenantId": "golden" }
+  },
+  "expected": {
+    "verdict": "hold",
+    "confidenceScore": { "min": 0, "max": 29 },
+    "blockersLength": 0
+  }
+}

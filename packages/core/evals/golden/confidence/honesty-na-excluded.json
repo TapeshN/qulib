@@ -1,0 +1,40 @@
+{
+  "id": "honesty-na-excluded",
+  "suite": "confidence",
+  "description": "api-coverage is not_applicable (0 endpoints). Score must be computed only from the applicable live-app source. not_applicable item must appear in contributions but not contribute to the denominator.",
+  "tags": ["no-llm", "deterministic", "honesty", "not_applicable"],
+  "input": {
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 82,
+        "weight": 0.30,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Clean scan"],
+        "recommendations": [],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "analyze_app" }
+      },
+      {
+        "source": "api-coverage",
+        "score": 0,
+        "weight": 0.15,
+        "applicability": "not_applicable",
+        "blocking": false,
+        "evidence": ["0 API endpoints discovered"],
+        "recommendations": [],
+        "reason": "No API endpoints discovered — repo has no server-side routes.",
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "qulib_score_api" }
+      }
+    ],
+    "subject": { "kind": "release", "ref": "https://spa.example.com", "tenantId": "golden" }
+  },
+  "expected": {
+    "verdict": "ship",
+    "confidenceScore": { "min": 80, "max": 85 },
+    "honestyNotesMinLength": 1,
+    "apiContributionEffectiveWeight": 0
+  }
+}

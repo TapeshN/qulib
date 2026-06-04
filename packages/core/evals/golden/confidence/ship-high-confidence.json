@@ -1,0 +1,50 @@
+{
+  "id": "ship-high-confidence",
+  "suite": "confidence",
+  "description": "Three strong applicable sources — live-app=90, test-automation=85, api-coverage=80 — should fuse to a high confidence score and produce verdict=ship.",
+  "tags": ["no-llm", "deterministic", "ship", "multi-source"],
+  "input": {
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 90,
+        "weight": 0.30,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Clean scan: 0 critical, 0 high gaps"],
+        "recommendations": [],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "analyze_app" }
+      },
+      {
+        "source": "test-automation",
+        "score": 85,
+        "weight": 0.22,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["L5 — advanced QA automation"],
+        "recommendations": [],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "qulib_score_automation" }
+      },
+      {
+        "source": "api-coverage",
+        "score": 80,
+        "weight": 0.15,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["4/5 endpoints covered"],
+        "recommendations": [],
+        "collectedAt": "2026-06-04T00:00:00.000Z",
+        "collector": { "tool": "qulib_score_api" }
+      }
+    ],
+    "subject": { "kind": "release", "ref": "https://app.example.com", "tenantId": "golden" }
+  },
+  "expected": {
+    "verdict": "ship",
+    "confidenceScore": { "min": 80, "max": 100 },
+    "level": { "min": 4, "max": 5 },
+    "blockersLength": 0
+  }
+}
