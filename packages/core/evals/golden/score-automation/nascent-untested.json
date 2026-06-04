@@ -1,0 +1,38 @@
+{
+  "id": "nascent-untested",
+  "suite": "score-automation",
+  "description": "A repo with real routes but ZERO test files → breadth 0, framework 0, no auth/Cypress signal → L1 nascent. Pins the honest floor: routes-but-no-tests must not score above L1.",
+  "tags": ["no-llm", "deterministic", "untested", "floor"],
+  "input": {
+    "repo": {
+      "scannedAt": "2026-05-30T00:00:00.000Z",
+      "repoPath": "/golden/repo-nascent-untested-does-not-exist",
+      "routes": [
+        { "path": "/", "file": "src/pages/index.tsx", "method": "GET" },
+        { "path": "/about", "file": "src/pages/about.tsx", "method": "GET" },
+        { "path": "/contact", "file": "src/pages/contact.tsx", "method": "GET" }
+      ],
+      "testFiles": [],
+      "missingTestIds": [],
+      "interactiveTsxFilesScanned": 0,
+      "cypressStructure": {
+        "detected": false,
+        "hasCommandsFile": false,
+        "existingE2eFiles": [],
+        "existingComponentFiles": []
+      }
+    }
+  },
+  "expected": {
+    "level": 1,
+    "overallScore": { "min": 0, "max": 5 },
+    "applicability": {
+      "test-coverage-breadth": "applicable",
+      "framework-adoption": "applicable",
+      "test-id-hygiene": "unknown",
+      "auth-test-coverage": "not_applicable",
+      "component-test-ratio": "not_applicable"
+    },
+    "minTopRecs": 1
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "emerging-jest-with-auth",
+  "suite": "score-automation",
+  "description": "Jest-only repo, half the routes covered, an authenticated /login route that IS covered by a test, no CI, no interactive-tsx scan → L3 with auth-test-coverage applicable+90 and test-id-hygiene unknown.",
+  "tags": ["no-llm", "deterministic", "jest", "auth"],
+  "input": {
+    "repo": {
+      "scannedAt": "2026-05-30T00:00:00.000Z",
+      "repoPath": "/golden/repo-emerging-jest-does-not-exist",
+      "routes": [
+        { "path": "/", "file": "pages/index.tsx", "method": "GET" },
+        { "path": "/login", "file": "pages/login.tsx", "method": "GET" },
+        { "path": "/dashboard", "file": "pages/dashboard.tsx", "method": "GET" },
+        { "path": "/profile", "file": "pages/profile.tsx", "method": "GET" }
+      ],
+      "testFiles": [
+        { "file": "__tests__/home.test.ts", "type": "jest", "coveredPaths": ["/"] },
+        { "file": "__tests__/login.test.ts", "type": "jest", "coveredPaths": ["/login"] }
+      ],
+      "missingTestIds": [],
+      "interactiveTsxFilesScanned": 0,
+      "cypressStructure": {
+        "detected": false,
+        "hasCommandsFile": false,
+        "existingE2eFiles": [],
+        "existingComponentFiles": []
+      }
+    }
+  },
+  "expected": {
+    "level": 3,
+    "overallScore": { "min": 44, "max": 51 },
+    "applicability": {
+      "test-coverage-breadth": "applicable",
+      "framework-adoption": "applicable",
+      "test-id-hygiene": "unknown",
+      "auth-test-coverage": "applicable",
+      "component-test-ratio": "not_applicable"
+    },
+    "minTopRecs": 1
+  }
+}

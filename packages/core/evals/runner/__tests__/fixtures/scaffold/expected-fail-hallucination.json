@@ -1,0 +1,29 @@
+{
+  "id": "expected-fail-hallucination",
+  "suite": "scaffold",
+  "description": "Negative fixture: a valid one-scenario scaffold whose expected.mustContain demands a selector that was NEVER in the input scenarios. The generated spec cannot contain it, so the runner MUST grade this FAIL — proving the hallucination/grounding gate works.",
+  "tags": ["fixture", "negative", "must-fail"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "only-scenario",
+        "title": "Open the home page",
+        "description": "Navigates to home and asserts the header is visible",
+        "targetPath": "/",
+        "steps": [
+          { "action": "navigate", "target": "/", "description": "Open home" },
+          { "action": "assert-visible", "target": "[data-testid=site-header]", "description": "Header visible" }
+        ],
+        "tags": ["smoke"],
+        "recommendations": [],
+        "sourceGapIds": ["gap-1"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 1,
+    "mustContain": ["cy.get(\"[data-testid=NEVER-IN-INPUT]\")"]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "cypress-login-flow",
+  "suite": "scaffold",
+  "description": "Cypress-e2e scaffold of a login flow from two pinned scenarios. Asserts real data-testid selectors land in the generated specs verbatim and no hallucinated selector/route appears.",
+  "tags": ["no-llm", "deterministic", "cypress-e2e", "auth"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "login-happy-path",
+        "title": "User can log in with valid credentials",
+        "description": "Submitting valid credentials navigates to the dashboard",
+        "targetPath": "/login",
+        "steps": [
+          { "action": "navigate", "target": "/login", "description": "Open the login page" },
+          { "action": "type", "target": "[data-testid=login-email]", "value": "user@example.test", "description": "Type the email" },
+          { "action": "type", "target": "[data-testid=login-password]", "value": "correct-horse", "description": "Type the password" },
+          { "action": "click", "target": "[data-testid=login-submit]", "description": "Submit the form" },
+          { "action": "assert-visible", "target": "[data-testid=dashboard-root]", "description": "Dashboard is shown" }
+        ],
+        "tags": ["auth", "smoke"],
+        "recommendations": [],
+        "sourceGapIds": ["gap-auth-1"]
+      },
+      {
+        "id": "login-invalid-credentials",
+        "title": "Invalid credentials show an error",
+        "description": "Submitting bad credentials shows an inline error and stays on the login page",
+        "targetPath": "/login",
+        "steps": [
+          { "action": "navigate", "target": "/login", "description": "Open the login page" },
+          { "action": "type", "target": "[data-testid=login-email]", "value": "user@example.test", "description": "Type the email" },
+          { "action": "type", "target": "[data-testid=login-password]", "value": "wrong", "description": "Type a wrong password" },
+          { "action": "click", "target": "[data-testid=login-submit]", "description": "Submit the form" },
+          { "action": "assert-text", "target": "[data-testid=login-error]", "value": "Invalid credentials", "description": "Error message is shown" }
+        ],
+        "tags": ["auth", "negative"],
+        "recommendations": [],
+        "sourceGapIds": ["gap-auth-2"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "cy.get(\"[data-testid=login-email]\")",
+      "cy.get(\"[data-testid=login-password]\")",
+      "cy.get(\"[data-testid=login-submit]\").click();",
+      "cy.get(\"[data-testid=dashboard-root]\").should('be.visible');",
+      "cy.get(\"[data-testid=login-error]\").should('contain.text', \"Invalid credentials\");",
+      "cy.visit(\"/login\");"
+    ],
+    "mustNotContain": [
+      "[data-testid=signup-",
+      "cy.visit(\"/admin\")",
+      "TODO"
+    ]
+  }
+}

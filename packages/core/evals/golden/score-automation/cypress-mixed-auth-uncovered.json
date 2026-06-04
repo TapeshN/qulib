@@ -1,0 +1,44 @@
+{
+  "id": "cypress-mixed-auth-uncovered",
+  "suite": "score-automation",
+  "description": "Cypress repo (e2e + component) with an /auth route that is NOT covered by any test, and poor test-id hygiene → exercises component-test-ratio applicable, auth-test-coverage applicable-but-uncovered (score 25), and applicable-low hygiene. Lands at L3.",
+  "tags": ["no-llm", "deterministic", "cypress", "auth-uncovered"],
+  "input": {
+    "repo": {
+      "scannedAt": "2026-05-30T00:00:00.000Z",
+      "repoPath": "/golden/repo-cypress-mixed-does-not-exist",
+      "routes": [
+        { "path": "/", "file": "app/page.tsx", "method": "GET" },
+        { "path": "/auth", "file": "app/auth/page.tsx", "method": "GET" },
+        { "path": "/items", "file": "app/items/page.tsx", "method": "GET" }
+      ],
+      "testFiles": [
+        { "file": "cypress/e2e/home.cy.ts", "type": "cypress-e2e", "coveredPaths": ["/"] },
+        { "file": "cypress/e2e/items.cy.ts", "type": "cypress-e2e", "coveredPaths": ["/items"] },
+        { "file": "cypress/component/Button.cy.tsx", "type": "cypress-component", "coveredPaths": [] }
+      ],
+      "missingTestIds": ["a.tsx", "b.tsx", "c.tsx", "d.tsx"],
+      "interactiveTsxFilesScanned": 4,
+      "cypressStructure": {
+        "detected": true,
+        "e2eFolder": "cypress/e2e",
+        "componentFolder": "cypress/component",
+        "hasCommandsFile": true,
+        "existingE2eFiles": ["cypress/e2e/home.cy.ts", "cypress/e2e/items.cy.ts"],
+        "existingComponentFiles": ["cypress/component/Button.cy.tsx"]
+      }
+    }
+  },
+  "expected": {
+    "level": 3,
+    "overallScore": { "min": 44, "max": 51 },
+    "applicability": {
+      "test-coverage-breadth": "applicable",
+      "framework-adoption": "applicable",
+      "test-id-hygiene": "applicable",
+      "auth-test-coverage": "applicable",
+      "component-test-ratio": "applicable"
+    },
+    "minTopRecs": 2
+  }
+}
