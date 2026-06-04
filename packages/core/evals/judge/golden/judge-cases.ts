@@ -19,7 +19,7 @@
  */
 
 import type { EvalOutcome } from '../../types.js';
-import type { ScaffoldSpecSubject, MaturityNarrativeSubject } from '../subjects.js';
+import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject } from '../subjects.js';
 
 export interface ScaffoldJudgeCase {
   id: string;
@@ -42,7 +42,17 @@ export interface MaturityJudgeCase {
   stubDimensionScores: Array<{ key: string; score: number; rationale: string }>;
 }
 
-export type JudgeGoldenCase = ScaffoldJudgeCase | MaturityJudgeCase;
+export interface ConfidenceNarrativeJudgeCase {
+  id: string;
+  suite: 'confidence';
+  description: string;
+  rubricVersion: 'confidence-narrative-v1';
+  subject: ConfidenceNarrativeSubject;
+  expectedOutcome: EvalOutcome;
+  stubDimensionScores: Array<{ key: string; score: number; rationale: string }>;
+}
+
+export type JudgeGoldenCase = ScaffoldJudgeCase | MaturityJudgeCase | ConfidenceNarrativeJudgeCase;
 
 const ROUTES = ['/', '/login', '/pricing'];
 
@@ -261,5 +271,138 @@ const MATURITY_CASES: MaturityJudgeCase[] = [
   },
 ];
 
-/** The full golden corpus (scaffold + score-automation judge cases). */
-export const JUDGE_GOLDEN_CASES: JudgeGoldenCase[] = [...SCAFFOLD_CASES, ...MATURITY_CASES];
+// ---------------------------------------------------------------------------
+// Confidence-narrative golden cases (P4 — confidence-narrative-v1 rubric)
+//
+// These grade the NARRATIVE string against the written rubric. The
+// releaseConfidence object is the truth set; the narrative must faithfully
+// describe it.
+// ---------------------------------------------------------------------------
+
+import type { ReleaseConfidence } from '../../../src/schemas/confidence.schema.js';
+
+/** Shared truth-set used by confidence narrative cases. */
+const SHIP_RC: ReleaseConfidence = {
+  schemaVersion: 1,
+  computedAt: '2026-06-04T12:00:00.000Z',
+  subject: { kind: 'release', ref: 'https://app.example.com', tenantId: 'golden' },
+  confidenceScore: 86,
+  verdict: 'ship',
+  level: 5,
+  label: 'L5 — advanced QA automation',
+  contributions: [
+    { source: 'live-app-quality',  score: 92, weight: 0.30, effectiveWeight: 0.455, applicability: 'applicable', blocking: false },
+    { source: 'test-automation',   score: 85, weight: 0.22, effectiveWeight: 0.333, applicability: 'applicable', blocking: false },
+    { source: 'api-coverage',      score: 75, weight: 0.14, effectiveWeight: 0.212, applicability: 'applicable', blocking: false },
+    { source: 'crawl-coverage',    score: 0,  weight: 0.10, effectiveWeight: 0,     applicability: 'not_applicable', blocking: false },
+    { source: 'ci-results',        score: 0,  weight: 0.10, effectiveWeight: 0,     applicability: 'unknown',        blocking: false },
+  ],
+  topRisks: ['2/5 API endpoints lack test coverage.'],
+  recommendedNextChecks: ['Add API test coverage for the 2 untested endpoints.'],
+  honestyNotes: [
+    "'crawl-coverage' source is not applicable for this subject.",
+    "'ci-results' source could not produce a reliable score.",
+  ],
+  blockers: [],
+  scoreFormula: 'confidenceScore = round( Σ (score * weight) / Σ weight ) for applicable, non-null, non-blocking evidence only.',
+};
+
+/** Truth set for a hold verdict (critical gap). */
+const HOLD_RC: ReleaseConfidence = {
+  schemaVersion: 1,
+  computedAt: '2026-06-04T12:00:00.000Z',
+  subject: { kind: 'release', ref: 'https://app.example.com', tenantId: 'golden' },
+  confidenceScore: 45,
+  verdict: 'hold',
+  level: 2,
+  label: 'L2 — early automation',
+  contributions: [
+    { source: 'live-app-quality', score: 45, weight: 0.30, effectiveWeight: 1.0, applicability: 'applicable', blocking: false },
+  ],
+  topRisks: ['Multiple critical accessibility violations detected (wcag2a: color-contrast, 12 nodes).'],
+  recommendedNextChecks: ['Resolve all critical accessibility violations before shipping.'],
+  honestyNotes: [],
+  blockers: [],
+  scoreFormula: 'confidenceScore = round( Σ (score * weight) / Σ weight ) for applicable, non-null, non-blocking evidence only.',
+};
+
+const CONFIDENCE_NARRATIVE_CASES: ConfidenceNarrativeJudgeCase[] = [
+  {
+    id: 'confidence-faithful-ship-narrative',
+    suite: 'confidence',
+    description: 'Narrative faithfully describes a ship verdict, grounded in contributions, honest about abstentions.',
+    rubricVersion: 'confidence-narrative-v1',
+    expectedOutcome: 'PASS',
+    subject: {
+      releaseConfidence: SHIP_RC,
+      narrative: [
+        'Release confidence: SHIP — L5, advanced QA automation (score 86/100).',
+        'Three sources contributed: live-app-quality (92), test-automation (85), api-coverage (75).',
+        'Top risk: 2 of 5 API endpoints lack test coverage — recommend adding API tests before the next cycle.',
+        'Note: crawl-coverage was not applicable for this release; ci-results could not produce a score (signal unavailable).',
+        'Verdict: safe to ship, with the API coverage gap logged as follow-up.',
+      ].join('\n'),
+    },
+    stubDimensionScores: [
+      { key: 'correctness',       score: 1,   rationale: 'Verdict SHIP, score 86, level L5 all match the computed result.' },
+      { key: 'grounding',        score: 1,   rationale: 'Every factual claim maps to a contribution or topRisks entry.' },
+      { key: 'format',           score: 1,   rationale: 'Verdict up-front, risks surfaced, abstentions named, concise.' },
+      { key: 'no-hallucination', score: 1,   rationale: 'Nothing invented; all numbers match the input.' },
+    ],
+  },
+  {
+    id: 'confidence-wrong-verdict-hallucination',
+    suite: 'confidence',
+    description: 'Narrative claims SHIP when computed verdict is HOLD — wrong verdict + hallucinated score.',
+    rubricVersion: 'confidence-narrative-v1',
+    expectedOutcome: 'FAIL',
+    subject: {
+      releaseConfidence: HOLD_RC,
+      narrative: [
+        'Release confidence: SHIP — score 92/100, excellent quality (score is 45 in truth).',
+        'No risks detected. All checks green.',
+      ].join('\n'),
+    },
+    // correctness=0 (wrong verdict) + no-hallucination=0 (invented 92, invented "no risks") ⇒ hard FAIL
+    stubDimensionScores: [
+      { key: 'correctness',       score: 0,   rationale: 'Claims SHIP; computed verdict is HOLD at score 45.' },
+      { key: 'grounding',        score: 0,   rationale: 'Claims "no risks" but topRisks lists a critical a11y violation.' },
+      { key: 'format',           score: 0.5, rationale: 'States a verdict (even if wrong), so format is partially met.' },
+      { key: 'no-hallucination', score: 0,   rationale: 'Score 92 is fabricated (actual 45); "no risks" contradicts evidence.' },
+    ],
+  },
+  {
+    id: 'confidence-verbose-but-correct',
+    suite: 'confidence',
+    description: 'Narrative is verbose and padded — verdict buried, borderline grounding. Should be WARN.',
+    rubricVersion: 'confidence-narrative-v1',
+    expectedOutcome: 'WARN',
+    subject: {
+      releaseConfidence: SHIP_RC,
+      narrative: [
+        'I have carefully reviewed the release confidence data and I am very pleased to report that the',
+        'overall release confidence score is 86 out of a possible 100, which places it at level 5 out of',
+        'the available 5 levels, and the verdict as computed by the qulib release confidence aggregator is',
+        'SHIP, which means the system believes the release is ready to ship. The live-app-quality source',
+        'contributed a score of 92 (with an effective weight of approximately 0.455), the test-automation',
+        'source contributed 85, and api-coverage contributed 75. The crawl-coverage source was marked as',
+        'not_applicable and ci-results was unknown and therefore both were excluded from the score.',
+        'There is one top risk: 2 API endpoints lack test coverage. Recommendation: add tests.',
+      ].join('\n'),
+    },
+    // Correctness: 0.8 (verdict buried, but all numbers correct — minor structural mismatch).
+    // Grounding: 0.8 (mostly grounded; one summary-level claim not directly traceable).
+    // Format: 0.3 (verdict buried in prose; heavily padded — format penalty).
+    // No-hallucination: 1.0 (nothing invented).
+    // Aggregate = 0.8*0.30 + 0.8*0.30 + 0.3*0.15 + 1.0*0.25 = 0.24+0.24+0.045+0.25 = 0.775 → WARN
+    stubDimensionScores: [
+      { key: 'correctness',       score: 0.8, rationale: 'All numbers match but verdict is buried; structural issue.' },
+      { key: 'grounding',        score: 0.8, rationale: 'Mostly grounded; one summary-level claim not directly traceable.' },
+      { key: 'format',           score: 0.3, rationale: 'Verdict buried in verbose prose; padding deducts from format.' },
+      { key: 'no-hallucination', score: 1.0, rationale: 'Nothing invented; all identifiers appear in the input.' },
+    ],
+  },
+];
+
+/** The full golden corpus (scaffold + score-automation + confidence-narrative judge cases). */
+export const JUDGE_GOLDEN_CASES: JudgeGoldenCase[] = [...SCAFFOLD_CASES, ...MATURITY_CASES, ...CONFIDENCE_NARRATIVE_CASES];

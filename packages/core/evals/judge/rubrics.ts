@@ -130,14 +130,95 @@ export const SCORE_AUTOMATION_RUBRIC_V1: Rubric = {
   criticalFloor: 0.2,
 };
 
+/**
+ * confidence-narrative-v1 — grades the release-confidence NARRATIVE: the
+ * `narrative` string emitted by `buildConfidenceNarrative` in run-confidence.ts
+ * (or any similar human-facing confidence explanation). The judge sees the
+ * narrative plus the computed `ReleaseConfidence` object and checks that the
+ * prose is faithful to the deterministic result.
+ *
+ * Four axes (P4 spec §4):
+ *   correctness      (0.30) — narrative matches the computed verdict + evidence
+ *   grounding        (0.30) — every claim traces to an evidence/breakdown string
+ *   format           (0.15) — verdict stated up-front, abstentions named, concise
+ *   no-hallucination (0.25) — zero fabricated facts; veto axis (critical)
+ *
+ * Composite: 100 * (correctness*0.30 + grounding*0.30 + format*0.15 +
+ *                   no_hallucination*0.25) / 5
+ *   PASS >= 0.80, WARN >= 0.60, FAIL < 0.60
+ * Hard-fail rule: no_hallucination <= criticalFloor (0.2) => FAIL regardless of aggregate.
+ */
+export const CONFIDENCE_NARRATIVE_RUBRIC_V1: Rubric = {
+  suite: 'confidence',
+  version: 'confidence-narrative-v1',
+  summary:
+    'Release-confidence narrative is correct, grounded in evidence, well-formed, and free of invented facts.',
+  dimensions: [
+    {
+      key: 'correctness',
+      title: 'Correctness',
+      guidance:
+        'Does the prose faithfully describe what the computed verdict, confidenceScore, and contributions actually say? ' +
+        'Score 1.0 if every claim is consistent with the breakdown, topRisks, verdict, and confidenceScore; no contradiction. ' +
+        'Score 0.5 if one minor mismatch (e.g. calls a medium risk "low") that does not change the ship decision. ' +
+        'Score 0.2 if a material mismatch (narrative implies SHIP while verdict is HOLD, or misstates the dominant risk). ' +
+        'Score 0.0 if the narrative describes a completely different release or evidence set. ' +
+        'Deduction rule: any claim about the ship decision that contradicts the verdict caps this dimension at 0.2.',
+      weight: 0.30,
+    },
+    {
+      key: 'grounding',
+      title: 'Grounding',
+      guidance:
+        'Is every factual claim anchored to a specific evidence string in the contributions/breakdown? ' +
+        'Score 1.0 if every factual claim maps to an evidence string or risk.summary present in the input. ' +
+        'Score 0.5 if mostly grounded; one claim is a reasonable summary but not directly traceable. ' +
+        'Score 0.2 if multiple claims have no support in the provided evidence. ' +
+        'Score 0.0 if the narrative\'s central claim is ungrounded. ' +
+        'Anchor test: for each factual sentence ask "which evidence line backs this?" — unbackable sentences are ungrounded.',
+      weight: 0.30,
+    },
+    {
+      key: 'format',
+      title: 'Format',
+      guidance:
+        'Is the output well-formed, complete, and right-sized? ' +
+        'Score 1.0 if the narrative states the verdict and score/abstention up-front, summarizes the top risks, ' +
+        'gives an actionable next step, and is concise (substance over length). When score is null the abstentions are named. ' +
+        'Score 0.5 if present but uneven: buries the verdict, omits the abstention list when score is null, or is padded. ' +
+        'Score 0.2 if missing a required element (no verdict stated, or no risk summary when risks exist). ' +
+        'Score 0.0 if unstructured, unreadable, or clearly the wrong artifact. ' +
+        'Verbosity guard: length is NOT rewarded; padding without added substance DEDUCTS here.',
+      weight: 0.15,
+    },
+    {
+      key: 'no-hallucination',
+      title: 'No hallucination',
+      guidance:
+        'Are there ZERO fabricated facts — invented metrics, non-existent PRs/endpoints/flags, made-up numbers, ' +
+        'or claimed evidence not in the input? ' +
+        'Score 1.0 if nothing invented; every number and identifier appears in the input. ' +
+        'Score 0.5 if one soft over-statement (e.g. "tests look solid" with no test contribution) — not a fabricated fact. ' +
+        'Score 0.2 if one concrete fabricated fact (a metric, an endpoint, an approver, a flag not in evidence). ' +
+        'Score 0.0 if multiple fabrications, or a fabricated fact drives the recommendation. ' +
+        'HARD RULE: any concrete fabricated fact forces this dimension to <= 0.2, which triggers the criticalFloor gate => FAIL regardless of aggregate.',
+      weight: 0.25,
+      critical: true,
+    },
+  ],
+  thresholds: { passAt: 0.80, warnAt: 0.60 },
+  criticalFloor: 0.20,
+};
+
 /** Registry of the CURRENT pinned rubric per suite. Flip these to bump a version. */
 export const RUBRICS: Record<EvalSuite, Rubric> = {
   scaffold: SCAFFOLD_RUBRIC_V1,
   'score-automation': SCORE_AUTOMATION_RUBRIC_V1,
+  confidence: CONFIDENCE_NARRATIVE_RUBRIC_V1,
 };
 
 /** All published rubric versions (for the runner/ledger to enumerate / validate against). */
-export const ALL_RUBRICS: Rubric[] = [SCAFFOLD_RUBRIC_V1, SCORE_AUTOMATION_RUBRIC_V1];
+export const ALL_RUBRICS: Rubric[] = [SCAFFOLD_RUBRIC_V1, SCORE_AUTOMATION_RUBRIC_V1, CONFIDENCE_NARRATIVE_RUBRIC_V1];
 
 /** Look up the pinned rubric for a suite. Throws on an unknown suite (fail-fast). */
 export function getRubric(suite: EvalSuite): Rubric {

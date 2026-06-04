@@ -22,7 +22,7 @@
 
 import type { EvalOutcome, JudgeVerdict } from '../types.js';
 import { getRubric } from './rubrics.js';
-import { buildScaffoldSubject, buildMaturitySubject } from './subjects.js';
+import { buildScaffoldSubject, buildMaturitySubject, buildConfidenceSubject } from './subjects.js';
 import { runJudge, type JudgeLlm } from './judge.js';
 import { JUDGE_GOLDEN_CASES, type JudgeGoldenCase } from './golden/judge-cases.js';
 
@@ -64,9 +64,9 @@ function stubLlmFor(testCase: JudgeGoldenCase): JudgeLlm {
 }
 
 function buildSubject(testCase: JudgeGoldenCase) {
-  return testCase.suite === 'scaffold'
-    ? buildScaffoldSubject(testCase.subject)
-    : buildMaturitySubject(testCase.subject);
+  if (testCase.suite === 'scaffold') return buildScaffoldSubject(testCase.subject);
+  if (testCase.suite === 'confidence') return buildConfidenceSubject(testCase.subject);
+  return buildMaturitySubject(testCase.subject);
 }
 
 /** Grade one golden case and compare to its gold label. */
@@ -147,9 +147,10 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const offline = argv.includes('--offline');
   const suiteIdx = argv.indexOf('--suite');
+  const suiteArg = suiteIdx !== -1 ? argv[suiteIdx + 1] : undefined;
   const suite =
-    suiteIdx !== -1 && (argv[suiteIdx + 1] === 'scaffold' || argv[suiteIdx + 1] === 'score-automation')
-      ? (argv[suiteIdx + 1] as JudgeGoldenCase['suite'])
+    suiteArg === 'scaffold' || suiteArg === 'score-automation' || suiteArg === 'confidence'
+      ? (suiteArg as JudgeGoldenCase['suite'])
       : undefined;
 
   const summary = await runJudgeEval({ offline, suite });

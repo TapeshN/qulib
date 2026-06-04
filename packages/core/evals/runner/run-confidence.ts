@@ -143,9 +143,8 @@ export async function runConfidenceCase(c: EvalCase, judge?: JudgeImpl): Promise
     }
   }
 
-  // Judge (optional): SKIP unless a judge + key are present.
-  // For the deterministic confidence suite the judge grades narrative faithfulness.
-  // A judge FAIL/WARN can downgrade a PASS but never rescues a deterministic FAIL.
+  // Judge (P4): grades the narrative against the confidence-narrative-v1 rubric.
+  // SKIPs gracefully when no ANTHROPIC_API_KEY — deterministic asserts remain the CI gate.
   const narrative = buildConfidenceNarrative(rc);
   const verdict = await judgeOrSkip({ suite: 'confidence', narrative, releaseConfidence: rc }, judge);
 

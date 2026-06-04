@@ -16,6 +16,7 @@ import {
   scoreToOutcome,
   validateRubric,
   SCAFFOLD_RUBRIC_V1,
+  CONFIDENCE_NARRATIVE_RUBRIC_V1,
 } from '../rubrics.js';
 import { buildJudgePrompt, parseJudgeResponse } from '../prompt.js';
 import { buildScaffoldSubject, buildMaturitySubject } from '../subjects.js';
@@ -310,10 +311,12 @@ test('buildMaturitySubject exposes computed numbers + applicability as grounding
 // Scored runner (offline meta-eval) — the gate
 // ---------------------------------------------------------------------------
 
-test('golden corpus is non-trivial and covers both suites + all three outcome classes', () => {
-  assert.ok(JUDGE_GOLDEN_CASES.length >= 5, 'expect a real corpus, not a single smoke case');
+test('golden corpus is non-trivial and covers all three suites + all three outcome classes', () => {
+  assert.ok(JUDGE_GOLDEN_CASES.length >= 8, 'expect a real corpus across all three suites');
   const suites = new Set(JUDGE_GOLDEN_CASES.map((c) => c.suite));
-  assert.ok(suites.has('scaffold') && suites.has('score-automation'));
+  assert.ok(suites.has('scaffold'), 'corpus must include scaffold cases');
+  assert.ok(suites.has('score-automation'), 'corpus must include score-automation cases');
+  assert.ok(suites.has('confidence'), 'corpus must include confidence-narrative cases (P4)');
   const outcomes = new Set(JUDGE_GOLDEN_CASES.map((c) => c.expectedOutcome));
   for (const o of ['PASS', 'WARN', 'FAIL'] as const) {
     assert.ok(outcomes.has(o), `corpus must include a ${o} case`);
@@ -332,10 +335,33 @@ test('offline judge meta-eval scores full agreement with the gold labels (PASS, 
   assert.equal(summary.outcome, 'PASS');
 });
 
-test('offline meta-eval can be sliced by suite', async () => {
+test('offline meta-eval can be sliced by suite (score-automation)', async () => {
   const summary = await runJudgeEval({ offline: true, suite: 'score-automation' });
   assert.ok(summary.results.length >= 2);
   assert.ok(summary.results.every((r) => r.suite === 'score-automation'));
+});
+
+test('offline meta-eval can be sliced by suite (confidence — P4)', async () => {
+  const summary = await runJudgeEval({ offline: true, suite: 'confidence' });
+  assert.ok(summary.results.length >= 2, 'P4 confidence narrative corpus must have >= 2 cases');
+  assert.ok(summary.results.every((r) => r.suite === 'confidence'));
+});
+
+test('confidence rubric passes validateRubric', () => {
+  assert.equal(validateRubric(CONFIDENCE_NARRATIVE_RUBRIC_V1), null, 'confidence-narrative-v1 rubric should be valid');
+  assert.equal(CONFIDENCE_NARRATIVE_RUBRIC_V1.version, 'confidence-narrative-v1');
+});
+
+test('confidence rubric has no-hallucination as the critical dimension', () => {
+  const noHallDim = CONFIDENCE_NARRATIVE_RUBRIC_V1.dimensions.find((d) => d.key === 'no-hallucination');
+  assert.ok(noHallDim, 'no-hallucination dimension must exist');
+  assert.ok(noHallDim!.critical, 'no-hallucination must be the critical (veto) dimension');
+  assert.equal(noHallDim!.weight, 0.25, 'no-hallucination weight must be 0.25 per spec §4.5');
+});
+
+test('confidence rubric weights sum to 1.0', () => {
+  const sum = CONFIDENCE_NARRATIVE_RUBRIC_V1.dimensions.reduce((s, d) => s + d.weight, 0);
+  assert.ok(Math.abs(sum - 1) < 1e-9, `weights must sum to 1.0, got ${sum}`);
 });
 
 test('formatSummary renders a per-case report with the mode and outcome', async () => {
