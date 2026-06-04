@@ -1,4 +1,19 @@
 export { analyzeApp } from './analyze.js';
+export {
+  slugifyUrl,
+  defaultBaselineRoot,
+  saveBaseline,
+  loadBaseline,
+  listBaselines,
+  deleteBaseline,
+  compareBaselines,
+} from './baseline/baseline.js';
+export type {
+  BaselineGap,
+  BaselineSnapshot,
+  BaselineDeltaItem,
+  BaselineDelta,
+} from './baseline/baseline.schema.js';
 export { toAgentSummary } from './agent-summary.js';
 export type {
   AgentSummary,
