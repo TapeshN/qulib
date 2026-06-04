@@ -1,0 +1,59 @@
+{
+  "id": "cypress-recipe-nav-auth-combined",
+  "suite": "scaffold",
+  "description": "Cypress-e2e scaffold combining nav + auth recipe scenarios in one suite. Asserts both recipe sets land their selectors, recipe comments appear for each, and no cross-recipe hallucination occurs.",
+  "tags": ["no-llm", "deterministic", "cypress-e2e", "nav", "auth", "recipe"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "recipe-nav-deep-link",
+        "title": "Direct navigation to a deep route lands on the correct page",
+        "description": "Visiting a non-root route directly loads the right content",
+        "targetPath": "/about",
+        "steps": [
+          { "action": "navigate", "target": "/about", "description": "Navigate directly to /about" },
+          { "action": "assert-visible", "target": "h1", "description": "Page has a heading" }
+        ],
+        "tags": ["nav", "smoke", "recipe-nav"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-nav"]
+      },
+      {
+        "id": "recipe-auth-happy-path",
+        "title": "User can log in with valid credentials",
+        "description": "Submitting valid credentials navigates to the authenticated dashboard",
+        "targetPath": "/login",
+        "steps": [
+          { "action": "navigate", "target": "/login", "description": "Open the login page" },
+          { "action": "type", "target": "[data-testid=login-email]", "value": "user@example.test", "description": "Enter email address" },
+          { "action": "type", "target": "[data-testid=login-password]", "value": "correct-horse", "description": "Enter password" },
+          { "action": "click", "target": "[data-testid=login-submit]", "description": "Submit the login form" },
+          { "action": "assert-visible", "target": "[data-testid=dashboard-root]", "description": "Dashboard is shown" }
+        ],
+        "tags": ["auth", "smoke", "recipe-auth"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-auth"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "cy.visit(\"/about\");",
+      "cy.get(\"h1\").should('be.visible');",
+      "cy.visit(\"/login\");",
+      "cy.get(\"[data-testid=login-email]\")",
+      "cy.get(\"[data-testid=dashboard-root]\").should('be.visible');",
+      "recipe: nav",
+      "recipe: auth"
+    ],
+    "mustNotContain": [
+      "[data-testid=signup-",
+      "cy.visit(\"/admin\")",
+      "TODO"
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "playwright-recipe-nav",
+  "suite": "scaffold",
+  "description": "Playwright scaffold of the nav recipe scenarios. Asserts that deep-link and 404 scenarios use real page.goto calls and real route targets, with recipe comments injected.",
+  "tags": ["no-llm", "deterministic", "playwright", "nav", "recipe"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "playwright",
+    "scenarios": [
+      {
+        "id": "recipe-nav-deep-link",
+        "title": "Direct navigation to a deep route lands on the correct page",
+        "description": "Visiting a non-root route directly loads the right content — SPA and SSR routing both produce the expected page",
+        "targetPath": "/about",
+        "steps": [
+          { "action": "navigate", "target": "/about", "description": "Navigate directly to /about" },
+          { "action": "assert-visible", "target": "main", "description": "Main content region is visible" },
+          { "action": "assert-visible", "target": "h1", "description": "Page has a heading" }
+        ],
+        "tags": ["nav", "smoke", "recipe-nav"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-nav"]
+      },
+      {
+        "id": "recipe-nav-404-handling",
+        "title": "Unknown routes show a user-friendly 404 page",
+        "description": "Navigating to a non-existent route renders a helpful not-found page rather than a blank screen",
+        "targetPath": "/this-route-definitely-does-not-exist-qulib-404-probe",
+        "steps": [
+          { "action": "navigate", "target": "/this-route-definitely-does-not-exist-qulib-404-probe", "description": "Navigate to an absent route" },
+          { "action": "assert-visible", "target": "h1", "description": "A heading is visible — app renders a page not a blank error" }
+        ],
+        "tags": ["nav", "error-handling", "recipe-nav"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-nav"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "await page.goto(\"/about\");",
+      "await page.goto(\"/this-route-definitely-does-not-exist-qulib-404-probe\");",
+      "import { test, expect } from '@playwright/test';",
+      "recipe: nav"
+    ],
+    "mustNotContain": [
+      "cy.visit(",
+      "TODO",
+      "[data-testid=login-"
+    ]
+  }
+}

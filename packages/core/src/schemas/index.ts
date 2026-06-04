@@ -83,3 +83,10 @@ export {
   type PublicSurfaceViolation,
   type PublicSurfaceBrokenLink,
 } from './public-surface.schema.js';
+export {
+  RecipeIdSchema,
+  RecipeConfigSchema,
+  type RecipeId,
+  type RecipeConfig,
+} from './recipe.schema.js';
+

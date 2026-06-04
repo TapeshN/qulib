@@ -25,6 +25,7 @@
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { scaffoldTests, type ScaffoldResult } from '../scaffold-tests.js';
+import { RecipeIdSchema, type RecipeId } from '../schemas/recipe.schema.js';
 
 const ScaffoldUrlSchema = z.string().url();
 
@@ -48,6 +49,7 @@ interface ScaffoldRunOptions {
   maxPages?: number;
   out: string;
   json: boolean;
+  recipes?: RecipeId[];
 }
 
 /**
@@ -140,6 +142,7 @@ export async function runScaffold(options: ScaffoldRunOptions): Promise<void> {
     result = await scaffoldTests(url, {
       framework,
       ...(options.maxPages !== undefined && { maxPagesToScan: options.maxPages }),
+      ...(options.recipes && options.recipes.length > 0 && { recipes: options.recipes }),
     });
   } catch (error) {
     rethrowScaffoldError(error, framework);
@@ -217,6 +220,10 @@ export function registerScaffoldCommand(program: Command): void {
     .option('--max-pages <n>', 'Maximum number of pages to scan while deriving scenarios')
     .option('--out <dir>', 'Directory to write the scaffolded project into', DEFAULT_OUT_DIR)
     .option('--json', 'Do not write to disk — print the full scaffold result as JSON on stdout (use for MCP/CI)', false)
+    .option(
+      '--recipes <ids>',
+      'Comma-separated recipe ids to append proven test patterns: auth,a11y,nav,seed (e.g. --recipes auth,a11y)'
+    )
     .action(
       async (options: {
         url: string;
@@ -224,6 +231,7 @@ export function registerScaffoldCommand(program: Command): void {
         maxPages?: string;
         out: string;
         json?: boolean;
+        recipes?: string;
       }) => {
         const parsedFramework = FrameworkSchema.safeParse(options.framework);
         if (!parsedFramework.success) {
@@ -241,12 +249,24 @@ export function registerScaffoldCommand(program: Command): void {
           maxPages = n;
         }
 
+        let recipes: RecipeId[] | undefined;
+        if (options.recipes) {
+          const ids = options.recipes.split(',').map((s) => s.trim()).filter(Boolean);
+          const parsed = ids.map((id) => RecipeIdSchema.safeParse(id));
+          const invalid = parsed.map((p, i) => (!p.success ? ids[i] : null)).filter(Boolean);
+          if (invalid.length > 0) {
+            throw new Error(`Invalid --recipes value(s): ${invalid.join(', ')}. Supported: auth, a11y, nav, seed.`);
+          }
+          recipes = parsed.map((p) => (p.success ? p.data : null)).filter(Boolean) as RecipeId[];
+        }
+
         await runScaffold({
           url: options.url,
           framework: parsedFramework.data,
           maxPages,
           out: options.out,
           json: Boolean(options.json),
+          recipes,
         });
       }
     );

@@ -42,6 +42,26 @@ function renderStep(step: TestStep): string {
   }
 }
 
+/**
+ * Render a recipe-specific step override for Cypress.
+ * Returns null when no override applies — falls through to renderStep.
+ */
+function renderRecipeStep(step: TestStep, scenario: NeutralScenario): string | null {
+  const tags = scenario.tags ?? [];
+  // a11y recipe: title assertion — cy.title() instead of cy.get('title')
+  if (tags.includes('recipe-a11y') && step.action === 'assert-text' && step.target === 'title') {
+    return `    cy.title().should('not.be.empty');`;
+  }
+  // a11y recipe: nav count using proper Cypress assertion
+  if (tags.includes('recipe-a11y') && step.action === 'assert-count') {
+    const t = step.target != null ? JSON.stringify(step.target) : null;
+    if (t) {
+      return `    cy.get(${t}).its('length').should('be.gte', ${parseInt(step.value ?? '1', 10)});`;
+    }
+  }
+  return null;
+}
+
 export class CypressE2EAdapter implements TestAdapter {
   readonly adapterType = 'cypress-e2e';
 
@@ -49,11 +69,16 @@ export class CypressE2EAdapter implements TestAdapter {
     const slug = slugify(scenario.title);
     const filename = `${slug}.cy.ts`;
 
-    const stepLines = scenario.steps.map(renderStep).join('\n');
+    const stepLines = scenario.steps
+      .map((step) => renderRecipeStep(step, scenario) ?? renderStep(step))
+      .join('\n');
+
+    const recipeTag = (scenario.tags ?? []).find((t) => t.startsWith('recipe-'));
+    const recipeComment = recipeTag ? `\n// recipe: ${recipeTag.replace('recipe-', '')}` : '';
 
     const code = [
       `// ${scenario.description}`,
-      `// qulib-generated — scenario: ${scenario.id}`,
+      `// qulib-generated — scenario: ${scenario.id}${recipeComment}`,
       ``,
       `describe(${JSON.stringify(scenario.title)}, () => {`,
       `  it(${JSON.stringify(scenario.description)}, () => {`,

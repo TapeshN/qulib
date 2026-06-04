@@ -1,9 +1,11 @@
 import { analyzeApp } from './analyze.js';
 import { createAdapter } from './adapters/adapter-factory.js';
+import { expandRecipes } from './recipes/index.js';
 import type { NeutralScenario, GeneratedTest } from './schemas/gap-analysis.schema.js';
 import type { AdapterType } from './schemas/config.schema.js';
 import type { AnalyzeProgressSink } from './harness/progress-log.js';
 import type { TelemetrySink } from './telemetry/telemetry.interface.js';
+import type { RecipeId, RecipeConfig } from './schemas/recipe.schema.js';
 
 export interface ScaffoldOptions {
   framework?: Extract<AdapterType, 'cypress-e2e' | 'playwright'>;
@@ -11,6 +13,18 @@ export interface ScaffoldOptions {
   scenarios?: NeutralScenario[];
   progressLog?: AnalyzeProgressSink;
   telemetry?: TelemetrySink;
+  /**
+   * Optional list of recipe ids to expand into additional scenarios.
+   * Recipe scenarios are APPENDED to any scenarios derived from analysis or
+   * supplied via `scenarios` — they never replace existing content.
+   * Example: ['auth', 'a11y'] appends login-flow + a11y scenarios.
+   */
+  recipes?: RecipeId[];
+  /**
+   * Per-recipe configuration overrides (selectors, routes, impact thresholds).
+   * Only consulted when `recipes` is non-empty.
+   */
+  recipeConfig?: RecipeConfig;
 }
 
 export interface ProjectConfig {
@@ -138,13 +152,19 @@ export async function scaffoldTests(
     scenarios = result.gapAnalysis.scenarios;
   }
 
+  // Expand any requested recipes and append their scenarios (additive — never replace).
+  const recipeScenarios = expandRecipes(options.recipes, options.recipeConfig ?? {});
+  const allScenarios = recipeScenarios.length > 0
+    ? [...scenarios, ...recipeScenarios]
+    : scenarios;
+
   const adapter = createAdapter(framework);
-  const generatedTests = adapter.renderAll(scenarios);
+  const generatedTests = adapter.renderAll(allScenarios);
 
   const projectConfig =
     framework === 'cypress-e2e'
       ? buildCypressProjectConfig(url)
       : buildPlaywrightProjectConfig(url);
 
-  return { url, framework, generatedTests, scenarios, projectConfig };
+  return { url, framework, generatedTests, scenarios: allScenarios, projectConfig };
 }

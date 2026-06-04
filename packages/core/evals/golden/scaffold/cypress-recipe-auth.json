@@ -1,0 +1,63 @@
+{
+  "id": "cypress-recipe-auth",
+  "suite": "scaffold",
+  "description": "Cypress-e2e scaffold of the auth recipe scenarios. Asserts that the proven NQ-2/CaseLoom login selectors land verbatim, recipe comment is injected, and no hallucinated selector appears.",
+  "tags": ["no-llm", "deterministic", "cypress-e2e", "auth", "recipe"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "recipe-auth-happy-path",
+        "title": "User can log in with valid credentials",
+        "description": "Submitting valid credentials navigates to the authenticated dashboard",
+        "targetPath": "/login",
+        "steps": [
+          { "action": "navigate", "target": "/login", "description": "Open the login page" },
+          { "action": "type", "target": "[data-testid=login-email]", "value": "user@example.test", "description": "Enter email address" },
+          { "action": "type", "target": "[data-testid=login-password]", "value": "correct-horse", "description": "Enter password" },
+          { "action": "click", "target": "[data-testid=login-submit]", "description": "Submit the login form" },
+          { "action": "assert-visible", "target": "[data-testid=dashboard-root]", "description": "Dashboard or success indicator is shown" }
+        ],
+        "tags": ["auth", "smoke", "recipe-auth"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-auth"]
+      },
+      {
+        "id": "recipe-auth-invalid-credentials",
+        "title": "Invalid credentials show an inline error",
+        "description": "Submitting wrong credentials stays on the login page and shows an error message",
+        "targetPath": "/login",
+        "steps": [
+          { "action": "navigate", "target": "/login", "description": "Open the login page" },
+          { "action": "type", "target": "[data-testid=login-email]", "value": "user@example.test", "description": "Enter email address" },
+          { "action": "type", "target": "[data-testid=login-password]", "value": "wrong-password", "description": "Enter an incorrect password" },
+          { "action": "click", "target": "[data-testid=login-submit]", "description": "Submit with wrong credentials" },
+          { "action": "assert-text", "target": "[data-testid=login-error]", "value": "Invalid", "description": "Inline error message is shown" },
+          { "action": "assert-visible", "target": "[data-testid=login-submit]", "description": "Still on the login page" }
+        ],
+        "tags": ["auth", "negative", "recipe-auth"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-auth"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "cy.get(\"[data-testid=login-email]\")",
+      "cy.get(\"[data-testid=login-password]\")",
+      "cy.get(\"[data-testid=login-submit]\").click();",
+      "cy.get(\"[data-testid=dashboard-root]\").should('be.visible');",
+      "cy.get(\"[data-testid=login-error]\").should('contain.text', \"Invalid\");",
+      "cy.visit(\"/login\");",
+      "recipe: auth"
+    ],
+    "mustNotContain": [
+      "[data-testid=signup-",
+      "cy.visit(\"/admin\")",
+      "TODO"
+    ]
+  }
+}

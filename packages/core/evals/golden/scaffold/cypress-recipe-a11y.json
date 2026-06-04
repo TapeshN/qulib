@@ -1,0 +1,55 @@
+{
+  "id": "cypress-recipe-a11y",
+  "suite": "scaffold",
+  "description": "Cypress-e2e scaffold of the a11y recipe scenarios. Asserts heading/landmark/title selectors land verbatim, recipe comment is injected, and special recipe overrides (cy.title()) apply correctly.",
+  "tags": ["no-llm", "deterministic", "cypress-e2e", "a11y", "recipe"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "recipe-a11y-heading-structure",
+        "title": "Page has proper heading structure and landmark regions",
+        "description": "The root page has an H1 heading and at least one landmark region providing a navigable document outline",
+        "targetPath": "/",
+        "steps": [
+          { "action": "navigate", "target": "/", "description": "Open the root page" },
+          { "action": "assert-visible", "target": "h1", "description": "Page has an H1 heading" },
+          { "action": "assert-visible", "target": "main", "description": "Page has a main landmark region" },
+          { "action": "assert-count", "target": "nav", "value": "1", "description": "At least one navigation landmark exists" }
+        ],
+        "tags": ["a11y", "smoke", "recipe-a11y", "a11y-impact-serious"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-a11y"]
+      },
+      {
+        "id": "recipe-a11y-page-title",
+        "title": "Page has a non-empty, descriptive document title",
+        "description": "The title element is non-empty — required for bookmarks, browser tabs, and screen-reader orientation",
+        "targetPath": "/",
+        "steps": [
+          { "action": "navigate", "target": "/", "description": "Open the root page" },
+          { "action": "assert-text", "target": "title", "description": "Document title element is non-empty" }
+        ],
+        "tags": ["a11y", "seo", "recipe-a11y"],
+        "recommendations": [],
+        "sourceGapIds": ["recipe-a11y"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "cy.get(\"h1\").should('be.visible');",
+      "cy.get(\"main\").should('be.visible');",
+      "cy.title().should('not.be.empty');",
+      "recipe: a11y"
+    ],
+    "mustNotContain": [
+      "cy.get(\"title\").should(",
+      "TODO",
+      "[data-testid=login-"
+    ]
+  }
+}

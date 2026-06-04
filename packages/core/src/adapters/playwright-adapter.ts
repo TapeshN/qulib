@@ -48,6 +48,26 @@ function renderStep(step: TestStep): string {
   }
 }
 
+/**
+ * Render a recipe-specific step override for Playwright.
+ * Returns null when no override applies — falls through to renderStep.
+ */
+function renderRecipeStep(step: TestStep, scenario: NeutralScenario): string | null {
+  const tags = scenario.tags ?? [];
+  // a11y recipe: title assertion — page.title() instead of page.locator('title')
+  if (tags.includes('recipe-a11y') && step.action === 'assert-text' && step.target === 'title') {
+    return `    expect(await page.title()).not.toBe('');`;
+  }
+  // a11y recipe: nav count using Playwright count()
+  if (tags.includes('recipe-a11y') && step.action === 'assert-count') {
+    const t = step.target != null ? JSON.stringify(step.target) : null;
+    if (t) {
+      return `    expect(await page.locator(${t}).count()).toBeGreaterThanOrEqual(${parseInt(step.value ?? '1', 10)});`;
+    }
+  }
+  return null;
+}
+
 export class PlaywrightAdapter implements TestAdapter {
   readonly adapterType = 'playwright';
 
@@ -55,11 +75,16 @@ export class PlaywrightAdapter implements TestAdapter {
     const slug = slugify(scenario.title);
     const filename = `${slug}.spec.ts`;
 
-    const stepLines = scenario.steps.map(renderStep).join('\n');
+    const stepLines = scenario.steps
+      .map((step) => renderRecipeStep(step, scenario) ?? renderStep(step))
+      .join('\n');
+
+    const recipeTag = (scenario.tags ?? []).find((t) => t.startsWith('recipe-'));
+    const recipeComment = recipeTag ? `\n// recipe: ${recipeTag.replace('recipe-', '')}` : '';
 
     const code = [
       `// ${scenario.description}`,
-      `// qulib-generated — scenario: ${scenario.id}`,
+      `// qulib-generated — scenario: ${scenario.id}${recipeComment}`,
       ``,
       `import { test, expect } from '@playwright/test';`,
       ``,
