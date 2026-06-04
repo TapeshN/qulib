@@ -1,0 +1,26 @@
+{
+  "id": "expected-fail-level",
+  "suite": "score-automation",
+  "description": "Negative fixture: the SAME untested repo as the real nascent case but with a deliberately wrong expected.level (5). The runner MUST grade this FAIL so we prove deterministic asserts have teeth and the CI gate trips.",
+  "tags": ["fixture", "negative", "must-fail"],
+  "input": {
+    "repo": {
+      "scannedAt": "2026-05-30T00:00:00.000Z",
+      "repoPath": "/golden/fixture-untested-does-not-exist",
+      "routes": [{ "path": "/", "file": "src/pages/index.tsx", "method": "GET" }],
+      "testFiles": [],
+      "missingTestIds": [],
+      "interactiveTsxFilesScanned": 0,
+      "cypressStructure": {
+        "detected": false,
+        "hasCommandsFile": false,
+        "existingE2eFiles": [],
+        "existingComponentFiles": []
+      }
+    }
+  },
+  "expected": {
+    "level": 5,
+    "overallScore": { "min": 0, "max": 5 }
+  }
+}

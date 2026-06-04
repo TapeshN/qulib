@@ -1,0 +1,57 @@
+{
+  "id": "cypress-cart-checkout",
+  "suite": "scaffold",
+  "description": "Cypress-e2e scaffold of a cart→checkout flow. Exercises assert-count, assert-disabled and assert-text rendering, and pins that every real selector lands verbatim with no hallucinated route/selector.",
+  "tags": ["no-llm", "deterministic", "cypress-e2e", "commerce"],
+  "input": {
+    "url": "https://shop.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "add-to-cart-updates-count",
+        "title": "Adding an item updates the cart count",
+        "description": "Clicking add-to-cart increments the cart badge and enables checkout",
+        "targetPath": "/products",
+        "steps": [
+          { "action": "navigate", "target": "/products", "description": "Open the products page" },
+          { "action": "click", "target": "[data-testid=add-to-cart]", "description": "Add the first item to the cart" },
+          { "action": "assert-count", "target": "[data-testid=cart-item]", "value": "1", "description": "Cart shows one item" },
+          { "action": "assert-text", "target": "[data-testid=cart-count]", "value": "1", "description": "Cart badge reads 1" }
+        ],
+        "tags": ["commerce", "smoke"],
+        "recommendations": [],
+        "sourceGapIds": ["gap-cart-1"]
+      },
+      {
+        "id": "checkout-disabled-when-empty",
+        "title": "Checkout is disabled with an empty cart",
+        "description": "With no items, the checkout button is disabled",
+        "targetPath": "/cart",
+        "steps": [
+          { "action": "navigate", "target": "/cart", "description": "Open the cart page" },
+          { "action": "assert-disabled", "target": "[data-testid=checkout-button]", "description": "Checkout is disabled" }
+        ],
+        "tags": ["commerce", "negative"],
+        "recommendations": [],
+        "sourceGapIds": ["gap-cart-2"]
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 2,
+    "baseUrlInConfig": true,
+    "mustContain": [
+      "cy.visit(\"/products\");",
+      "cy.get(\"[data-testid=add-to-cart]\").click();",
+      "cy.get(\"[data-testid=cart-item]\").should('have.length.gte', 1);",
+      "cy.get(\"[data-testid=cart-count]\").should('contain.text', \"1\");",
+      "cy.visit(\"/cart\");",
+      "cy.get(\"[data-testid=checkout-button]\").should('be.disabled');"
+    ],
+    "mustNotContain": [
+      "[data-testid=login-",
+      "cy.visit(\"/admin\")",
+      "TODO"
+    ]
+  }
+}

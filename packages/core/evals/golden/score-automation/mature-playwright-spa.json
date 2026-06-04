@@ -1,0 +1,42 @@
+{
+  "id": "mature-playwright-spa",
+  "suite": "score-automation",
+  "description": "A well-tested Playwright SPA with full route coverage, strong test-id hygiene, no auth, no Cypress, no CI at root → should score L5.",
+  "tags": ["no-llm", "deterministic", "playwright", "no-auth"],
+  "input": {
+    "repo": {
+      "scannedAt": "2026-05-30T00:00:00.000Z",
+      "repoPath": "/golden/repo-mature-playwright-spa-does-not-exist",
+      "routes": [
+        { "path": "/", "file": "app/page.tsx", "method": "GET" },
+        { "path": "/dashboard", "file": "app/dashboard/page.tsx", "method": "GET" },
+        { "path": "/settings", "file": "app/settings/page.tsx", "method": "GET" }
+      ],
+      "testFiles": [
+        { "file": "tests/home.spec.ts", "type": "playwright", "coveredPaths": ["/"] },
+        { "file": "tests/dashboard.spec.ts", "type": "playwright", "coveredPaths": ["/dashboard"] },
+        { "file": "tests/settings.spec.ts", "type": "playwright", "coveredPaths": ["/settings"] }
+      ],
+      "missingTestIds": ["components/Banner.tsx"],
+      "interactiveTsxFilesScanned": 8,
+      "cypressStructure": {
+        "detected": false,
+        "hasCommandsFile": false,
+        "existingE2eFiles": [],
+        "existingComponentFiles": []
+      }
+    }
+  },
+  "expected": {
+    "level": 5,
+    "overallScore": { "min": 78, "max": 84 },
+    "applicability": {
+      "test-coverage-breadth": "applicable",
+      "framework-adoption": "applicable",
+      "test-id-hygiene": "applicable",
+      "auth-test-coverage": "not_applicable",
+      "component-test-ratio": "not_applicable"
+    },
+    "minTopRecs": 1
+  }
+}

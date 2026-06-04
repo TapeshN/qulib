@@ -18,6 +18,8 @@ import {
   resolveAuthLoginConfig,
 } from './auth-login-resolve.js';
 import { runAutomatedAuthLogin } from './auth-login-run.js';
+import { registerScaffoldCommand } from './scaffold-run.js';
+import { registerScoreAutomationCommand } from './score-automation-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -178,6 +180,12 @@ program
   .name('qulib')
   .description('Qulib — QA harness')
   .version(pkg.version);
+
+// Q2 (CLIs + evals): each new CLI surface owns its own file and self-registers
+// here, so the scaffold and score-automation commands never edit index.ts
+// concurrently. Implemented in scaffold-run.ts / score-automation-run.ts.
+registerScaffoldCommand(program);
+registerScoreAutomationCommand(program);
 
 program
   .command('clean')
