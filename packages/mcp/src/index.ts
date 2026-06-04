@@ -27,6 +27,7 @@ import {
   computeApiCoverage,
 } from '@qulib/core';
 import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
+import { RecipeIdSchema } from '@qulib/core';
 import { z } from 'zod';
 import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
 import { log } from './logger.js';
@@ -342,23 +343,38 @@ const ScaffoldTestsInputSchema = z.object({
     .max(20)
     .optional()
     .describe('Max pages to crawl when running analyze_app internally. Default: 10'),
+  recipes: z
+    .array(RecipeIdSchema)
+    .optional()
+    .describe(
+      'Optional list of reusable test-pattern recipes to append to the scaffold. ' +
+        'Each recipe adds proven NQ-2/CaseLoom-derived scenarios: ' +
+        '"auth" = login/logout/protected-route flows; ' +
+        '"a11y" = heading/landmark/title accessibility checks; ' +
+        '"nav" = deep-link/browser-back/404 handling; ' +
+        '"seed" = data-seeding/state-reset helpers. ' +
+        'Recipe scenarios are APPENDED to crawl-derived scenarios — they never replace them. ' +
+        'Example: ["auth", "a11y"] adds 6 ready-to-run test scenarios.'
+    ),
 });
 
 mcpServer.registerTool(
   'qulib_scaffold_tests',
   {
     description:
-      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files (Cypress or Playwright) plus the project config (cypress.config.ts or playwright.config.ts) and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing.',
+      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files (Cypress or Playwright) plus the project config (cypress.config.ts or playwright.config.ts) and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers.',
     inputSchema: ScaffoldTestsInputSchema,
   },
-  async ({ url, framework, maxPagesToScan }) => {
+  async ({ url, framework, maxPagesToScan, recipes }) => {
     try {
-      log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}`);
+      const recipesLog = recipes && recipes.length > 0 ? ` recipes=[${recipes.join(',')}]` : '';
+      log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}${recipesLog}`);
       const result = await scaffoldTests(url, {
         framework: framework ?? 'cypress-e2e',
         maxPagesToScan: maxPagesToScan ?? 10,
         progressLog: mcpProgressLog,
         telemetry: telemetrySink,
+        ...(recipes && recipes.length > 0 && { recipes }),
       });
       return {
         content: [

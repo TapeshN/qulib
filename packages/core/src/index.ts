@@ -28,6 +28,7 @@ export { computeApiCoverage } from './tools/scoring/api-coverage.js';
 export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api-coverage.js';
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
+export { expandRecipes, buildAuthScenarios, buildA11yScenarios, buildNavScenarios, buildSeedScenarios } from './recipes/index.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';
@@ -61,4 +62,7 @@ export type {
   AutomationMaturityDimension,
   FrameworkDetectionResult,
   DetectedFrameworkPrimary,
+  RecipeId,
+  RecipeConfig,
 } from './schemas/index.js';
+export { RecipeIdSchema } from './schemas/index.js';
