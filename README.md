@@ -86,7 +86,7 @@ Default **`analyze_app`** responses are **summary-first** (top gaps, cost summar
 
 ## Release confidence (short)
 
-- Score starts from **100** and is reduced by **high / medium / low** gaps (see [`gap-engine`](./packages/core/src/tools/gap-engine.ts)).
+- Score starts from **100** and is reduced by **high / medium / low** gaps (see [`gaps.ts`](./packages/core/src/tools/scoring/gaps.ts)).
 - If **fewer than `minPagesForConfidence`** pages were scanned, confidence is **capped at 40** and a **`low-coverage`** warning is set—thin coverage must not read as “ready”.
 - **`auth-required`** early exit sets confidence **0** with no gap inventory: the deployment was not actually exercised.
 
