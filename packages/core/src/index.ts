@@ -83,6 +83,11 @@ export type {
 export { RecipeIdSchema } from './schemas/index.js';
 // P3 — Confidence Layer exports
 export { computeReleaseConfidence } from './tools/scoring/confidence.js';
+// P4 — Evidence adapters (CI results + PR metadata)
+export { ciResultsToEvidence } from './adapters/ci-results-adapter.js';
+export type { CiRunInput } from './adapters/ci-results-adapter.js';
+export { prMetadataToEvidence } from './adapters/pr-metadata-adapter.js';
+export type { PrMetadataInput, StatusCheck, ReviewDecision, MergeableState } from './adapters/pr-metadata-adapter.js';
 export { buildConfidenceInputFromQulib } from './tools/scoring/confidence-from-qulib.js';
 export { diffConfidence, deriveInbox, buildReplay, toAuditEntry } from './tools/scoring/confidence-views.js';
 export type {
