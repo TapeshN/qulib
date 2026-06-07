@@ -27,13 +27,14 @@ import {
   meanJudgeScore,
   summarize,
   toLedgerEntry,
+  resolveTenantId,
 } from '../rollup.js';
 import { loadCases, goldenRoot, EVAL_SUITES } from '../load-cases.js';
 import { runScaffoldCase } from '../run-scaffold.js';
 import { runScoreAutomationCase } from '../run-score-automation.js';
 import { judgeConfigured, skipVerdict, judgeOrSkip, reduceScaffoldVerdicts } from '../judge-bridge.js';
 import type { JudgeImpl } from '../judge-bridge.js';
-import { runSuite, runEval, ledgerLineCount } from '../index.js';
+import { runSuite, runEval, ledgerLineCount, readLedger, filterLedgerByTenant } from '../index.js';
 import type { EvalCaseResult, JudgeVerdict } from '../../types.js';
 import type { NeutralScenario } from '../../../src/schemas/gap-analysis.schema.js';
 
@@ -437,5 +438,110 @@ test('ledger: exactly one line is appended per suite run', async () => {
     assert.ok(typeof entry.qulibVersion === 'string');
     assert.ok(entry.counts && typeof entry.counts === 'object');
   }
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// tenantId — TENANT-A4
+// ---------------------------------------------------------------------------
+
+test('resolveTenantId: explicit value wins', () => {
+  assert.equal(resolveTenantId('team-1', {}), 'team-1');
+});
+
+test('resolveTenantId: falls back to TAP_TENANT_ID env when no explicit value', () => {
+  assert.equal(resolveTenantId(undefined, { TAP_TENANT_ID: 'env-tenant' }), 'env-tenant');
+});
+
+test('resolveTenantId: falls back to "default" when neither explicit nor env is set', () => {
+  assert.equal(resolveTenantId(undefined, {}), 'default');
+  assert.equal(resolveTenantId('', { TAP_TENANT_ID: '' }), 'default');
+  assert.equal(resolveTenantId('  ', { TAP_TENANT_ID: '  ' }), 'default');
+});
+
+test('toLedgerEntry: tenantId is stamped on the entry', () => {
+  const results: EvalCaseResult[] = [
+    { caseId: 'a', suite: 'scaffold', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  const summary = summarize('scaffold', results, 't0', 't1');
+  const entry = toLedgerEntry(summary, '0.0.0', 'team-1');
+  assert.equal(entry.tenantId, 'team-1');
+});
+
+test('toLedgerEntry: defaults to "default" when tenantId omitted', () => {
+  const results: EvalCaseResult[] = [
+    { caseId: 'a', suite: 'scaffold', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  const summary = summarize('scaffold', results, 't0', 't1');
+  const entry = toLedgerEntry(summary, '0.0.0');
+  assert.equal(entry.tenantId, 'default');
+  assert.ok(entry.tenantId.length > 0, 'tenantId must never be empty');
+});
+
+test('runEval: explicit tenantId is written to ledger', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-tenant-write-'));
+  const ledger = join(dir, 'ledger.jsonl');
+  writeFileSync(ledger, '');
+
+  const { summaries } = await runEval({ appendLedger: false, tenantId: 'team-1' });
+  for (const s of summaries) {
+    appendFileSync(ledger, `${JSON.stringify(toLedgerEntry(s, '0.0.0', 'team-1'))}\n`);
+  }
+  const lines = readFileSync(ledger, 'utf8').trim().split('\n');
+  for (const line of lines) {
+    const entry = JSON.parse(line) as Record<string, unknown>;
+    assert.equal(entry.tenantId, 'team-1', 'each ledger line must carry tenantId=team-1');
+  }
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('runEval: default tenantId applied when none supplied (not null, not empty)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-tenant-default-'));
+  const ledger = join(dir, 'ledger.jsonl');
+  writeFileSync(ledger, '');
+
+  const { summaries } = await runEval({ appendLedger: false });
+  for (const s of summaries) {
+    appendFileSync(ledger, `${JSON.stringify(toLedgerEntry(s, '0.0.0'))}\n`);
+  }
+  const entries = readLedger(ledger);
+  for (const e of entries) {
+    assert.ok(e.tenantId && e.tenantId.length > 0, 'tenantId must be non-empty on every new entry');
+    assert.equal(e.tenantId, 'default');
+  }
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('filterLedgerByTenant: returns only entries matching the requested tenantId', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-tenant-filter-'));
+  const ledger = join(dir, 'ledger.jsonl');
+
+  const { summaries } = await runEval({ appendLedger: false });
+  for (const s of summaries) {
+    appendFileSync(ledger, `${JSON.stringify(toLedgerEntry(s, '0.0.0', 'team-alpha'))}\n`);
+    appendFileSync(ledger, `${JSON.stringify(toLedgerEntry(s, '0.0.0', 'team-beta'))}\n`);
+  }
+  const alpha = filterLedgerByTenant('team-alpha', ledger);
+  const beta = filterLedgerByTenant('team-beta', ledger);
+  const none = filterLedgerByTenant('team-gamma', ledger);
+
+  assert.equal(alpha.length, summaries.length, 'team-alpha should have one entry per suite');
+  assert.equal(beta.length, summaries.length, 'team-beta should have one entry per suite');
+  assert.equal(none.length, 0, 'unknown tenant returns empty array');
+  assert.ok(alpha.every((e) => e.tenantId === 'team-alpha'));
+  assert.ok(beta.every((e) => e.tenantId === 'team-beta'));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('readLedger: old records without tenantId parse back as "legacy" (backward-compat)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-tenant-legacy-'));
+  const ledger = join(dir, 'ledger.jsonl');
+  // Simulate an old-format ledger line with no tenantId field
+  const oldEntry = { ts: '2025-01-01T00:00:00.000Z', suite: 'scaffold', outcome: 'PASS', score: 0.9, counts: { pass: 1, warn: 0, fail: 0, skip: 0, total: 1 }, qulibVersion: '0.8.0' };
+  writeFileSync(ledger, `${JSON.stringify(oldEntry)}\n`);
+
+  const entries = readLedger(ledger);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].tenantId, 'legacy', 'old record without tenantId must read back as "legacy"');
   rmSync(dir, { recursive: true, force: true });
 });

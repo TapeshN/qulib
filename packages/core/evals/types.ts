@@ -107,4 +107,11 @@ export interface EvalLedgerEntry {
   qulibVersion: string;
   /** Total judge cost for the run, if a judge ran. */
   cost?: { inputTokens: number; outputTokens: number };
+  /**
+   * Tenant that produced this run. Source precedence:
+   *   explicit RunOptions.tenantId → env TAP_TENANT_ID → "default".
+   * Never null/empty on NEW records. Old records without this field are
+   * treated as "legacy" by readers — backward-compat, never rewritten.
+   */
+  tenantId: string;
 }

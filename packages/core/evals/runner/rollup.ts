@@ -70,8 +70,26 @@ export function summarize(
   };
 }
 
+/**
+ * Resolve the tenantId from options or env, falling back to "default".
+ * Never returns null or empty — "default" is the guaranteed fallback.
+ */
+export function resolveTenantId(
+  explicit?: string,
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  if (explicit && explicit.trim().length > 0) return explicit.trim();
+  const fromEnv = env['TAP_TENANT_ID'];
+  if (fromEnv && fromEnv.trim().length > 0) return fromEnv.trim();
+  return 'default';
+}
+
 /** Project a run summary into the single append-only ledger line. */
-export function toLedgerEntry(summary: EvalRunSummary, qulibVersion: string): EvalLedgerEntry {
+export function toLedgerEntry(
+  summary: EvalRunSummary,
+  qulibVersion: string,
+  tenantId: string = 'default'
+): EvalLedgerEntry {
   // Pull pinned judge identity + total cost from the first verdict that actually ran.
   const judged = summary.results.find((r) => r.judge && r.judge.outcome !== 'SKIP')?.judge;
   const cost = summary.results.reduce(
@@ -93,6 +111,7 @@ export function toLedgerEntry(summary: EvalRunSummary, qulibVersion: string): Ev
     score: summary.score,
     counts: summary.counts,
     qulibVersion,
+    tenantId,
   };
   if (judged) {
     entry.judgeModel = judged.judgeModel;
