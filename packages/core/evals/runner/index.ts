@@ -20,13 +20,13 @@
  */
 import { appendFileSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import type { EvalRunSummary, EvalSuite } from '../types.js';
+import type { EvalLedgerEntry, EvalRunSummary, EvalSuite } from '../types.js';
 import { EVAL_SUITES, loadCases, ledgerPath } from './load-cases.js';
 import { runScaffoldCase } from './run-scaffold.js';
 import { runScoreAutomationCase } from './run-score-automation.js';
 import { runConfidenceCase } from './run-confidence.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
-import { summarize, toLedgerEntry } from './rollup.js';
+import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
 
 const require = createRequire(import.meta.url);
 
@@ -38,6 +38,12 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   /** Inject a judge implementation (tests). Defaults to Q2c's real judge (SKIPs without a key). */
   judge?: JudgeImpl;
+  /**
+   * Tenant that owns this eval run. Stamped on every ledger entry.
+   * Source precedence: explicit value here → env TAP_TENANT_ID → "default".
+   * Never null/empty — guaranteed by resolveTenantId().
+   */
+  tenantId?: string;
 }
 
 function qulibVersion(): string {
@@ -70,13 +76,14 @@ export async function runEval(
   const suites = opts.suites && opts.suites.length > 0 ? opts.suites : [...EVAL_SUITES];
   const appendLedger = opts.appendLedger ?? true;
   const version = qulibVersion();
+  const tenantId = resolveTenantId(opts.tenantId, opts.env ?? process.env);
   const summaries: EvalRunSummary[] = [];
 
   for (const suite of suites) {
     const summary = await runSuite(suite, opts);
     summaries.push(summary);
     if (appendLedger) {
-      const entry = toLedgerEntry(summary, version);
+      const entry = toLedgerEntry(summary, version, tenantId);
       appendFileSync(ledgerPath(), `${JSON.stringify(entry)}\n`, 'utf8');
     }
   }
@@ -143,6 +150,32 @@ export function ledgerLineCount(path: string = ledgerPath()): number {
   } catch {
     return 0;
   }
+}
+
+/**
+ * Read all entries from a ledger file. Old records without a tenantId field
+ * are returned with tenantId set to "legacy" — backward-compat, never rewritten.
+ */
+export function readLedger(path: string = ledgerPath()): EvalLedgerEntry[] {
+  try {
+    const raw = readFileSync(path, 'utf8').trim();
+    if (raw.length === 0) return [];
+    return raw.split('\n').map((line) => {
+      const entry = JSON.parse(line) as EvalLedgerEntry;
+      if (!entry.tenantId) entry.tenantId = 'legacy';
+      return entry;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Filter ledger entries by tenantId. Useful for per-tenant maturity tracking.
+ * Old records (no tenantId) surface as "legacy" via readLedger().
+ */
+export function filterLedgerByTenant(tenantId: string, path: string = ledgerPath()): EvalLedgerEntry[] {
+  return readLedger(path).filter((e) => e.tenantId === tenantId);
 }
 
 async function main(): Promise<void> {
