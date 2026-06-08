@@ -1,0 +1,63 @@
+{
+  "id": "fusion-notquality-dogfood",
+  "suite": "evidence",
+  "description": "P5 dogfood fusion: notquality real CI + PR + automation signals → computeReleaseConfidence emits verdict=caution, score~76, level 4. Judge grades the narrative (SKIP without key).",
+  "tags": ["fusion", "dogfood", "p5", "judge"],
+  "input": {
+    "collector": "fusion",
+    "collectedAt": "2026-06-04T09:00:00.000Z",
+    "fusion": {
+      "run": {
+        "completedAt": "2026-06-04T04:46:20.000Z",
+        "buildPassed": true,
+        "testsPassed": 168,
+        "testsFailed": 0,
+        "testsErrored": 0,
+        "testsFlaky": 0,
+        "runUrl": "https://github.com/TapeshN/notquality/actions/runs/26931370208",
+        "workflowName": "E2E (playwright)"
+      },
+      "pr": {
+        "number": 52,
+        "url": "https://github.com/TapeshN/notquality/pull/52",
+        "reviewDecision": null,
+        "mergeable": "MERGEABLE",
+        "statusCheckRollup": [
+          { "state": "SUCCESS", "name": "validate" },
+          { "state": "SUCCESS", "name": "playwright" },
+          { "state": "SUCCESS", "name": "Vercel" },
+          { "state": "SUCCESS", "name": "Vercel Preview Comments" }
+        ],
+        "noPr": false
+      },
+      "automation": {
+        "source": "test-automation",
+        "score": 65,
+        "weight": 0.22,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": [
+          "Automation maturity: L3 — building maturity (score 65)",
+          "29 E2E spec files, 168 runnable tests, Playwright + CI wired.",
+          "No vitest/jest unit tests yet (component-test-ratio = 0)."
+        ],
+        "recommendations": [
+          "Add vitest/jest unit tests for lib/ to raise component-test-ratio."
+        ],
+        "collector": { "tool": "qulib_score_automation.pre-scored" }
+      },
+      "policy": {
+        "passThreshold": 80,
+        "failThreshold": 30,
+        "maxListLength": 5,
+        "requiredSources": []
+      }
+    }
+  },
+  "expected": {
+    "verdict": "caution",
+    "confidenceScore": { "min": 70, "max": 82 },
+    "level": { "min": 4, "max": 4 },
+    "contributionSources": ["ci-results", "deploy-metadata", "test-automation"]
+  }
+}
