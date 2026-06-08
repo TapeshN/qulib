@@ -1,0 +1,99 @@
+name: qulib-action selftest
+
+# Proves the reusable analyze gate end-to-end in CI without a live external URL.
+# Serves the in-repo offline fixtures, runs the local CLI to emit the
+# agent-summary JSON (the exact shape the composite action captures from
+# `npx @qulib/core analyze --agent-summary`), then runs the action's gate.mjs
+# and asserts the exit code matches the gate verdict under each fail-on policy.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/qulib-analyze/**"
+      - ".github/workflows/qulib-action-selftest.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/actions/qulib-analyze/**"
+      - ".github/workflows/qulib-action-selftest.yml"
+  workflow_dispatch: {}
+
+jobs:
+  gate-selftest:
+    name: gate.mjs end-to-end (offline fixture)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+
+      - name: Produce a real agent-summary from the offline fixture
+        working-directory: packages/core
+        run: |
+          set -euo pipefail
+          # Written inside the ESM package (packages/core) so tsx treats it as
+          # ESM; the body is wrapped in main() to avoid top-level await (rejected
+          # under tsx's default cjs transform for ad-hoc scripts).
+          cat > src/__tests__/zz-emit-summary.ts <<'TS'
+          import { spawn } from 'node:child_process';
+          import { resolve, dirname } from 'node:path';
+          import { fileURLToPath } from 'node:url';
+          import { writeFileSync } from 'node:fs';
+          import { startFixtureServer } from './fixture-server.js';
+          const __dir = dirname(fileURLToPath(import.meta.url));
+          const cli = resolve(__dir, '..', 'cli', 'index.ts');
+          const out = process.argv[2];
+          async function main() {
+            const server = await startFixtureServer();
+            try {
+              const child = spawn(process.execPath, ['--import','tsx/esm', cli, 'analyze','--url', server.baseUrl, '--agent-summary'], { stdio: ['ignore','pipe','inherit'] });
+              let s = '';
+              child.stdout.on('data', (c: Buffer) => (s += c.toString()));
+              const code: number = await new Promise((r) => child.on('close', (c) => r(c ?? -1)));
+              if (code !== 0) { console.error('analyze exit', code); process.exit(1); }
+              writeFileSync(out, s);
+            } finally { await server.close(); }
+          }
+          main().catch((e) => { console.error(e); process.exit(1); });
+          TS
+          node --import tsx/esm src/__tests__/zz-emit-summary.ts "$GITHUB_WORKSPACE/qulib-agent-summary.json"
+          rm -f src/__tests__/zz-emit-summary.ts
+          echo "--- agent-summary ---"
+          cat "$GITHUB_WORKSPACE/qulib-agent-summary.json"
+
+      - name: Gate — assert exit codes match the verdict
+        run: |
+          set -euo pipefail
+          SUM="$GITHUB_WORKSPACE/qulib-agent-summary.json"
+          GATE=.github/actions/qulib-analyze/gate.mjs
+          OBSERVED=$(node -e "process.stdout.write(require('$SUM').gate)")
+          echo "observed gate: $OBSERVED"
+
+          assert_exit() { # <fail-on> <expected-exit>
+            set +e; node "$GATE" "$SUM" "$1" >/dev/null 2>&1; local rc=$?; set -e
+            if [ "$rc" != "$2" ]; then
+              echo "FAIL: fail-on=$1 expected exit $2 got $rc"; exit 1
+            fi
+            echo "OK: fail-on=$1 -> exit $rc"
+          }
+
+          case "$OBSERVED" in
+            pass) assert_exit fail 0; assert_exit warn 0; assert_exit never 0 ;;
+            warn) assert_exit fail 0; assert_exit warn 1; assert_exit never 0 ;;
+            fail) assert_exit fail 1; assert_exit warn 1; assert_exit never 0 ;;
+            *) echo "unexpected gate: $OBSERVED"; exit 1 ;;
+          esac
+
+          # Error handling: bad policy and missing file both exit 2
+          set +e; node "$GATE" "$SUM" bogus >/dev/null 2>&1; [ $? -eq 2 ] || { echo "bad policy did not exit 2"; exit 1; }
+          node "$GATE" /tmp/does-not-exist.json fail >/dev/null 2>&1; [ $? -eq 2 ] || { echo "missing file did not exit 2"; exit 1; }
+          set -e
+          echo "gate.mjs selftest PASS"

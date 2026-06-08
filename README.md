@@ -84,6 +84,83 @@ Default **`analyze_app`** responses are **summary-first** (top gaps, cost summar
 
 ---
 
+## CI integration (GitHub Actions)
+
+Gate your deploys on Qulib's **honest agent-summary verdict** (`pass` / `warn` / `fail`) with a drop-in action. There are two surfaces — pick whichever fits your CI:
+
+### Option A — composite action (drop into an existing job)
+
+```yaml
+# .github/workflows/qa.yml
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Qulib analyze gate
+        uses: TapeshN/qulib/.github/actions/qulib-analyze@v1
+        with:
+          url: https://your-app.example.com
+          fail-on: fail        # fail (default) | warn | never
+          qulib-version: latest # pin a version for reproducible CI
+```
+
+### Option B — reusable workflow (whole job in one line)
+
+```yaml
+# .github/workflows/qa.yml
+jobs:
+  qa:
+    uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v1
+    with:
+      url: https://your-app.example.com
+      fail-on: warn
+    # secrets:
+    #   auth-storage-state: ${{ secrets.QULIB_STORAGE_STATE }}
+```
+
+### How the gate decides
+
+The action runs `@qulib/core analyze --url <url> --agent-summary`, which emits the stable agent-summary JSON. The CLI itself **always exits 0** — the verdict lives in the `gate` field — so the action reads `gate` and turns it into a CI exit code:
+
+| `gate` | `fail-on: fail` (default) | `fail-on: warn` | `fail-on: never` |
+|---|---|---|---|
+| `pass` | ✅ pass | ✅ pass | ✅ pass |
+| `warn` | ✅ pass | ❌ **fail** | ✅ pass |
+| `fail` | ❌ **fail** | ❌ **fail** | ✅ pass |
+
+A `fail` gate means a **critical gap**, a **blocked scan**, **null/too-low confidence**, or an **auth-required surface** that was never exercised — Qulib never silently passes an unevaluated deployment.
+
+Every run **uploads the agent-summary JSON as an artifact** (`qulib-agent-summary`) and writes a **job summary** table with the gate, release confidence, top risks, and honesty notes.
+
+### Inputs (composite action)
+
+| Input | Default | Description |
+|---|---|---|
+| `url` | *(required)* | Base URL of the deployed app to analyze. |
+| `fail-on` | `fail` | Gate policy: `fail`, `warn`, or `never`. |
+| `qulib-version` | `latest` | npm version/dist-tag of `@qulib/core` run via `npx`. Pin for reproducibility. |
+| `repo` | `""` | Optional path to the app repo for repo-aware analysis. |
+| `config` | `""` | Path to a qulib config file relative to the working dir. |
+| `auth-storage-state` | `""` | Path to a Playwright storage-state JSON for authenticated scans (write a secret to a file first — never inline it). |
+| `extra-args` | `""` | Extra raw flags appended to `qulib analyze` (advanced). |
+| `node-version` | `20` | Node.js version to set up. |
+| `install-browser` | `true` | Install Playwright Chromium (Qulib crawls with Playwright). |
+| `output-path` | `qulib-agent-summary.json` | Where to write the raw agent-summary JSON. |
+
+### Outputs (composite action)
+
+| Output | Description |
+|---|---|
+| `gate` | The verdict: `pass` \| `warn` \| `fail`. |
+| `release-confidence` | Release confidence `0–100`, or `n/a` when null. |
+| `coverage-status` | Coverage status enum (`ok` \| `thin` \| `blocked-by-auth` \| …). |
+| `blocked` | `true` if the gate violated the `fail-on` policy (the job was failed). |
+| `summary-path` | Path to the written agent-summary JSON artifact. |
+
+> The composite action lives at [`.github/actions/qulib-analyze`](./.github/actions/qulib-analyze) and the reusable workflow at [`.github/workflows/qulib-analyze.yml`](./.github/workflows/qulib-analyze.yml). Reference them at a tag (`@v1`) for stability.
+
+---
+
 ## Release confidence (short)
 
 - Score starts from **100** and is reduced by **high / medium / low** gaps (see [`gaps.ts`](./packages/core/src/tools/scoring/gaps.ts)).

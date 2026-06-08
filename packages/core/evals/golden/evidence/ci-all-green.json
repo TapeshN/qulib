@@ -1,0 +1,27 @@
+{
+  "id": "ci-all-green",
+  "suite": "evidence",
+  "description": "ci-results collector: fresh run, build passed, 168/168 tests pass → applicable, score 100, no recommendations.",
+  "tags": ["ci-results", "applicable", "happy-path", "no-llm"],
+  "input": {
+    "collector": "ci-results",
+    "collectedAt": "2026-06-04T04:46:20.000Z",
+    "run": {
+      "completedAt": "2026-06-04T04:46:20.000Z",
+      "buildPassed": true,
+      "testsPassed": 168,
+      "testsFailed": 0,
+      "testsErrored": 0,
+      "runUrl": "https://github.com/TapeshN/notquality/actions/runs/26931370208",
+      "workflowName": "E2E (playwright)"
+    }
+  },
+  "expected": {
+    "source": "ci-results",
+    "applicability": "applicable",
+    "scoreExact": 100,
+    "blocking": false,
+    "evidenceIncludes": ["168/168 tests passed", "100% pass-rate"],
+    "evidenceExcludes": ["Build FAILED", "stale"]
+  }
+}

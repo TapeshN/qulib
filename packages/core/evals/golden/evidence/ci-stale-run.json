@@ -1,0 +1,26 @@
+{
+  "id": "ci-stale-run",
+  "suite": "evidence",
+  "description": "ci-results collector: run older than the 24h stale threshold → coerced to unknown, score 0, re-run recommendation (honest abstention).",
+  "tags": ["ci-results", "unknown", "stale", "no-llm"],
+  "input": {
+    "collector": "ci-results",
+    "collectedAt": "2026-06-06T05:00:00.000Z",
+    "run": {
+      "completedAt": "2026-06-04T04:46:20.000Z",
+      "buildPassed": true,
+      "testsPassed": 168,
+      "testsFailed": 0,
+      "testsErrored": 0,
+      "workflowName": "E2E (playwright)"
+    }
+  },
+  "expected": {
+    "source": "ci-results",
+    "applicability": "unknown",
+    "scoreExact": 0,
+    "blocking": false,
+    "recommendationsMinLength": 1,
+    "evidenceIncludes": ["stale"]
+  }
+}

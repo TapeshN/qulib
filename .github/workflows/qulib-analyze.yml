@@ -1,0 +1,127 @@
+name: Qulib analyze
+
+# Reusable workflow: gate a deployed app on qulib's honest agent-summary verdict.
+#
+# Call it from a consumer repo with:
+#
+#   jobs:
+#     qa:
+#       uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v1
+#       with:
+#         url: https://your-app.example.com
+#         fail-on: warn
+#
+# For finer control inside an existing job, use the composite action directly:
+#   - uses: TapeshN/qulib/.github/actions/qulib-analyze@v1
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        description: "Base URL of the deployed app to analyze."
+        required: true
+        type: string
+      fail-on:
+        description: "Gate policy: fail | warn | never."
+        required: false
+        default: "fail"
+        type: string
+      qulib-version:
+        description: "npm version/dist-tag of @qulib/core (e.g. latest, 0.8.2)."
+        required: false
+        default: "latest"
+        type: string
+      repo:
+        description: "Optional path to the app repo for repo-aware analysis."
+        required: false
+        default: ""
+        type: string
+      config:
+        description: "Path to a qulib config file relative to the checkout."
+        required: false
+        default: ""
+        type: string
+      extra-args:
+        description: "Extra raw flags appended to qulib analyze."
+        required: false
+        default: ""
+        type: string
+      node-version:
+        description: "Node.js version."
+        required: false
+        default: "20"
+        type: string
+      checkout:
+        description: >-
+          Check out the caller's repo first (needed when `repo`/`config` point
+          at in-repo paths). Default false — a URL-only scan needs no checkout.
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      auth-storage-state:
+        description: >-
+          Optional Playwright storage-state JSON (the file contents) for an
+          authenticated scan. Written to a temp file and passed to qulib.
+        required: false
+    outputs:
+      gate:
+        description: "The qulib gate verdict: pass | warn | fail."
+        value: ${{ jobs.analyze.outputs.gate }}
+      release-confidence:
+        description: "Release confidence 0-100, or n/a."
+        value: ${{ jobs.analyze.outputs.release-confidence }}
+      coverage-status:
+        description: "Coverage status enum."
+        value: ${{ jobs.analyze.outputs.coverage-status }}
+
+jobs:
+  analyze:
+    name: qulib analyze gate
+    runs-on: ubuntu-latest
+    outputs:
+      gate: ${{ steps.qulib.outputs.gate }}
+      release-confidence: ${{ steps.qulib.outputs.release-confidence }}
+      coverage-status: ${{ steps.qulib.outputs.coverage-status }}
+    steps:
+      - name: Check out caller repo
+        if: ${{ inputs.checkout }}
+        uses: actions/checkout@v4
+
+      # The composite action lives in this repo, so check it out to a subdir
+      # to reference it by local path. (When the action is published, callers
+      # use `uses: TapeshN/qulib/.github/actions/qulib-analyze@v1` directly and
+      # do not need this step.)
+      - name: Check out qulib (for the composite action)
+        uses: actions/checkout@v4
+        with:
+          repository: TapeshN/qulib
+          ref: ${{ inputs.qulib-version != 'latest' && format('v{0}', inputs.qulib-version) || 'main' }}
+          path: .qulib-action
+
+      - name: Write auth storage-state secret to a file
+        id: auth
+        shell: bash
+        env:
+          AUTH_STATE: ${{ secrets.auth-storage-state }}
+        run: |
+          set -euo pipefail
+          if [ -n "${AUTH_STATE:-}" ]; then
+            printf '%s' "$AUTH_STATE" > "$RUNNER_TEMP/qulib-storage-state.json"
+            echo "path=$RUNNER_TEMP/qulib-storage-state.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run qulib analyze gate
+        id: qulib
+        uses: ./.qulib-action/.github/actions/qulib-analyze
+        with:
+          url: ${{ inputs.url }}
+          fail-on: ${{ inputs.fail-on }}
+          qulib-version: ${{ inputs.qulib-version }}
+          repo: ${{ inputs.repo }}
+          config: ${{ inputs.config }}
+          auth-storage-state: ${{ steps.auth.outputs.path || '' }}
+          extra-args: ${{ inputs.extra-args }}
+          node-version: ${{ inputs.node-version }}

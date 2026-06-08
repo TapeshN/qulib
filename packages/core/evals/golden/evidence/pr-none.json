@@ -1,0 +1,21 @@
+{
+  "id": "pr-none",
+  "suite": "evidence",
+  "description": "pr-metadata collector: no PR for this ref (direct push) → not_applicable, abstains honestly, fabricates no PR number or URL.",
+  "tags": ["pr-metadata", "not-applicable", "no-fabrication", "no-llm"],
+  "input": {
+    "collector": "pr-metadata",
+    "collectedAt": "2026-06-04T09:00:00.000Z",
+    "pr": {
+      "noPr": true
+    }
+  },
+  "expected": {
+    "source": "deploy-metadata",
+    "applicability": "not_applicable",
+    "scoreExact": 0,
+    "blocking": false,
+    "evidenceIncludes": ["No pull request exists"],
+    "evidenceExcludes": ["PR #", "https://github.com/"]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ci-zero-tests",
+  "suite": "evidence",
+  "description": "ci-results collector: build passed but 0 tests executed → unknown (no test signal), never PASS-by-default.",
+  "tags": ["ci-results", "unknown", "no-signal", "no-llm"],
+  "input": {
+    "collector": "ci-results",
+    "collectedAt": "2026-06-04T05:00:00.000Z",
+    "run": {
+      "completedAt": "2026-06-04T04:46:20.000Z",
+      "buildPassed": true,
+      "testsPassed": 0,
+      "testsFailed": 0,
+      "testsErrored": 0,
+      "workflowName": "CI (validate)"
+    }
+  },
+  "expected": {
+    "source": "ci-results",
+    "applicability": "unknown",
+    "scoreExact": 0,
+    "blocking": false,
+    "evidenceIncludes": ["0 tests executed"]
+  }
+}
