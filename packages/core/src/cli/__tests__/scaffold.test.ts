@@ -16,8 +16,9 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { startFixtureServer, type FixtureServerHandle } from '../../__tests__/fixture-server.js';
-import { collectScaffoldFiles } from '../scaffold-run.js';
+import { collectScaffoldFiles, enforceSpecValidation, SpecValidationError } from '../scaffold-run.js';
 import type { ScaffoldResult } from '../../scaffold-tests.js';
+import type { SpecValidationReport } from '../../adapters/validate-specs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -113,6 +114,7 @@ test('collectScaffoldFiles flattens config + support + specs + package.json', ()
       packageJson: { devDependencies: { cypress: '^13.0.0' }, scripts: { test: 'cypress run' } },
       supportFiles: [{ filename: 'cypress/support/e2e.ts', code: '// support' }],
     },
+    specValidation: { ok: true, total: 1, invalidCount: 0, results: [] },
   };
 
   const files = collectScaffoldFiles(result);
@@ -131,6 +133,64 @@ test('collectScaffoldFiles flattens config + support + specs + package.json', ()
   assert.equal(pkg.devDependencies.cypress, '^13.0.0', 'package.json carries the framework devDeps');
   // Exactly: 1 config + 1 support + 1 spec + 1 package.json
   assert.equal(files.length, 4, `expected 4 flattened files, got ${files.length}`);
+});
+
+// ---------------------------------------------------------------------------
+// Dry-run gate: enforceSpecValidation throws on a failing report only when
+// --validate-specs is set, and is a no-op (returns null) on a clean report.
+// This is the fatal-path discrimination witness — runScaffold cannot emit a
+// broken spec on demand (adapters always render valid code), so the gate is
+// proven directly against an ok:false report.
+// ---------------------------------------------------------------------------
+
+const FAILING_REPORT: SpecValidationReport = {
+  ok: false,
+  total: 2,
+  invalidCount: 1,
+  results: [
+    { scenarioId: 's-ok', filename: 'a.cy.ts', outputPath: 'cypress/e2e/a.cy.ts', valid: true, errors: [] },
+    {
+      scenarioId: 's-bad',
+      filename: 'b.cy.ts',
+      outputPath: 'cypress/e2e/b.cy.ts',
+      valid: false,
+      errors: ["'}' expected."],
+    },
+  ],
+};
+
+const CLEAN_REPORT: SpecValidationReport = {
+  ok: true,
+  total: 2,
+  invalidCount: 0,
+  results: [
+    { scenarioId: 's1', filename: 'a.cy.ts', outputPath: 'cypress/e2e/a.cy.ts', valid: true, errors: [] },
+    { scenarioId: 's2', filename: 'b.cy.ts', outputPath: 'cypress/e2e/b.cy.ts', valid: true, errors: [] },
+  ],
+};
+
+test('enforceSpecValidation THROWS SpecValidationError on a failing report when --validate-specs is set', () => {
+  assert.throws(
+    () => enforceSpecValidation(FAILING_REPORT, true),
+    (err: unknown) => {
+      assert.ok(err instanceof SpecValidationError, 'must be a SpecValidationError');
+      assert.equal(err.exitCode, 1, 'must carry a non-zero exit code');
+      assert.match(err.message, /failed dry-run validation/i);
+      assert.match(err.message, /cypress\/e2e\/b\.cy\.ts/, 'message names the broken spec');
+      return true;
+    }
+  );
+});
+
+test('enforceSpecValidation WARNS (returns string, no throw) on a failing report without --validate-specs', () => {
+  const warning = enforceSpecValidation(FAILING_REPORT, false);
+  assert.ok(typeof warning === 'string' && warning.length > 0, 'returns a warning string, does not throw');
+  assert.match(warning, /1 of 2 generated spec/);
+});
+
+test('enforceSpecValidation is a no-op (returns null, never throws) on a clean report', () => {
+  assert.equal(enforceSpecValidation(CLEAN_REPORT, true), null, 'clean + fatal: no throw, returns null');
+  assert.equal(enforceSpecValidation(CLEAN_REPORT, false), null, 'clean + non-fatal: returns null');
 });
 
 // ---------------------------------------------------------------------------
@@ -254,6 +314,27 @@ test('qulib scaffold against the fixture server', async (t) => {
     } finally {
       rmSync(outDir, { recursive: true, force: true });
     }
+  });
+
+  await t.test('--validate-specs passes (exit 0) when the generated specs all parse', async () => {
+    assert.ok(handle, 'fixture server must be started');
+    const run = await runCliAsync(
+      ['scaffold', '--url', `${handle.baseUrl}/`, '--json', '--validate-specs', '--max-pages', '4'],
+      corePkgRoot
+    );
+    assert.equal(run.status, 0, `clean scaffold + --validate-specs must exit 0, stderr: ${run.stderr}`);
+    const payload = JSON.parse(run.stdout) as {
+      generatedTestCount: number;
+      specValidation: { ok: boolean; total: number; invalidCount: number };
+    };
+    assert.ok(payload.specValidation, 'JSON payload must carry the specValidation report');
+    assert.equal(payload.specValidation.ok, true, 'all real adapter specs must pass dry-run validation');
+    assert.equal(payload.specValidation.invalidCount, 0);
+    assert.equal(
+      payload.specValidation.total,
+      payload.generatedTestCount,
+      'every generated spec must have been validated'
+    );
   });
 
   await t.test('--framework playwright scaffolds valid Playwright tests', async () => {

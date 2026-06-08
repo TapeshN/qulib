@@ -25,6 +25,7 @@
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { scaffoldTests, type ScaffoldResult } from '../scaffold-tests.js';
+import type { SpecValidationReport } from '../adapters/validate-specs.js';
 import { RecipeIdSchema, type RecipeId } from '../schemas/recipe.schema.js';
 
 const ScaffoldUrlSchema = z.string().url();
@@ -50,6 +51,25 @@ interface ScaffoldRunOptions {
   out: string;
   json: boolean;
   recipes?: RecipeId[];
+  /**
+   * When true, fail the command (non-zero exit) if any generated spec does not
+   * parse/compile. The dry-run validation always runs; this flag controls
+   * whether a validation failure is fatal vs merely reported.
+   */
+  validateSpecs?: boolean;
+}
+
+/**
+ * Raised when `--validate-specs` is set and at least one generated spec fails
+ * the dry-run. Carries a non-zero `exitCode` so the CLI surfaces a hard failure
+ * instead of writing a known-broken scaffold and exiting green.
+ */
+export class SpecValidationError extends Error {
+  readonly exitCode = 1;
+  constructor(message: string) {
+    super(message);
+    this.name = 'SpecValidationError';
+  }
 }
 
 /**
@@ -95,6 +115,40 @@ export function collectScaffoldFiles(result: ScaffoldResult): ScaffoldFile[] {
 /** True when scaffold produced nothing actionable (no scenarios → no specs). */
 function isEmptyScaffold(result: ScaffoldResult): boolean {
   return result.scenarios.length === 0 || result.generatedTests.length === 0;
+}
+
+/**
+ * Apply the dry-run validation gate.
+ *
+ * Pure + side-effect-free (returns the warning text instead of logging) so it
+ * is unit-testable in isolation: feed it an `ok: false` report and assert it
+ * throws; feed it an `ok: true` report and assert it returns null. This is the
+ * discrimination witness for the fatal path — `runScaffold` cannot produce a
+ * broken spec on demand (the adapters always render valid code), so the gate's
+ * reject-vs-pass behavior is proven here directly against a report.
+ *
+ * @returns a non-null warning string when validation failed but `validateSpecs`
+ *   was not set (caller should log it); null when all specs parsed.
+ * @throws SpecValidationError when validation failed AND `validateSpecs` is set.
+ */
+export function enforceSpecValidation(
+  validation: SpecValidationReport,
+  validateSpecs: boolean
+): string | null {
+  if (validation.ok) return null;
+
+  const failed = validation.results.filter((r) => !r.valid);
+  const detail = failed
+    .map((r) => `  ✗ ${r.outputPath}\n      ${r.errors.join('\n      ')}`)
+    .join('\n');
+  const summary =
+    `${validation.invalidCount} of ${validation.total} generated spec(s) failed dry-run validation ` +
+    `(they do not parse/compile):\n${detail}`;
+
+  if (validateSpecs) {
+    throw new SpecValidationError(summary);
+  }
+  return summary;
 }
 
 /**
@@ -177,6 +231,18 @@ export async function runScaffold(options: ScaffoldRunOptions): Promise<void> {
     );
   }
 
+  // Dry-run gate: the scaffold already validated every generated spec through
+  // the TS compiler. Surface a failure here so a broken generator output never
+  // silently lands on disk. With --validate-specs this is fatal (non-zero exit
+  // via SpecValidationError); without it we still warn so the signal is never
+  // hidden. The gate logic lives in enforceSpecValidation (unit-tested).
+  const validation = result.specValidation;
+  const warning = enforceSpecValidation(validation, Boolean(options.validateSpecs));
+  if (warning) {
+    console.error(`[qulib] WARNING — ${warning}`);
+    console.error('[qulib] Re-run with --validate-specs to make this a hard (non-zero) failure.');
+  }
+
   if (options.json) {
     console.log(
       JSON.stringify(
@@ -189,6 +255,7 @@ export async function runScaffold(options: ScaffoldRunOptions): Promise<void> {
           scenarios: result.scenarios,
           generatedTests: result.generatedTests,
           projectConfig: result.projectConfig,
+          specValidation: result.specValidation,
         },
         null,
         2
@@ -205,6 +272,7 @@ export async function runScaffold(options: ScaffoldRunOptions): Promise<void> {
   console.error(`\n[qulib] Scaffold complete — ${framework}`);
   console.error(`  Scenarios derived:   ${result.scenarios.length}`);
   console.error(`  Specs generated:     ${result.generatedTests.length}`);
+  console.error(`  Specs validated:     ${validation.total - validation.invalidCount}/${validation.total} parse cleanly`);
   console.error(`  Files written:       ${written.length}`);
   console.error(`  Output directory:    ${outRoot}`);
   console.error(`  Config:              ${result.projectConfig.configFile.filename}`);
@@ -224,6 +292,11 @@ export function registerScaffoldCommand(program: Command): void {
       '--recipes <ids>',
       'Comma-separated recipe ids to append proven test patterns: auth,a11y,nav,seed (e.g. --recipes auth,a11y)'
     )
+    .option(
+      '--validate-specs',
+      'Fail (non-zero exit) if any generated spec does not parse/compile. Validation always runs; this makes a failure fatal.',
+      false
+    )
     .action(
       async (options: {
         url: string;
@@ -232,6 +305,7 @@ export function registerScaffoldCommand(program: Command): void {
         out: string;
         json?: boolean;
         recipes?: string;
+        validateSpecs?: boolean;
       }) => {
         const parsedFramework = FrameworkSchema.safeParse(options.framework);
         if (!parsedFramework.success) {
@@ -267,6 +341,7 @@ export function registerScaffoldCommand(program: Command): void {
           out: options.out,
           json: Boolean(options.json),
           recipes,
+          validateSpecs: Boolean(options.validateSpecs),
         });
       }
     );
