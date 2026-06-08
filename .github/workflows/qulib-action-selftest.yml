@@ -39,25 +39,33 @@ jobs:
         working-directory: packages/core
         run: |
           set -euo pipefail
-          cat > /tmp/emit-summary.ts <<'TS'
+          # Written inside the ESM package (packages/core) so tsx treats it as
+          # ESM; the body is wrapped in main() to avoid top-level await (rejected
+          # under tsx's default cjs transform for ad-hoc scripts).
+          cat > src/__tests__/zz-emit-summary.ts <<'TS'
           import { spawn } from 'node:child_process';
           import { resolve, dirname } from 'node:path';
           import { fileURLToPath } from 'node:url';
           import { writeFileSync } from 'node:fs';
-          import { startFixtureServer } from './src/__tests__/fixture-server.js';
-          const cli = resolve(process.cwd(), 'src/cli/index.ts');
+          import { startFixtureServer } from './fixture-server.js';
+          const __dir = dirname(fileURLToPath(import.meta.url));
+          const cli = resolve(__dir, '..', 'cli', 'index.ts');
           const out = process.argv[2];
-          const server = await startFixtureServer();
-          try {
-            const child = spawn(process.execPath, ['--import','tsx/esm', cli, 'analyze','--url', server.baseUrl, '--agent-summary'], { stdio: ['ignore','pipe','inherit'] });
-            let s = '';
-            child.stdout.on('data', (c) => (s += c.toString()));
-            const code = await new Promise((r) => child.on('close', (c) => r(c ?? -1)));
-            if (code !== 0) { console.error('analyze exit', code); process.exit(1); }
-            writeFileSync(out, s);
-          } finally { await server.close(); }
+          async function main() {
+            const server = await startFixtureServer();
+            try {
+              const child = spawn(process.execPath, ['--import','tsx/esm', cli, 'analyze','--url', server.baseUrl, '--agent-summary'], { stdio: ['ignore','pipe','inherit'] });
+              let s = '';
+              child.stdout.on('data', (c: Buffer) => (s += c.toString()));
+              const code: number = await new Promise((r) => child.on('close', (c) => r(c ?? -1)));
+              if (code !== 0) { console.error('analyze exit', code); process.exit(1); }
+              writeFileSync(out, s);
+            } finally { await server.close(); }
+          }
+          main().catch((e) => { console.error(e); process.exit(1); });
           TS
-          node --import tsx/esm /tmp/emit-summary.ts "$GITHUB_WORKSPACE/qulib-agent-summary.json"
+          node --import tsx/esm src/__tests__/zz-emit-summary.ts "$GITHUB_WORKSPACE/qulib-agent-summary.json"
+          rm -f src/__tests__/zz-emit-summary.ts
           echo "--- agent-summary ---"
           cat "$GITHUB_WORKSPACE/qulib-agent-summary.json"
 
