@@ -1,5 +1,6 @@
 import { analyzeApp } from './analyze.js';
 import { createAdapter } from './adapters/adapter-factory.js';
+import { validateGeneratedTests, type SpecValidationReport } from './adapters/validate-specs.js';
 import { expandRecipes } from './recipes/index.js';
 import type { NeutralScenario, GeneratedTest } from './schemas/gap-analysis.schema.js';
 import type { AdapterType } from './schemas/config.schema.js';
@@ -39,6 +40,13 @@ export interface ScaffoldResult {
   generatedTests: GeneratedTest[];
   scenarios: NeutralScenario[];
   projectConfig: ProjectConfig;
+  /**
+   * Dry-run validation of every generated spec: each spec is transpiled through
+   * the TypeScript compiler and any parse/compile error is surfaced here. This
+   * is the witness that the scaffold did not emit broken code — `ok: false`
+   * means at least one generated spec will not parse. Always populated.
+   */
+  specValidation: SpecValidationReport;
 }
 
 function buildCypressProjectConfig(url: string): ProjectConfig {
@@ -166,5 +174,9 @@ export async function scaffoldTests(
       ? buildCypressProjectConfig(url)
       : buildPlaywrightProjectConfig(url);
 
-  return { url, framework, generatedTests, scenarios: allScenarios, projectConfig };
+  // Dry-run every generated spec through the TS compiler so a parse/compile
+  // failure is caught here, not when a developer first runs the suite.
+  const specValidation = validateGeneratedTests(generatedTests);
+
+  return { url, framework, generatedTests, scenarios: allScenarios, projectConfig, specValidation };
 }
