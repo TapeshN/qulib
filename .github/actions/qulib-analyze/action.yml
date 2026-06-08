@@ -1,0 +1,131 @@
+name: "Qulib analyze gate"
+description: >-
+  Run `@qulib/core analyze` against a deployed URL and gate the build on the
+  honest agent-summary verdict (pass / warn / fail). Drop-in composite action.
+author: "TapeshN"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  url:
+    description: "Base URL of the deployed app to analyze (required)."
+    required: true
+  fail-on:
+    description: >-
+      Gate policy: `fail` (default — fail the job only on gate=fail),
+      `warn` (fail on warn or fail), or `never` (report only, never fail).
+    required: false
+    default: "fail"
+  qulib-version:
+    description: >-
+      npm version/dist-tag of @qulib/core to run via npx (e.g. `latest`,
+      `0.8.2`). Pin this for reproducible CI.
+    required: false
+    default: "latest"
+  repo:
+    description: "Optional path to the app repo (enables repo-aware gap analysis)."
+    required: false
+    default: ""
+  config:
+    description: "Path to a qulib config file relative to the working directory."
+    required: false
+    default: ""
+  auth-storage-state:
+    description: >-
+      Path to a Playwright storage-state JSON for authenticated scans. Write a
+      secret to a file in an earlier step and pass its path here — never inline
+      a secret.
+    required: false
+    default: ""
+  extra-args:
+    description: >-
+      Additional raw flags appended to the `qulib analyze` invocation
+      (e.g. `--skip-auth-detection`). Advanced; passed through verbatim.
+    required: false
+    default: ""
+  node-version:
+    description: "Node.js version to set up for the run."
+    required: false
+    default: "20"
+  install-browser:
+    description: >-
+      Install the Playwright Chromium browser (`true`/`false`). qulib crawls
+      with Playwright, so the default is `true`. Set `false` if a prior step
+      already installed it.
+    required: false
+    default: "true"
+  output-path:
+    description: "File path to write the raw agent-summary JSON to."
+    required: false
+    default: "qulib-agent-summary.json"
+
+outputs:
+  gate:
+    description: "The qulib gate verdict: pass | warn | fail."
+    value: ${{ steps.gate.outputs.gate }}
+  release-confidence:
+    description: "Release confidence 0-100, or `n/a` when null."
+    value: ${{ steps.gate.outputs.release_confidence }}
+  coverage-status:
+    description: "Coverage status enum (ok | thin | blocked-by-auth | ...)."
+    value: ${{ steps.gate.outputs.coverage_status }}
+  blocked:
+    description: "`true` if the gate violated the fail-on policy (the job was failed)."
+    value: ${{ steps.gate.outputs.blocked }}
+  summary-path:
+    description: "Path to the written agent-summary JSON artifact."
+    value: ${{ inputs.output-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install Playwright Chromium
+      if: ${{ inputs.install-browser == 'true' }}
+      shell: bash
+      run: npx --yes playwright install --with-deps chromium
+
+    - name: Run qulib analyze (agent-summary)
+      shell: bash
+      env:
+        QULIB_URL: ${{ inputs.url }}
+        QULIB_VERSION: ${{ inputs.qulib-version }}
+        QULIB_REPO: ${{ inputs.repo }}
+        QULIB_CONFIG: ${{ inputs.config }}
+        QULIB_AUTH_STORAGE_STATE: ${{ inputs.auth-storage-state }}
+        QULIB_EXTRA_ARGS: ${{ inputs.extra-args }}
+        QULIB_OUTPUT_PATH: ${{ inputs.output-path }}
+      run: |
+        set -euo pipefail
+        args=(analyze --url "$QULIB_URL" --agent-summary)
+        [ -n "$QULIB_REPO" ] && args+=(--repo "$QULIB_REPO")
+        [ -n "$QULIB_CONFIG" ] && args+=(--config "$QULIB_CONFIG")
+        [ -n "$QULIB_AUTH_STORAGE_STATE" ] && args+=(--auth-storage-state "$QULIB_AUTH_STORAGE_STATE")
+        # shellcheck disable=SC2206
+        [ -n "$QULIB_EXTRA_ARGS" ] && args+=($QULIB_EXTRA_ARGS)
+        echo "[qulib] npx -y @qulib/core@${QULIB_VERSION} ${args[*]}"
+        # --agent-summary prints diagnostics to stderr and ONLY the JSON to stdout.
+        npx --yes "@qulib/core@${QULIB_VERSION}" "${args[@]}" > "$QULIB_OUTPUT_PATH"
+        echo "[qulib] agent-summary written to $QULIB_OUTPUT_PATH"
+        cat "$QULIB_OUTPUT_PATH"
+
+    - name: Evaluate gate
+      id: gate
+      shell: bash
+      run: |
+        node "${{ github.action_path }}/gate.mjs" \
+          "${{ inputs.output-path }}" \
+          "${{ inputs.fail-on }}"
+
+    - name: Upload agent-summary artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: qulib-agent-summary
+        path: ${{ inputs.output-path }}
+        if-no-files-found: warn
