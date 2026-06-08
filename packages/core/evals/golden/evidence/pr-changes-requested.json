@@ -1,0 +1,29 @@
+{
+  "id": "pr-changes-requested",
+  "suite": "evidence",
+  "description": "pr-metadata collector: CHANGES_REQUESTED + one failing check → applicable, score deducted, address-review recommendation.",
+  "tags": ["pr-metadata", "applicable", "review-blocked", "no-llm"],
+  "input": {
+    "collector": "pr-metadata",
+    "collectedAt": "2026-06-04T09:00:00.000Z",
+    "pr": {
+      "number": 77,
+      "url": "https://github.com/TapeshN/notquality/pull/77",
+      "reviewDecision": "CHANGES_REQUESTED",
+      "mergeable": "MERGEABLE",
+      "statusCheckRollup": [
+        { "state": "SUCCESS", "name": "validate" },
+        { "state": "FAILURE", "name": "playwright" }
+      ],
+      "noPr": false
+    }
+  },
+  "expected": {
+    "source": "deploy-metadata",
+    "applicability": "applicable",
+    "scoreBand": { "min": 25, "max": 45 },
+    "blocking": false,
+    "recommendationsMinLength": 2,
+    "evidenceIncludes": ["CHANGES_REQUESTED", "Check FAILED: playwright"]
+  }
+}

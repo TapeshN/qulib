@@ -1,0 +1,29 @@
+{
+  "id": "pr-checks-pending",
+  "suite": "evidence",
+  "description": "pr-metadata collector: all status checks still PENDING → unknown (cannot score readiness honestly), wait recommendation.",
+  "tags": ["pr-metadata", "unknown", "pending", "no-llm"],
+  "input": {
+    "collector": "pr-metadata",
+    "collectedAt": "2026-06-04T09:00:00.000Z",
+    "pr": {
+      "number": 88,
+      "url": "https://github.com/TapeshN/notquality/pull/88",
+      "reviewDecision": null,
+      "mergeable": "MERGEABLE",
+      "statusCheckRollup": [
+        { "state": "PENDING", "name": "validate" },
+        { "state": "PENDING", "name": "playwright" }
+      ],
+      "noPr": false
+    }
+  },
+  "expected": {
+    "source": "deploy-metadata",
+    "applicability": "unknown",
+    "scoreExact": 0,
+    "blocking": false,
+    "recommendationsMinLength": 1,
+    "evidenceIncludes": ["still pending"]
+  }
+}

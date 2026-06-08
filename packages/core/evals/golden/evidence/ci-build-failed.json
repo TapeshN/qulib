@@ -1,0 +1,26 @@
+{
+  "id": "ci-build-failed",
+  "suite": "evidence",
+  "description": "ci-results collector: build FAILED → applicable, score 0, blocking recommendation, no fabricated pass-rate.",
+  "tags": ["ci-results", "applicable", "build-failure", "no-llm"],
+  "input": {
+    "collector": "ci-results",
+    "collectedAt": "2026-06-04T05:00:00.000Z",
+    "run": {
+      "completedAt": "2026-06-04T04:46:20.000Z",
+      "buildPassed": false,
+      "testsPassed": 0,
+      "testsFailed": 0,
+      "testsErrored": 0,
+      "workflowName": "CI (validate)"
+    }
+  },
+  "expected": {
+    "source": "ci-results",
+    "applicability": "applicable",
+    "scoreExact": 0,
+    "blocking": false,
+    "recommendationsMinLength": 1,
+    "evidenceIncludes": ["Build FAILED"]
+  }
+}

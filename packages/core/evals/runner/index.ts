@@ -25,6 +25,7 @@ import { EVAL_SUITES, loadCases, ledgerPath } from './load-cases.js';
 import { runScaffoldCase } from './run-scaffold.js';
 import { runScoreAutomationCase } from './run-score-automation.js';
 import { runConfidenceCase } from './run-confidence.js';
+import { runEvidenceCase } from './run-evidence.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
 import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
 
@@ -60,6 +61,7 @@ export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise
   for (const c of cases) {
     if (suite === 'scaffold') results.push(await runScaffoldCase(c, opts.judge));
     else if (suite === 'score-automation') results.push(await runScoreAutomationCase(c, opts.judge));
+    else if (suite === 'evidence') results.push(await runEvidenceCase(c, opts.judge));
     else results.push(await runConfidenceCase(c, opts.judge));
   }
   const finishedAt = new Date().toISOString();
@@ -100,7 +102,12 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
     const arg = argv[i];
     if (arg === '--suite') {
       const next = argv[i + 1];
-      if (next === 'scaffold' || next === 'score-automation' || next === 'confidence') {
+      if (
+        next === 'scaffold' ||
+        next === 'score-automation' ||
+        next === 'confidence' ||
+        next === 'evidence'
+      ) {
         suites.push(next);
         i += 1;
       } else {

@@ -1,0 +1,30 @@
+{
+  "id": "pr-all-green",
+  "suite": "evidence",
+  "description": "pr-metadata collector: mergeable PR #52, all 4 status checks SUCCESS, no blocking review → applicable, deploy-metadata, score 80.",
+  "tags": ["pr-metadata", "applicable", "happy-path", "no-llm"],
+  "input": {
+    "collector": "pr-metadata",
+    "collectedAt": "2026-06-04T09:00:00.000Z",
+    "pr": {
+      "number": 52,
+      "url": "https://github.com/TapeshN/notquality/pull/52",
+      "reviewDecision": null,
+      "mergeable": "MERGEABLE",
+      "statusCheckRollup": [
+        { "state": "SUCCESS", "name": "validate" },
+        { "state": "SUCCESS", "name": "playwright" },
+        { "state": "SUCCESS", "name": "Vercel" },
+        { "state": "SUCCESS", "name": "Vercel Preview Comments" }
+      ],
+      "noPr": false
+    }
+  },
+  "expected": {
+    "source": "deploy-metadata",
+    "applicability": "applicable",
+    "scoreExact": 80,
+    "blocking": false,
+    "evidenceIncludes": ["PR #52", "4 passed, 0 failed"]
+  }
+}
