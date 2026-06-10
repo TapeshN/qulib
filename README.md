@@ -231,6 +231,68 @@ qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
 
 ---
 
+## Baseline and drift detection
+
+Track quality trends across releases. Save a snapshot of any `qulib analyze` run, then compare a later run to detect new gaps, resolved gaps, and severity changes — per dimension.
+
+### Save a baseline
+
+```bash
+# From a report.json written by `qulib analyze` (deterministic, no live crawl):
+qulib baseline save --url https://example.com --from-report output/report.json
+
+# With an optional human label:
+qulib baseline save --url https://example.com --from-report output/report.json --label before-refactor
+
+# Emit the saved snapshot as JSON:
+qulib baseline save --url https://example.com --from-report output/report.json --json
+```
+
+Baselines are stored in `.qulib-baselines/` (local, gitignored). Pass `--dir <path>` to override.
+
+### List saved baselines
+
+```bash
+qulib baseline list --url https://example.com
+```
+
+### Compare — detect drift
+
+```bash
+# Compare the two most-recent baselines for a URL:
+qulib baseline compare --url https://example.com
+
+# Compare two specific snapshots by id:
+qulib baseline compare --from <prior-id> --to <current-id>
+
+# Machine-readable output for CI:
+qulib baseline compare --url https://example.com --json
+```
+
+The comparison report shows:
+
+- **new gaps** — problems present now that weren't before
+- **resolved gaps** — problems that have since been fixed
+- **severity changes** — same gap, escalated or de-escalated severity
+- **confidence delta** — the numeric drift between the two runs, with a direction word (`improved` / `regressed` / `unchanged`)
+
+Each changed item carries its `path`, `category`, and `severity` so you know exactly which dimension regressed or improved — no guessing from an aggregate number.
+
+### Typical CI workflow
+
+```bash
+# Step 1 — after a successful deploy, save a baseline:
+qulib analyze --url https://staging.example.com
+qulib baseline save --url https://staging.example.com --from-report output/report.json --label "v$(cat VERSION)"
+
+# Step 2 — on the next deploy, compare:
+qulib analyze --url https://staging.example.com
+qulib baseline save --url https://staging.example.com --from-report output/report.json
+qulib baseline compare --url https://staging.example.com --json
+```
+
+---
+
 ## Documentation
 
 - [Core (CLI, API, Cost Intelligence)](./packages/core/README.md)

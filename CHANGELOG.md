@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [Unreleased]
+
+### Added
+
+- **`qulib baseline` CLI — save, list, and compare (headline feature for 0.10):** Exposes the existing file-backed baseline store as a first-class CLI. `qulib baseline save --url <url> --from-report output/report.json` snapshots any `qulib analyze` run; `qulib baseline list --url <url>` shows all saved snapshots newest-first; `qulib baseline compare --url <url>` diffs the two most-recent snapshots and reports per-dimension drift — new gaps, resolved gaps, severity changes, and a confidence delta. Each changed item carries `path`, `category`, and `severity` so CI can attribute regressions to the exact dimension. `--from <id> --to <id>` lets you compare any two snapshots by explicit id. `--json` on all three commands emits machine-readable output for CI pipelines. Baselines are stored under `.qulib-baselines/` (local, gitignored); `--dir` overrides the storage root.
+
+---
+
 ## [0.9.0] — 2026-06-10
 
 This release promotes all work merged since v0.8.2 (PRs #92–#113). The headline fix is a broken installed CLI (any `npx @qulib/core` quickstart failed on published v0.8.2); the headline feature is the Release Confidence Layer — qulib can now answer "should we ship?" with a fused, multi-signal verdict.

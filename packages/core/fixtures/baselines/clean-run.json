@@ -1,0 +1,25 @@
+{
+  "analyzedAt": "2024-01-15T12:00:00.000Z",
+  "mode": "url-only",
+  "releaseConfidence": 85,
+  "coveragePagesScanned": 5,
+  "coverageBudgetExceeded": false,
+  "gaps": [
+    {
+      "id": "gap-login-untested",
+      "path": "/login",
+      "severity": "high",
+      "category": "untested-route",
+      "reason": "Login route has no automated test coverage"
+    },
+    {
+      "id": "gap-dashboard-a11y",
+      "path": "/dashboard",
+      "severity": "medium",
+      "category": "a11y",
+      "reason": "Dashboard missing aria-label on primary nav"
+    }
+  ],
+  "scenarios": [],
+  "generatedTests": []
+}

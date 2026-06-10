@@ -1,0 +1,32 @@
+{
+  "analyzedAt": "2024-01-16T12:00:00.000Z",
+  "mode": "url-only",
+  "releaseConfidence": 60,
+  "coveragePagesScanned": 5,
+  "coverageBudgetExceeded": false,
+  "gaps": [
+    {
+      "id": "gap-login-untested",
+      "path": "/login",
+      "severity": "critical",
+      "category": "untested-route",
+      "reason": "Login route has no automated test coverage"
+    },
+    {
+      "id": "gap-checkout-new",
+      "path": "/checkout",
+      "severity": "high",
+      "category": "untested-route",
+      "reason": "Checkout flow has no test coverage"
+    },
+    {
+      "id": "gap-payments-api",
+      "path": "/api/payments",
+      "severity": "critical",
+      "category": "untested-api-endpoint",
+      "reason": "Payment endpoint has no API tests"
+    }
+  ],
+  "scenarios": [],
+  "generatedTests": []
+}

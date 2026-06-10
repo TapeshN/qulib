@@ -47,6 +47,7 @@ import { runAutomatedAuthLogin } from './auth-login-run.js';
 import { registerScaffoldCommand } from './scaffold-run.js';
 import { registerScoreAutomationCommand } from './score-automation-run.js';
 import { registerConfidenceCommand } from './confidence-run.js';
+import { registerBaselineCommand } from './baseline-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -266,6 +267,7 @@ program
 registerScaffoldCommand(program);
 registerScoreAutomationCommand(program);
 registerConfidenceCommand(program);
+registerBaselineCommand(program);
 
 program
   .command('clean')
