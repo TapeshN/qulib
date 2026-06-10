@@ -109,21 +109,4 @@ When adding a test file: append its path to `packages/core/package.json "test"` 
 | Q3 | Baseline monitor (`saveBaseline`, `loadBaseline`, `compareBaselines`) | SHIPPED |
 | Q4 | Recipe toolshed (`auth`, `a11y`, `nav`, `seed`) | SHIPPED |
 | Q5 | API coverage scoring (`computeApiCoverage`, `qulib_score_api`) | SHIPPED |
-| Q7 | **Confidence Aggregator** (P3) — fused release confidence verdict | branch: `qulib/confidence-layer` |
-
-### Q7 — Confidence Aggregator (P3)
-
-Fuses qulib's own evidence collectors into one `ship | caution | hold | block` verdict.
-
-**Ships in P3:**
-- `schemas/confidence.schema.ts` + `schemas/views.schema.ts` — Zod schemas
-- `tools/scoring/levels.ts` — shared `scoreLevel` ladder
-- `tools/scoring/confidence.ts::computeReleaseConfidence` — pure scorer
-- `tools/scoring/confidence-from-qulib.ts::buildConfidenceInputFromQulib` — adapter
-- `tools/scoring/confidence-views.ts` — `buildReplay`, `deriveInbox`, `toAuditEntry`, `diffConfidence`
-- `qulib_score_confidence` MCP tool (composes `analyze_app` / `qulib_score_automation` / `qulib_score_api`)
-- `qulib confidence --url [--repo] [--json]` CLI command
-- Eval suite `confidence` in the runner (4 golden cases, all deterministic)
-- Tests: scorer unit, adapter, view-projection, MCP runtime-import, CLI smoke
-
-**Deferred to P4:** external evidence collectors (CI/deploy/telemetry), persistence sinks, LLM-judge for narratives, notquality dogfood (P5).
+| Q7 | **Confidence Aggregator** — fused release confidence verdict | SHIPPED |
