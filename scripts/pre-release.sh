@@ -74,6 +74,32 @@ else
   fail "npm ci + build + test" "see output above"
 fi
 
+# 10. Pack-then-install smoke: pack core, install into a fresh tmp dir, verify
+#     the installed binary responds to --version and --help.
+echo ""
+echo "── pack smoke ───────────────────────────"
+PACK_TMP="$(mktemp -d)"
+CORE_PKG="$ROOT/packages/core"
+TARBALL="$(cd "$CORE_PKG" && npm pack --pack-destination "$PACK_TMP" --quiet 2>/dev/null | tail -1)"
+if [[ -z "$TARBALL" ]]; then
+  fail "npm pack" "no tarball produced"
+else
+  pass "npm pack → $TARBALL"
+  INSTALL_TMP="$(mktemp -d)"
+  if (cd "$INSTALL_TMP" && npm install --save "$PACK_TMP/$TARBALL" --no-package-lock --quiet 2>&1); then
+    QULIB_BIN="$INSTALL_TMP/node_modules/.bin/qulib"
+    if [[ -x "$QULIB_BIN" ]]; then
+      if "$QULIB_BIN" --version >/dev/null 2>&1; then pass "installed qulib --version"; else fail "installed qulib --version" "non-zero exit"; fi
+      if "$QULIB_BIN" --help   >/dev/null 2>&1; then pass "installed qulib --help";    else fail "installed qulib --help"    "non-zero exit"; fi
+    else
+      fail "installed qulib bin" "not found at $QULIB_BIN"
+    fi
+  else
+    fail "npm install tarball" "install failed"
+  fi
+  rm -rf "$PACK_TMP" "$INSTALL_TMP"
+fi
+
 echo ""
 echo "── result ───────────────────────────────"
 if [[ $FAIL -ne 0 ]]; then

@@ -8,6 +8,32 @@ import { z } from 'zod';
 const requirePkg = createRequire(import.meta.url);
 const pkg = requirePkg('../../package.json') as { version: string };
 import { HarnessConfigSchema, type HarnessConfig } from '../schemas/config.schema.js';
+
+/**
+ * Built-in fallback used when no --config is passed AND the default qulib.config.ts
+ * is absent from the working directory. Mirrors the values in packages/core/qulib.config.ts
+ * so `npx @qulib/core analyze --url ... --ephemeral` works in any directory.
+ *
+ * An EXPLICIT --config pointing at a missing file is always a hard error.
+ * This constant lives in the CLI layer — schemas remain additive-only and required
+ * fields are NOT converted to defaulted ones.
+ */
+export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
+  maxPagesToScan: 20,
+  maxDepth: 3,
+  minPagesForConfidence: 3,
+  timeoutMs: 30000,
+  retryCount: 2,
+  llmTokenBudget: 4000,
+  testGenerationLimit: 10,
+  enableLlmScenarios: true,
+  readOnlyMode: true,
+  requireHumanReview: true,
+  failOnConsoleError: false,
+  explorer: 'playwright',
+  defaultAdapter: 'playwright',
+  adapters: ['playwright'],
+};
 import { analyzeApp } from '../analyze.js';
 import { toAgentSummary } from '../agent-summary.js';
 import { detectAuth } from '../tools/auth/detect.js';
@@ -35,8 +61,28 @@ const FormLoginCliSchema = z.object({
   submitSelector: z.string().min(1),
 });
 
-async function loadConfigFile(relativePath: string): Promise<HarnessConfig> {
+/**
+ * Load a harness config from a file path.
+ *
+ * When `explicit` is false (the user did not pass --config) and the file does
+ * not exist, this returns DEFAULT_HARNESS_CONFIG silently rather than crashing.
+ * An explicit --config that points at a missing file is always a hard error.
+ */
+async function loadConfigFile(relativePath: string, explicit: boolean): Promise<HarnessConfig> {
   const configPath = resolve(process.cwd(), relativePath);
+
+  // Implicit default + file absent → use built-in fallback, no crash.
+  if (!explicit) {
+    const { existsSync } = await import('node:fs');
+    if (!existsSync(configPath)) {
+      console.error(
+        '[qulib] No qulib.config.ts found in the working directory; using built-in default config. ' +
+          'Pass --config <file> to supply your own.'
+      );
+      return DEFAULT_HARNESS_CONFIG;
+    }
+  }
+
   const href = pathToFileURL(configPath).href;
   let configModule: { default?: unknown };
   try {
@@ -157,7 +203,10 @@ async function runAnalyze(options: {
   }
   const validatedUrl = AnalyzeUrlSchema.parse(options.url);
   const mode: AnalyzeMode = options.repo ? 'url-repo' : 'url-only';
-  const baseConfig = await loadConfigFile(options.configFile ?? 'qulib.config.ts');
+  // configFile is undefined when --config was not explicitly passed (Commander
+  // no longer sets a default on the flag so we can distinguish the two cases).
+  const configFileExplicit = options.configFile !== undefined;
+  const baseConfig = await loadConfigFile(options.configFile ?? 'qulib.config.ts', configFileExplicit);
   const config = mergeAuthFromCli(baseConfig, options);
   const ephemeral = options.ephemeral ?? false;
   const agentSummary = options.agentSummary ?? false;
@@ -259,7 +308,7 @@ program
   .requiredOption('--url <url>', 'Base URL of the app to analyze')
   .option('--repo <path>', 'Path to the app repo')
   .option('--prd <path>', 'Path to a PRD markdown file')
-  .option('--config <file>', 'Path to config file (relative to cwd)', 'qulib.config.ts')
+  .option('--config <file>', 'Path to config file (relative to cwd; defaults to qulib.config.ts if present, otherwise built-in defaults are used)')
   .option(
     '--adapter <type>',
     'Override default test adapter (playwright, cypress-e2e, cypress-component, api)',
