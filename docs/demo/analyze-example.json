@@ -1,0 +1,149 @@
+{
+  "status": "complete",
+  "coverageScore": 100,
+  "releaseConfidence": 100,
+  "gaps": [],
+  "gapAnalysis": {
+    "analyzedAt": "2026-06-10T13:25:01.052Z",
+    "mode": "url-only",
+    "releaseConfidence": 100,
+    "coveragePagesScanned": 1,
+    "coverageBudgetExceeded": false,
+    "coverageWarning": "low-coverage",
+    "gaps": [],
+    "scenarios": [],
+    "generatedTests": [],
+    "costIntelligence": {
+      "maxOutputTokensPerLlmCall": 4000,
+      "budgetRole": "max-output-tokens-per-llm-call",
+      "records": [
+        {
+          "provider": "none",
+          "model": "none",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "operationType": "scenario-generation",
+          "timestamp": "2026-06-10T13:25:01.052Z",
+          "dataQuality": "none",
+          "notes": "No LLM call: ANTHROPIC_API_KEY not set; template scenarios only."
+        }
+      ],
+      "budgetWarnings": [],
+      "usageSummary": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "dataQuality": "none"
+      },
+      "repeatedOperations": [],
+      "deterministicMaturity": {
+        "level": 1,
+        "label": "L1 — deterministic scan inventory",
+        "rationale": "Structured gaps came from deterministic crawling and checks (links, console, a11y, coverage). This is the baseline Qulib release-confidence story.",
+        "ceilingNote": "L4 (reviewed self-healing) and L5 (adaptive quality intelligence) are not inferred from a snapshot scan. They require documented review, ownership, and sustained automation feedback."
+      },
+      "conversionRecommendations": [
+        "Scenarios were generated from built-in templates (no LLM). This is the lowest-cost path; keep expanding template coverage for recurring gap categories."
+      ]
+    }
+  },
+  "discoveredRoutes": {
+    "scannedAt": "2026-06-10T13:25:01.048Z",
+    "baseUrl": "https://example.com",
+    "routes": [
+      {
+        "path": "/",
+        "pageTitle": "Example Domain",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      }
+    ],
+    "pagesSkipped": 0,
+    "budgetExceeded": false
+  },
+  "publicSurface": {
+    "pages": [
+      {
+        "path": "/",
+        "pageTitle": "Example Domain",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      }
+    ],
+    "gaps": [],
+    "accessibilityViolations": [],
+    "brokenLinks": []
+  },
+  "repoInventory": null,
+  "decisionLog": [
+    {
+      "timestamp": "2026-06-10T13:25:01.051Z",
+      "phase": "observe",
+      "decision": "exploration-complete",
+      "reason": "Discovered 1 routes; budgetExceeded=false",
+      "metadata": {
+        "baseUrl": "https://example.com/",
+        "scannedRoutes": 1,
+        "budgetExceeded": false,
+        "pagesSkipped": 0
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:25:01.052Z",
+      "phase": "think",
+      "decision": "gap-analysis-complete",
+      "reason": "Computed 0 gaps with release confidence 100",
+      "metadata": {
+        "mode": "url-only",
+        "gapCount": 0,
+        "releaseConfidence": 100
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:25:01.052Z",
+      "phase": "think",
+      "decision": "llm-scenarios-skipped",
+      "reason": "Skipped LLM scenario generation because ANTHROPIC_API_KEY is not set"
+    },
+    {
+      "timestamp": "2026-06-10T13:25:01.052Z",
+      "phase": "think",
+      "decision": "scenario-generation-complete",
+      "reason": "Generated 0 scenarios via template",
+      "metadata": {
+        "source": "template",
+        "scenarioCount": 0
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:25:01.053Z",
+      "phase": "act",
+      "decision": "reports-written",
+      "reason": "Skipped writing reports (ephemeral run)",
+      "metadata": {
+        "gapCount": 0,
+        "scenarioCount": 0,
+        "releaseConfidence": 100,
+        "requireHumanReview": true
+      }
+    }
+  ],
+  "detectedAuth": {
+    "hasAuth": false,
+    "type": "none",
+    "provider": null,
+    "loginUrl": null,
+    "observedSelectors": null,
+    "oauthButtons": [],
+    "recommendation": "No authentication required for the entry URL. Qulib can scan anonymously."
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "computedAt": "2026-06-10T13:25:48.433Z",
+  "subject": {
+    "kind": "release",
+    "ref": "https://notquality.com",
+    "tenantId": "default"
+  },
+  "confidenceScore": 92,
+  "verdict": "block",
+  "level": 5,
+  "label": "L5 — advanced QA automation",
+  "contributions": [
+    {
+      "source": "live-app-quality",
+      "score": null,
+      "weight": 0.3,
+      "effectiveWeight": 0,
+      "applicability": "unknown",
+      "blocking": true
+    },
+    {
+      "source": "accessibility",
+      "score": null,
+      "weight": 0.13,
+      "effectiveWeight": 0,
+      "applicability": "unknown",
+      "blocking": false
+    },
+    {
+      "source": "crawl-coverage",
+      "score": null,
+      "weight": 0.1,
+      "effectiveWeight": 0,
+      "applicability": "unknown",
+      "blocking": false
+    },
+    {
+      "source": "test-automation",
+      "score": 86,
+      "weight": 0.22,
+      "effectiveWeight": 0.5945945945945946,
+      "applicability": "applicable",
+      "blocking": false
+    },
+    {
+      "source": "api-coverage",
+      "score": 100,
+      "weight": 0.15,
+      "effectiveWeight": 0.4054054054054054,
+      "applicability": "applicable",
+      "blocking": false
+    }
+  ],
+  "topRisks": [
+    "Auth wall prevented scanning the protected surface.",
+    "Automation maturity: L5 — advanced QA automation (score 86)",
+    "20/20 API endpoints appear covered by test files.",
+    "POST /api/events — found in app/api/events/route.ts, covered by e2e/specs/crud/events.crud.spec.ts",
+    "GET /api/events — found in app/api/events/route.ts, covered by e2e/specs/crud/events.crud.spec.ts"
+  ],
+  "recommendedNextChecks": [
+    "Provide auth credentials (form login or storage state) and re-run to evaluate the protected surface.",
+    "Fix 1 critical gap(s) before shipping.",
+    "Add route-level smoke tests that assert critical paths referenced in production URLs."
+  ],
+  "honestyNotes": [
+    "'live-app-quality' source could not produce a reliable score: Auth wall prevented scanning — confidence score would be dishonest without the protected surface..",
+    "'accessibility' source could not produce a reliable score: Auth wall prevented a11y evaluation..",
+    "'crawl-coverage' source could not produce a reliable score: Auth-required scan; coverage limited to pre-auth pages.."
+  ],
+  "blockers": [
+    "'live-app-quality' is a hard blocker: Auth wall prevented scanning — confidence score would be dishonest without the protected surface.."
+  ],
+  "scoreFormula": "confidenceScore = round( Σ (score * weight) / Σ weight ) for applicable, non-null, non-blocking evidence only. not_applicable, unknown, and null-score items are excluded from the denominator but reported in contributions and honestyNotes."
+}

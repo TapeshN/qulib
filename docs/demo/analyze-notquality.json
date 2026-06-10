@@ -1,0 +1,760 @@
+{
+  "status": "partial",
+  "coverageScore": 95,
+  "releaseConfidence": 0,
+  "gaps": [
+    {
+      "id": "87106f51-e3b9-4fd9-bf28-da634b1eb955",
+      "path": "/",
+      "severity": "medium",
+      "reason": "OAuth-only entry with no visible password or magic-link fallback.",
+      "category": "auth-surface",
+      "description": "Users who cannot use a social IdP need another path (email/password, help, or support).",
+      "recommendation": "Add a documented fallback (email/password, help desk link, or alternate IdP)."
+    },
+    {
+      "id": "3e4da1ef-c13a-490e-ade2-02d5c5cd3d7b",
+      "path": "/",
+      "severity": "low",
+      "reason": "No visible “forgot password” or help path detected near OAuth controls.",
+      "category": "auth-surface",
+      "description": "Users locked out of an IdP need a support or recovery affordance.",
+      "recommendation": "Link to account recovery, IT help, or a support URL near the sign-in actions."
+    },
+    {
+      "id": "auth-block",
+      "path": "/",
+      "severity": "critical",
+      "reason": "Scan blocked by authentication. No authenticated pages were evaluated for notquality.com.",
+      "category": "coverage",
+      "description": "Scan blocked by authentication. 0 authenticated pages were evaluated.",
+      "recommendation": "Run `qulib auth init --base-url https://notquality.com/` to capture a storage state, then re-run with --auth storage-state."
+    }
+  ],
+  "gapAnalysis": {
+    "analyzedAt": "2026-06-10T13:24:41.522Z",
+    "mode": "auth-required",
+    "releaseConfidence": 0,
+    "coveragePagesScanned": 0,
+    "coverageBudgetExceeded": false,
+    "coverageWarning": "auth-required",
+    "gaps": [
+      {
+        "id": "87106f51-e3b9-4fd9-bf28-da634b1eb955",
+        "path": "/",
+        "severity": "medium",
+        "reason": "OAuth-only entry with no visible password or magic-link fallback.",
+        "category": "auth-surface",
+        "description": "Users who cannot use a social IdP need another path (email/password, help, or support).",
+        "recommendation": "Add a documented fallback (email/password, help desk link, or alternate IdP)."
+      },
+      {
+        "id": "3e4da1ef-c13a-490e-ade2-02d5c5cd3d7b",
+        "path": "/",
+        "severity": "low",
+        "reason": "No visible “forgot password” or help path detected near OAuth controls.",
+        "category": "auth-surface",
+        "description": "Users locked out of an IdP need a support or recovery affordance.",
+        "recommendation": "Link to account recovery, IT help, or a support URL near the sign-in actions."
+      },
+      {
+        "id": "auth-block",
+        "path": "/",
+        "severity": "critical",
+        "reason": "Scan blocked by authentication. No authenticated pages were evaluated for notquality.com.",
+        "category": "coverage",
+        "description": "Scan blocked by authentication. 0 authenticated pages were evaluated.",
+        "recommendation": "Run `qulib auth init --base-url https://notquality.com/` to capture a storage state, then re-run with --auth storage-state."
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "d8e2313a-0de4-499b-990a-a559e5a853f2",
+        "title": "[MEDIUM] auth-surface — /",
+        "description": "OAuth-only entry with no visible password or magic-link fallback.",
+        "targetPath": "/",
+        "steps": [
+          {
+            "action": "navigate",
+            "target": "/",
+            "description": "Navigate to /"
+          },
+          {
+            "action": "assert-visible",
+            "description": "Verify sign-in surface accessibility and SSO affordances"
+          }
+        ],
+        "tags": [
+          "auth-surface",
+          "medium"
+        ],
+        "recommendations": [
+          {
+            "adapter": "accessibility",
+            "reason": "Generated from template",
+            "confidence": "low"
+          }
+        ],
+        "sourceGapIds": [
+          "87106f51-e3b9-4fd9-bf28-da634b1eb955"
+        ]
+      },
+      {
+        "id": "55cd93a8-7878-427d-9416-1e59c38ac637",
+        "title": "[LOW] auth-surface — /",
+        "description": "No visible “forgot password” or help path detected near OAuth controls.",
+        "targetPath": "/",
+        "steps": [
+          {
+            "action": "navigate",
+            "target": "/",
+            "description": "Navigate to /"
+          },
+          {
+            "action": "assert-visible",
+            "description": "Verify sign-in surface accessibility and SSO affordances"
+          }
+        ],
+        "tags": [
+          "auth-surface",
+          "low"
+        ],
+        "recommendations": [
+          {
+            "adapter": "accessibility",
+            "reason": "Generated from template",
+            "confidence": "low"
+          }
+        ],
+        "sourceGapIds": [
+          "3e4da1ef-c13a-490e-ade2-02d5c5cd3d7b"
+        ]
+      },
+      {
+        "id": "4a2a516b-68ba-4187-a8f6-22be09291c9e",
+        "title": "[CRITICAL] coverage — /",
+        "description": "Scan blocked by authentication. No authenticated pages were evaluated for notquality.com.",
+        "targetPath": "/",
+        "steps": [
+          {
+            "action": "navigate",
+            "target": "/",
+            "description": "Navigate to /"
+          },
+          {
+            "action": "assert-visible",
+            "description": "Resolve authentication and re-run full deployment scan"
+          }
+        ],
+        "tags": [
+          "coverage",
+          "critical"
+        ],
+        "recommendations": [
+          {
+            "adapter": "playwright",
+            "reason": "Generated from template",
+            "confidence": "low"
+          }
+        ],
+        "sourceGapIds": [
+          "auth-block"
+        ]
+      }
+    ],
+    "generatedTests": [],
+    "costIntelligence": {
+      "maxOutputTokensPerLlmCall": 4000,
+      "budgetRole": "max-output-tokens-per-llm-call",
+      "records": [
+        {
+          "provider": "none",
+          "model": "none",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "operationType": "scenario-generation",
+          "timestamp": "2026-06-10T13:24:41.523Z",
+          "dataQuality": "none",
+          "notes": "No LLM call: ANTHROPIC_API_KEY not set; template scenarios only."
+        }
+      ],
+      "budgetWarnings": [],
+      "usageSummary": {
+        "totalInputTokens": 0,
+        "totalOutputTokens": 0,
+        "dataQuality": "none"
+      },
+      "repeatedOperations": [],
+      "deterministicMaturity": {
+        "level": 1,
+        "label": "L1 — deterministic scan inventory",
+        "rationale": "Structured gaps came from deterministic crawling and checks (links, console, a11y, coverage). This is the baseline Qulib release-confidence story.",
+        "ceilingNote": "L4 (reviewed self-healing) and L5 (adaptive quality intelligence) are not inferred from a snapshot scan. They require documented review, ownership, and sustained automation feedback."
+      },
+      "conversionRecommendations": [
+        "Scenarios were generated from built-in templates (no LLM). This is the lowest-cost path; keep expanding template coverage for recurring gap categories."
+      ]
+    }
+  },
+  "discoveredRoutes": {
+    "scannedAt": "2026-06-10T13:24:41.523Z",
+    "baseUrl": "https://notquality.com",
+    "routes": [],
+    "pagesSkipped": 0,
+    "budgetExceeded": false
+  },
+  "publicSurface": {
+    "pages": [
+      {
+        "path": "/",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [
+          "https://www.notquality.com/challenges",
+          "https://www.notquality.com/",
+          "https://www.notquality.com/login"
+        ],
+        "formCount": 0,
+        "buttonLabels": [
+          "Launch playground\n→",
+          "Launch playground\n→",
+          "Launch playground\n→",
+          "Launch playground\n→"
+        ],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [
+          "https://www.notquality.com/",
+          "https://www.notquality.com/playgrounds",
+          "https://www.notquality.com/challenges/stale-cart-count",
+          "https://www.notquality.com/challenges/invalid-auth-credentials",
+          "https://www.notquality.com/challenges/order-history-sorting",
+          "https://www.notquality.com/challenges/modal-focus-trap",
+          "https://www.notquality.com/challenges/negative-cart-quantity",
+          "https://www.notquality.com/challenges/product-viewed-missing-id",
+          "https://www.notquality.com/challenges/price-mismatch",
+          "https://www.notquality.com/challenges/products-leaks-inactive",
+          "https://www.notquality.com/challenges/cart-race-condition",
+          "https://www.notquality.com/challenges/lcp-products-page",
+          "https://www.notquality.com/challenges/tone-drift-7b-model",
+          "https://www.notquality.com/challenges/touch-target-stepper",
+          "https://www.notquality.com/challenges/filter-state-mismatch",
+          "https://www.notquality.com/challenges/order-submitted-on-failure",
+          "https://www.notquality.com/challenges/grid-collapse-tablet",
+          "https://www.notquality.com/challenges/aggregate-ship-no-ship"
+        ],
+        "formCount": 0,
+        "buttonLabels": [
+          "All",
+          "Legacy",
+          "API",
+          "Events",
+          "A11Y",
+          "Mobile",
+          "Perf",
+          "Flaky",
+          "AI",
+          "Release",
+          "All",
+          "Easy",
+          "Medium",
+          "Hard",
+          "Capstone"
+        ],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [
+          "https://www.notquality.com/challenges",
+          "https://www.notquality.com/",
+          "https://www.notquality.com/login"
+        ],
+        "formCount": 0,
+        "buttonLabels": [
+          "Launch playground\n→",
+          "Launch playground\n→",
+          "Launch playground\n→",
+          "Launch playground\n→"
+        ],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/login",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=playwright",
+            "nodeCount": 3
+          }
+        ],
+        "statusCode": 200
+      },
+      {
+        "path": "/playgrounds",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [
+          "https://www.notquality.com/",
+          "https://www.notquality.com/challenges",
+          "https://www.notquality.com/login"
+        ],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/stale-cart-count",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [
+          "https://www.notquality.com/challenges",
+          "https://www.notquality.com/login"
+        ],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/invalid-auth-credentials",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/order-history-sorting",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/modal-focus-trap",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/negative-cart-quantity",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/product-viewed-missing-id",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/price-mismatch",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/products-leaks-inactive",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/cart-race-condition",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/lcp-products-page",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/tone-drift-7b-model",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/touch-target-stepper",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/filter-state-mismatch",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/order-submitted-on-failure",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      },
+      {
+        "path": "/challenges/grid-collapse-tablet",
+        "pageTitle": "notquality.com — deliberately imperfect apps for QA practice",
+        "links": [],
+        "formCount": 0,
+        "buttonLabels": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 ()"
+        ],
+        "brokenLinks": [],
+        "a11yViolations": [],
+        "statusCode": 200
+      }
+    ],
+    "gaps": [
+      {
+        "id": "4bdd8c37-0a6e-4468-89d3-9af865cf7fc6",
+        "path": "/login",
+        "severity": "high",
+        "reason": "A11y violation color-contrast (serious): https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=playwright",
+        "category": "a11y"
+      },
+      {
+        "id": "36179415-555c-4b87-aefb-b6f24933a065",
+        "path": "/challenges/stale-cart-count",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "1102d4ff-0bb5-4995-84c2-4328f4ece71f",
+        "path": "/challenges/invalid-auth-credentials",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "6dab91b7-279f-4b3e-b526-0d536db13999",
+        "path": "/challenges/order-history-sorting",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "1e1c1c90-636c-4196-b760-e92ee3656169",
+        "path": "/challenges/modal-focus-trap",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "c9a6349d-b565-4623-b067-21af4fc85558",
+        "path": "/challenges/negative-cart-quantity",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "aba683be-d658-4b89-a8f4-a9923610684e",
+        "path": "/challenges/product-viewed-missing-id",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "f99ff40b-075a-4c5e-a540-0079bca307be",
+        "path": "/challenges/price-mismatch",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "2056dc62-c18b-41ea-994d-47bde5c08b93",
+        "path": "/challenges/products-leaks-inactive",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "f21adeda-1a60-4315-abb5-ba2e15fa651b",
+        "path": "/challenges/cart-race-condition",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "5bb470c1-5615-44ca-9a8b-002a461bd747",
+        "path": "/challenges/lcp-products-page",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "a44cac87-7cb6-4d39-8e75-9d99a56a2d3e",
+        "path": "/challenges/tone-drift-7b-model",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "0b253e55-3113-489f-95e8-a12305993332",
+        "path": "/challenges/touch-target-stepper",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "b4a7bc21-b109-4e5a-89bb-f2fd1f6d1331",
+        "path": "/challenges/filter-state-mismatch",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "4f1d55eb-c008-4edc-aa11-0517816945f5",
+        "path": "/challenges/order-submitted-on-failure",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      },
+      {
+        "id": "1dfbf0a4-3c3a-4229-9e89-8ed1106a4663",
+        "path": "/challenges/grid-collapse-tablet",
+        "severity": "high",
+        "reason": "Console errors detected (1)",
+        "category": "console-error"
+      }
+    ],
+    "accessibilityViolations": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "helpUrl": "https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=playwright",
+        "nodeCount": 3,
+        "path": "/login"
+      }
+    ],
+    "brokenLinks": []
+  },
+  "repoInventory": null,
+  "decisionLog": [
+    {
+      "timestamp": "2026-06-10T13:24:40.485Z",
+      "phase": "observe",
+      "decision": "exploration-complete",
+      "reason": "Discovered 20 routes; budgetExceeded=true",
+      "metadata": {
+        "baseUrl": "https://notquality.com/",
+        "scannedRoutes": 20,
+        "budgetExceeded": true,
+        "pagesSkipped": 1
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:24:40.486Z",
+      "phase": "observe",
+      "decision": "auth-required",
+      "reason": "OAuth detected (github). OAuth cannot be automated. Run \"qulib auth init --base-url https://notquality.com\" to log in manually once and save a reusable storage state file.",
+      "metadata": {
+        "detection": {
+          "hasAuth": true,
+          "type": "oauth",
+          "provider": "github",
+          "loginUrl": "https://notquality.com",
+          "observedSelectors": null,
+          "oauthButtons": [
+            {
+              "provider": "github",
+              "text": "Sign in with GitHub"
+            }
+          ],
+          "authOptions": [
+            {
+              "id": "github",
+              "label": "Sign in with GitHub",
+              "type": "oauth",
+              "provider": "github",
+              "source": "built-in",
+              "automatable": false,
+              "confidence": "high",
+              "requirements": {
+                "method": "storage-state",
+                "instruction": "Run qulib auth init --base-url https://notquality.com"
+              }
+            }
+          ],
+          "recommendation": "OAuth detected (github). OAuth cannot be automated. Run \"qulib auth init --base-url https://notquality.com\" to log in manually once and save a reusable storage state file."
+        }
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:24:41.522Z",
+      "phase": "think",
+      "decision": "llm-scenarios-skipped",
+      "reason": "Skipped LLM scenario generation because ANTHROPIC_API_KEY is not set"
+    },
+    {
+      "timestamp": "2026-06-10T13:24:41.523Z",
+      "phase": "think",
+      "decision": "scenario-generation-complete",
+      "reason": "Generated 3 scenarios via template",
+      "metadata": {
+        "source": "template",
+        "scenarioCount": 3
+      }
+    },
+    {
+      "timestamp": "2026-06-10T13:24:41.523Z",
+      "phase": "act",
+      "decision": "reports-written",
+      "reason": "Skipped writing reports (ephemeral run)",
+      "metadata": {
+        "gapCount": 3,
+        "scenarioCount": 3,
+        "releaseConfidence": 0,
+        "requireHumanReview": true
+      }
+    }
+  ],
+  "detectedAuth": {
+    "hasAuth": true,
+    "type": "oauth",
+    "provider": "github",
+    "loginUrl": "https://notquality.com",
+    "observedSelectors": null,
+    "oauthButtons": [
+      {
+        "provider": "github",
+        "text": "Sign in with GitHub"
+      }
+    ],
+    "authOptions": [
+      {
+        "id": "github",
+        "label": "Sign in with GitHub",
+        "type": "oauth",
+        "provider": "github",
+        "source": "built-in",
+        "automatable": false,
+        "confidence": "high",
+        "requirements": {
+          "method": "storage-state",
+          "instruction": "Run qulib auth init --base-url https://notquality.com"
+        }
+      }
+    ],
+    "recommendation": "OAuth detected (github). OAuth cannot be automated. Run \"qulib auth init --base-url https://notquality.com\" to log in manually once and save a reusable storage state file."
+  }
+}
