@@ -87,10 +87,6 @@ npm run smoke
 npx @qulib/core cost doctor
 ```
 
-> **Note:** the config-fallback improvement is landing in a parallel PR. Until it merges, run
-> these commands from `packages/core` (where a default `qulib.config.ts` exists) or pass
-> `--config <path>` explicitly.
-
 ---
 
 ## Quick start (MCP)
@@ -127,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Qulib analyze gate
-        uses: TapeshN/qulib/.github/actions/qulib-analyze@v0.9.0
+        uses: TapeshN/qulib/.github/actions/qulib-analyze@v1
         with:
           url: https://your-app.example.com
           fail-on: fail        # fail (default) | warn | never
@@ -140,7 +136,7 @@ jobs:
 # .github/workflows/qa.yml
 jobs:
   qa:
-    uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v0.9.0
+    uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v1
     with:
       url: https://your-app.example.com
       fail-on: warn
@@ -187,7 +183,7 @@ Every run **uploads the agent-summary JSON as an artifact** (`qulib-agent-summar
 | `blocked` | `true` if the gate violated the `fail-on` policy (the job was failed). |
 | `summary-path` | Path to the written agent-summary JSON artifact. |
 
-> The composite action lives at [`.github/actions/qulib-analyze`](./.github/actions/qulib-analyze) and the reusable workflow at [`.github/workflows/qulib-analyze.yml`](./.github/workflows/qulib-analyze.yml). Reference them at a tag (e.g. `@v0.9.0`) for reproducible CI.
+> The composite action lives at [`.github/actions/qulib-analyze`](./.github/actions/qulib-analyze) and the reusable workflow at [`.github/workflows/qulib-analyze.yml`](./.github/workflows/qulib-analyze.yml). Reference them at a stable tag (e.g. `@v1`) for reproducible CI.
 
 ---
 

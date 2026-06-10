@@ -345,22 +345,19 @@ qulib analyze --url https://yourapp.com --auth-storage-state ./qulib-storage-sta
 
 ## Sample report (fixture baseline)
 
-From the local fixture baseline used in v0.5.0 PR 1/2:
+The fixture tests in `packages/core/src/__tests__/analyze.fixtures.test.ts` assert structural shape — that `releaseConfidence` is a number, `gaps` is an array, and coverage scores are non-negative. Exact scores vary with each scoring version; re-run the fixture suite for current reference values.
+
+A minimal structural snapshot looks like:
 
 ```json
 {
   "status": "complete",
   "releaseConfidence": 68,
   "gaps": [
-    "... 4 total gap items ..."
+    "... gap items ..."
   ]
 }
 ```
-
-Use these as conservative reference numbers:
-- public fixture (`/`): `releaseConfidence: 68/100`, `gaps: 4`
-- auth-wall fixture (`/auth`): `releaseConfidence: 24/100`, `gaps: 2`
-- broken fixture (`/broken`): `releaseConfidence: 0/100`, `gaps: 6`
 
 ## MCP tools quick map
 

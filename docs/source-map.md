@@ -109,4 +109,5 @@ When adding a test file: append its path to `packages/core/package.json "test"` 
 | Q3 | Baseline monitor (`saveBaseline`, `loadBaseline`, `compareBaselines`) | SHIPPED |
 | Q4 | Recipe toolshed (`auth`, `a11y`, `nav`, `seed`) | SHIPPED |
 | Q5 | API coverage scoring (`computeApiCoverage`, `qulib_score_api`) | SHIPPED |
+| Q6 | *(reserved — not assigned; Q7 follows Q5 in the shipping sequence)* | N/A |
 | Q7 | **Confidence Aggregator** — fused release confidence verdict | SHIPPED |
