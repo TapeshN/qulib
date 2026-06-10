@@ -1,7 +1,7 @@
 {
   "name": "@qulib/core",
   "version": "0.8.2",
-  "description": "Qulib — analyze deployed web apps for honest quality gaps (CLI + programmatic API)",
+  "description": "Qulib — release confidence for deployed web apps. Fuses live-app quality, automation maturity, and API coverage into a single ship/caution/hold/block verdict.",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
   "homepage": "https://github.com/TapeshN/qulib#readme",
@@ -14,11 +14,13 @@
     "url": "https://github.com/TapeshN/qulib/issues"
   },
   "keywords": [
+    "release-confidence",
     "qa",
     "quality",
-    "accessibility",
+    "ship-verdict",
+    "automation-maturity",
     "gap-analysis",
-    "release-confidence",
+    "accessibility",
     "playwright",
     "mcp",
     "ai"

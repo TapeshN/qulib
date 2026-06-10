@@ -1,8 +1,8 @@
 # Qulib
 
-**Honest QA gap analysis for deployed web apps.**
+**Release confidence for deployed web apps — the one question: should we ship?**
 
-Qulib is an opinionated harness that answers one question: **is this app ready to ship?** It prefers **honest uncertainty** over fake confidence: if auth blocks the crawl, coverage is thin, or data is incomplete, the report says so.
+Qulib fuses live-app quality evidence, automation maturity, and API coverage into a single scored verdict: **ship / caution / hold / block**. It prefers **honest uncertainty** over fake confidence: if auth blocks the crawl, coverage is thin, or data is incomplete, the report says so.
 
 **Design line:** AI should explore unknown gaps; **deterministic checks** (crawl, axe, links, console) should scale. Cost Intelligence tracks LLM usage so repeated reasoning can graduate into checks you own in CI.
 
@@ -37,8 +37,36 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 
 ## Quick start (CLI)
 
+**Release confidence — the flagship command:**
+
+```bash
+npx @qulib/core confidence --url https://example.com
+```
+
+Returns a verdict (`ship` / `caution` / `hold` / `block`) with a 0–100 score, top risks, and recommended next checks.
+
+Add `--repo` to also score test-automation maturity and API coverage:
+
+```bash
+npx @qulib/core confidence --url https://example.com --repo .
+```
+
+**Analyze (full gap report):**
+
 ```bash
 npx @qulib/core analyze --url https://example.com
+```
+
+**Scaffold a test suite:**
+
+```bash
+npx @qulib/core scaffold --url https://example.com --framework cypress-e2e
+```
+
+**Score automation maturity (repo only, no URL needed):**
+
+```bash
+npx @qulib/core score-automation --repo /path/to/repo
 ```
 
 From a clone (repo root):
@@ -46,8 +74,6 @@ From a clone (repo root):
 ```bash
 npm run analyze -w @qulib/core -- --url https://example.com
 ```
-
-Or `cd packages/core` and `npm run analyze -- --url https://example.com`.
 
 **Smoke (no disk writes):**
 
@@ -58,8 +84,12 @@ npm run smoke
 **Cost doctor** (after a normal analyze that wrote `output/report.json`):
 
 ```bash
-cd packages/core && npx tsx src/cli/index.ts cost doctor
+npx @qulib/core cost doctor
 ```
+
+> **Note:** the config-fallback improvement is landing in a parallel PR. Until it merges, run
+> these commands from `packages/core` (where a default `qulib.config.ts` exists) or pass
+> `--config <path>` explicitly.
 
 ---
 
@@ -97,11 +127,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Qulib analyze gate
-        uses: TapeshN/qulib/.github/actions/qulib-analyze@v1
+        uses: TapeshN/qulib/.github/actions/qulib-analyze@v0.9.0
         with:
           url: https://your-app.example.com
           fail-on: fail        # fail (default) | warn | never
-          qulib-version: latest # pin a version for reproducible CI
+          qulib-version: 0.9.0 # pin a version for reproducible CI
 ```
 
 ### Option B — reusable workflow (whole job in one line)
@@ -110,7 +140,7 @@ jobs:
 # .github/workflows/qa.yml
 jobs:
   qa:
-    uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v1
+    uses: TapeshN/qulib/.github/workflows/qulib-analyze.yml@v0.9.0
     with:
       url: https://your-app.example.com
       fail-on: warn
@@ -157,7 +187,7 @@ Every run **uploads the agent-summary JSON as an artifact** (`qulib-agent-summar
 | `blocked` | `true` if the gate violated the `fail-on` policy (the job was failed). |
 | `summary-path` | Path to the written agent-summary JSON artifact. |
 
-> The composite action lives at [`.github/actions/qulib-analyze`](./.github/actions/qulib-analyze) and the reusable workflow at [`.github/workflows/qulib-analyze.yml`](./.github/workflows/qulib-analyze.yml). Reference them at a tag (`@v1`) for stability.
+> The composite action lives at [`.github/actions/qulib-analyze`](./.github/actions/qulib-analyze) and the reusable workflow at [`.github/workflows/qulib-analyze.yml`](./.github/workflows/qulib-analyze.yml). Reference them at a tag (e.g. `@v0.9.0`) for reproducible CI.
 
 ---
 
@@ -201,7 +231,7 @@ qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
 
 **Honesty over fake confidence:** sources that are `not_applicable`, `unknown`, or `null` are excluded from the denominator but reported in `contributions` and `honestyNotes`. An auth wall or empty corpus forces `verdict=block` — qulib never silently passes an unevaluated surface.
 
-**Agent decisions are one evidence source.** The reserved `agent-evidence` kind in `EvidenceSourceKindSchema` lets tap-core/tap-client decisions feed into the same aggregator in P4 without touching the math.
+**Agent decisions are one evidence source.** The reserved `agent-evidence` kind in `EvidenceSourceKindSchema` lets external agentic decisions feed into the same aggregator in a future release without touching the math.
 
 ---
 
