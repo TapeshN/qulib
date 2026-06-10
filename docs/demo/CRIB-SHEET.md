@@ -1,6 +1,11 @@
 # qulib Friday Demo — Crib Sheet
 ## "Should We Ship?" — 5-minute script
 
+> **Working directory assumption:** all commands and asset paths below are relative to the repo root
+> (`TapeshN/qulib`). Absolute paths where the file is referenced outside a `cd` context:
+> `<repo-root>/docs/demo/analyze-notquality.json`, `<repo-root>/docs/demo/confidence-notquality.json`,
+> `<repo-root>/docs/demo/analyze-example.json`.
+
 > Everything runs from `@qulib/core@0.9.0` and `@qulib/mcp@0.9.0` (published Thursday).
 > MCP pre-registered in Claude Code before taking the stage.
 > Fallback JSONs in this directory — narrate one if a live step fails twice, never debug on stage.
@@ -20,7 +25,7 @@ claude mcp add qulib -- npx -y @qulib/mcp
 Pre-stage checklist:
 - `notquality` repo checked out at `~/demo/notquality`
 - Claude Code open, qulib MCP registered (7 tools visible)
-- Browser tab with Thursday's green Actions run open (NOT a live run)
+- Browser tab with Thursday's green `qulib-action selftest` Actions run open (NOT a live run)
 - Fallback JSONs staged in a terminal: `cat ~/path/to/analyze-notquality.json`
 - Hotspot active, terminal font size 20+
 
@@ -41,7 +46,7 @@ npx -y @qulib/core@0.9.0 --version
 
 **Failure drill:** If `npx` fails or hangs — say "let me show you what 0.9.0 outputs" and run:
 ```
-cat docs/demo/analyze-notquality.json | jq '.status, .detectedAuth.type'
+cat <repo-root>/docs/demo/analyze-notquality.json | jq '.status, .detectedAuth.type'
 ```
 
 ---
@@ -60,10 +65,12 @@ npx -y @qulib/core@0.9.0 analyze --url https://notquality.com
 status: partial
 detectedAuth: { type: "oauth", provider: "github" }
 gaps: [
-  { severity: "critical", category: "coverage",
-    reason: "Scan blocked by authentication…" },
   { severity: "medium", category: "auth-surface",
-    reason: "OAuth-only entry with no password fallback…" }
+    reason: "OAuth-only entry with no password fallback…" },
+  { severity: "low", category: "auth-surface",
+    reason: "No visible "forgot password" or help path detected…" },
+  { severity: "critical", category: "coverage",
+    reason: "Scan blocked by authentication…" }
 ]
 decisionLog: [ "exploration-complete", "auth-required", … ]
 ```
@@ -76,7 +83,7 @@ decisionLog: [ "exploration-complete", "auth-required", … ]
 **Failure drill (if live command fails twice):** Open `docs/demo/analyze-notquality.json` and narrate:
 - `status: partial` — partial scan
 - `detectedAuth.type: oauth` — caught the GitHub OAuth wall
-- Three gaps: `critical` auth-block, `medium` no-fallback-login, `low` no-recovery-link
+- Three gaps (JSON order): `medium` no-fallback-login, `low` no-recovery-link, `critical` auth-block
 - `releaseConfidence: 0` — honestly zero because the protected surface was not seen
 
 ---
@@ -101,8 +108,8 @@ npx -y @qulib/core@0.9.0 confidence --url https://notquality.com --repo .
     - live-app-quality [unknown] [BLOCKER]: n/a  excluded
     - accessibility [unknown]: n/a  excluded
     - crawl-coverage [unknown]: n/a  excluded
-    - test-automation [applicable]: 86/100  ew=50.0%
-    - api-coverage [applicable]: 100/100  ew=50.0%
+    - test-automation [applicable]: 86/100  ew=59.5%
+    - api-coverage [applicable]: 100/100  ew=40.5%
   honesty notes:
     • 'live-app-quality' source could not produce a reliable score: Auth wall…
 ```

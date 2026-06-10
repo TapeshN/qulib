@@ -87,10 +87,6 @@ npm run smoke
 npx @qulib/core cost doctor
 ```
 
-> **Note:** the config-fallback improvement is landing in a parallel PR. Until it merges, run
-> these commands from `packages/core` (where a default `qulib.config.ts` exists) or pass
-> `--config <path>` explicitly.
-
 ---
 
 ## Quick start (MCP)
