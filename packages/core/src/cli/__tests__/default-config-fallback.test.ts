@@ -4,10 +4,9 @@
  *
  * And that an EXPLICIT --config pointing at a missing file is still a hard error.
  *
- * Uses spawn-based patterns established by bin-shim.test.ts and cli-version.test.ts.
- * We run the compiled dist/cli/index.js (plain node, no tsx needed) from a temp
- * directory that has NO qulib.config.ts, with node_modules symlinked so built-in
- * dependencies are available.
+ * Uses spawn-based patterns established by cli-version.test.ts: run the TypeScript
+ * source directly via `--import tsx/esm` (same mechanism as the npm test script),
+ * so no build step is required and the test is environment-independent in CI.
  *
  * We do NOT fully exercise analyze (that would require a real URL + Playwright).
  * Instead we pass an invalid URL so the command fails at URL-validation — which
@@ -26,26 +25,36 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkgRoot = resolve(__dirname, '../../..');
-// Run via the compiled dist so plain node suffices (no tsx needed in the temp dir).
-const distCliEntry = resolve(pkgRoot, 'dist', 'cli', 'index.js');
+const monorepoRoot = resolve(pkgRoot, '../..');
+// Resolve the TypeScript source entry — same approach as cli-version.test.ts.
+const cliEntry = resolve(__dirname, '..', 'index.ts');
 
 /**
- * Run the compiled CLI from a fresh temp directory that has no qulib.config.ts.
- * Symlinks node_modules from pkgRoot so deps are available (mirrors bin-shim.test.ts).
+ * Run the CLI source via tsx/esm from a fresh temp directory that has no
+ * qulib.config.ts. Mirrors cli-version.test.ts: run via `--import tsx/esm`
+ * against the TypeScript source so no build step is required in CI.
+ *
+ * node_modules is symlinked from the monorepo root (where tsx is hoisted by
+ * the workspace install) so the loader can resolve tsx from the temp cwd.
+ * This mirrors the symlink pattern used by bin-shim.test.ts.
  */
 function runCliInEmptyDir(args: string[]): ReturnType<typeof spawnSync> {
   const tmp = mkdtempSync(join(tmpdir(), 'qulib-no-config-'));
   try {
-    // Make deps available without a full install — same pattern as bin-shim.test.ts.
-    symlinkSync(join(pkgRoot, 'node_modules'), join(tmp, 'node_modules'), 'dir');
+    // Symlink monorepo node_modules so tsx (hoisted there) is findable from tmp.
+    symlinkSync(join(monorepoRoot, 'node_modules'), join(tmp, 'node_modules'), 'dir');
 
-    return spawnSync(process.execPath, [distCliEntry, ...args], {
-      cwd: tmp,
-      encoding: 'utf8',
-      // Long enough to start the process and emit the config notice (immediate),
-      // short enough to not block the test suite waiting for a real network crawl.
-      timeout: 20000,
-    });
+    return spawnSync(
+      process.execPath,
+      ['--import', 'tsx/esm', cliEntry, ...args],
+      {
+        cwd: tmp,
+        encoding: 'utf8',
+        // Long enough to start the process and emit the config notice (immediate),
+        // short enough to not block the test suite waiting for a real network crawl.
+        timeout: 20000,
+      }
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
