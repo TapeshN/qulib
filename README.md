@@ -41,6 +41,7 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 
 ```bash
 npx @qulib/core confidence --url https://example.com
+# or equivalently: npx @qulib/core release-confidence --url https://example.com
 ```
 
 Returns a verdict (`ship` / `caution` / `hold` / `block`) with a 0–100 score, top risks, and recommended next checks.
@@ -67,6 +68,7 @@ npx @qulib/core scaffold --url https://example.com --framework cypress-e2e
 
 ```bash
 npx @qulib/core score-automation --repo /path/to/repo
+# or equivalently: npx @qulib/core automation-score --repo /path/to/repo
 ```
 
 From a clone (repo root):
@@ -106,7 +108,7 @@ Ask your agent:
 
 > Use Qulib to analyze https://example.com and tell me if it's ready to ship.
 
-Default **`analyze_app`** responses are **summary-first** (top gaps, cost summary, next deterministic checks). Pass **`includeFullReport: true`** for the full `gapAnalysis` including all scenarios.
+The agent will call **`qulib_score_confidence`** for the fused release verdict, or **`qulib_analyze_app`** for a detailed gap report. Default **`qulib_analyze_app`** responses are **summary-first** (top gaps, cost summary, next deterministic checks). Pass **`includeFullReport: true`** for the full `gapAnalysis` including all scenarios.
 
 ---
 
@@ -215,7 +217,7 @@ The Confidence Layer (`v1`, P3) fuses qulib's own evidence collectors into a sin
 qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
 ```
 
-**MCP tool:** `qulib_score_confidence` — composes `analyze_app` / `qulib_score_automation` / `qulib_score_api` into one fused verdict.
+**MCP tool:** `qulib_score_confidence` — composes `qulib_analyze_app` / `qulib_score_automation` / `qulib_score_api` into one fused verdict.
 
 ### The 5 views (data model)
 

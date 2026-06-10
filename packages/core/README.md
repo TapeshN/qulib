@@ -364,12 +364,15 @@ A minimal structural snapshot looks like:
 | Tool | When to use | Key input |
 |---|---|---|
 | **`qulib_score_confidence`** | **Flagship.** Fused verdict (ship/caution/hold/block) from all collectors | `url` and/or `repoPath`, optional `includeViews.replay` |
-| `analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
+| `qulib_analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
 | `qulib_score_automation` | Score local repo test-automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
 | `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
-| `qulib_scaffold_tests` | Generate Cypress/Playwright scaffold from a live URL | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
-| `explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |
-| `detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
+| `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
+| `qulib_explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |
+| `qulib_detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
+| `analyze_app` | Legacy alias for `qulib_analyze_app` — kept for backwards compatibility | same as `qulib_analyze_app` |
+| `explore_auth` | Legacy alias for `qulib_explore_auth` — kept for backwards compatibility | same as `qulib_explore_auth` |
+| `detect_auth` | Legacy alias for `qulib_detect_auth` — kept for backwards compatibility | same as `qulib_detect_auth` |
 
 ## Output directories
 

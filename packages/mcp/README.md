@@ -47,13 +47,16 @@ For verbose server-side stderr logs while troubleshooting host wiring, add:
 
 | Tool | Purpose |
 |---|---|
-| **`qulib_score_confidence`** | **Flagship.** Fuses evidence from `analyze_app`, `qulib_score_automation`, and `qulib_score_api` into one verdict: **ship / caution / hold / block** with a 0–100 confidence score, L1–L5 level, per-source contributions, honesty notes, and recommended next checks. Pass `url` and/or `repoPath`. |
-| `analyze_app` | Live-app quality scan: release confidence (0–100), axe-core a11y, broken links, console errors, prioritized gaps. Default payload is summary-first; pass `includeFullReport: true` for all scenarios. Optional form-login / storage-state auth. |
+| **`qulib_score_confidence`** | **Flagship.** Fuses evidence from `qulib_analyze_app`, `qulib_score_automation`, and `qulib_score_api` into one verdict: **ship / caution / hold / block** with a 0–100 confidence score, L1–L5 level, per-source contributions, honesty notes, and recommended next checks. Pass `url` and/or `repoPath`. |
+| `qulib_analyze_app` | Live-app quality scan: release confidence (0–100), axe-core a11y, broken links, console errors, prioritized gaps. Default payload is summary-first; pass `includeFullReport: true` for all scenarios. Optional form-login / storage-state auth. *(Canonical form; legacy alias `analyze_app` kept for backwards compatibility.)* |
 | `qulib_score_automation` | Score a local repo's test-automation maturity across six dimensions (test coverage breadth, framework adoption, test-id hygiene, CI integration, auth test coverage, component test ratio) — plus a conditional 7th dimension (API coverage) when API endpoints are detected. Returns overall 0–100, level (L1–L5), and top recommendations. Each dimension carries `applicability`; score normalizes over applicable dimensions only. |
 | `qulib_score_api` | Discover API endpoints in a repo and score their test coverage. Tier1=OpenAPI specs, Tier2=framework routes (Next.js, Express, Fastify, NestJS), Tier3=heuristic opt-in (tRPC). Returns an api-test-coverage dimension score with per-endpoint evidence. |
-| `qulib_scaffold_tests` | Generate a ready-to-run test scaffold (Cypress or Playwright config + spec files) by crawling a deployed URL. Returns `generatedTests` and `projectConfig` so an agent can write files directly. Pass `recipes` (e.g. `["auth","a11y"]`) to append proven test patterns. |
-| `explore_auth` | List all sign-in paths (OAuth, SSO, forms, magic link) and what the agent must collect before `analyze_app`. Prefer on unfamiliar apps. |
-| `detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
+| `qulib_scaffold_tests` | Generate a ready-to-run test scaffold (Cypress config + spec files) by crawling a deployed URL. Returns `generatedTests` and `projectConfig` so an agent can write files directly. Pass `recipes` (e.g. `["auth","a11y"]`) to append proven test patterns. Supported framework: `cypress-e2e` (default); `playwright` is not yet implemented. |
+| `qulib_explore_auth` | List all sign-in paths (OAuth, SSO, forms, magic link) and what the agent must collect before `qulib_analyze_app`. Prefer on unfamiliar apps. *(Canonical form; legacy alias `explore_auth` kept for backwards compatibility.)* |
+| `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `qulib_explore_auth`. *(Canonical form; legacy alias `detect_auth` kept for backwards compatibility.)* |
+| `analyze_app` | Legacy alias for `qulib_analyze_app`. Identical behavior; kept for backwards compatibility through v1.0. |
+| `explore_auth` | Legacy alias for `qulib_explore_auth`. Identical behavior; kept for backwards compatibility through v1.0. |
+| `detect_auth` | Legacy alias for `qulib_detect_auth`. Identical behavior; kept for backwards compatibility through v1.0. |
 
 **Example — flagship confidence call:**
 
