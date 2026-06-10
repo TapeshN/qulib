@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` … `v0.2.2`) and release commits on `main`.
 
+## [0.9.0] — 2026-06-11
+
+This release promotes all work merged since v0.8.2 (PRs #92–#113). The headline fix is a broken installed CLI (any `npx @qulib/core` quickstart failed on published v0.8.2); the headline feature is the Release Confidence Layer — qulib can now answer "should we ship?" with a fused, multi-signal verdict.
+
+### Fixed
+
+- **Installed CLI bin shim (PR #109 — headline fix):** `npx @qulib/core analyze` and every other CLI command crashed with `ERR_MODULE_NOT_FOUND` on any published install of v0.8.2. The bin shim was pointing at the TypeScript source (`src/`) and running it via `npx tsx`, but `src/` is excluded from the published tarball and `tsx` is a devDependency. The shim now points at the compiled `dist/cli/index.js` and runs it with plain `node`. A companion fix ensures every packed or published tarball is guaranteed to contain a fresh `dist/` build (via a `prepack` script), and the config loader falls back gracefully when `qulib.config.ts` is not available under plain `node`.
+- **CLI default-config fallback (PR #113):** Running `qulib analyze` from any directory without a `qulib.config.ts` file previously crashed with a config-not-found error. The CLI now starts with sensible built-in defaults when no config file is present, so the quickstart (`npx @qulib/core analyze --url https://example.com --ephemeral`) works with zero configuration. An explicit `--config` pointing at a missing file still produces a hard error.
+- **`typescript` promoted to a runtime dependency:** `validate-specs.ts` (added in PR #102) imports the TypeScript compiler at module load time to validate generated specs. Because `typescript` was listed as a devDependency, the installed package was missing it and every CLI entry point crashed with `ERR_MODULE_NOT_FOUND` on a fresh install. Moving it to `dependencies` restores the correct runtime behaviour without changing any compile-time semantics.
+
+### Added
+
+- **Release Confidence Layer — `computeReleaseConfidence()` (PRs #95, #96, #97):** A new core function that folds multiple evidence sources (live-app scan, automation maturity, API coverage, CI results, PR metadata) into a single `ReleaseConfidence` output with a `ship` / `caution` / `hold` / `block` verdict. Includes `buildConfidenceInputFromQulib()` to adapt existing qulib outputs into evidence items (auth-required → unknown; blocked → blocking; honesty rules preserved), evidence collectors `ciResultsToEvidence()` and `prMetadataToEvidence()`, and a notquality dogfood example demonstrating a real 76/100 CAUTION verdict from live signals.
+- **`qulib_score_confidence` MCP tool (PR #95):** A single MCP call that runs the full confidence pipeline — `analyzeApp` → `computeAutomationMaturity` → `computeApiCoverage` → confidence aggregation — and returns a schema-valid `ReleaseConfidence` with verdict. This is the flagship tool for AI agents that need a single authoritative "should we ship?" answer.
+- **`qulib confidence` CLI command (PR #95):** Runs the same confidence pipeline from the command line. `--json` emits the full `ReleaseConfidence` envelope on stdout for CI or scripted use.
+- **`qulib scaffold` and `qulib score-automation` CLIs (PR #92):** First-class command-line wrappers for the scaffold and automation-maturity APIs. `scaffold` supports the `cypress-e2e` and `playwright` adapters with `--json` for stdout output; `score-automation` renders `not_applicable` / `unknown` dimensions honestly with an applicable-dimensions-only normalized score.
+- **Scaffold dry-run spec validation (PR #102):** `scaffoldTests()` now optionally transpiles every generated spec through the TypeScript compiler before returning it, surfacing generator bugs at scaffold time rather than when a developer first runs the suite. The CLI gains `--validate-specs` to make a validation failure a hard non-zero exit.
+- **Reusable GitHub Actions analyze gate (PR #100):** A composite action (`.github/actions/qulib-analyze`) and a reusable workflow (`.github/workflows/qulib-analyze.yml`) that run `qulib analyze --agent-summary`, upload the JSON artifact, write a job summary, and map the gate verdict (`fail` / `warn` / `never`) to a CI exit code. Drop-in CI integration for any repo.
+- **Evidence golden eval suite (PR #101):** A new `evidence` eval suite added to `npm run eval` that exercises the CI-results and PR-metadata adapters and the full confidence fusion path through `computeReleaseConfidence`. Closes the eval-coverage gap left after v0.8.2 (doctrine rule 11 — everything ships wrapped in evaluation).
+- **Recipe toolshed (PR #93):** Four reusable `NeutralScenario` builders (`auth`, `a11y`, `nav`, `seed`) behind a `RecipeId` enum. `ScaffoldOptions` gains an additive `recipes?: RecipeId[]` parameter with recipe-aware rendering in both the Cypress and Playwright adapters.
+- **Baseline monitor (PR #94):** A file-backed baseline store (`save` / `load` / `list` / `delete`) and `compareBaselines()` delta detection that identifies new, resolved, and severity-changed gaps between two snapshots. Full public surface exported from `@qulib/core`.
+- **Publish guard (PR #99):** `prepublishOnly` build scripts added to root, `@qulib/core`, and `@qulib/mcp` so a local `npm publish` attempt always builds from a clean state rather than shipping stale or missing `dist/`. The pre-release gate script gains a pack-then-install smoke step that packs core into a tarball, installs it in a fresh directory, and asserts both `qulib --version` and `qulib --help` exit cleanly.
+
+### Changed
+
+- **New public exports from `@qulib/core`:** `computeReleaseConfidence`, `buildConfidenceInputFromQulib`, `ciResultsToEvidence`, `prMetadataToEvidence`, `compareBaselines` and related baseline store helpers, `RecipeId` / `RecipeIdSchema`, and the confidence / views schema types. All additions are additive — existing consumers are unaffected.
+- **Multi-tenant eval ledger (PR #98):** Every `evals/ledger.jsonl` entry now carries a `tenantId` (from `TAP_TENANT_ID` env or `'default'`). Pre-existing entries read back as `legacy`.
+
+### Chore
+
+- **Repo hygiene (PR #110):** Removed four broken proposal workflow files (`.github/workflows/proposal-*.yml`) that called reusable workflows in a private repo and had 15/15 startup failures. Updated `CLAUDE.md` version references and `docs/source-map.md` to reflect shipped features.
+- **Fresh-clone test reliability (PR #111):** Browser-dependent test suites (`analyze.fixtures.test.ts` and the fixture-server sub-suite in `scaffold.test.ts`) now detect Playwright Chromium availability at runtime and emit a clear skip message when the binary is absent or `PLAYWRIGHT_SKIP=1` is set. Pure-unit tests in those suites remain unconditional. CI coverage is unchanged.
+- **Docs truth-up (PR #112):** READMEs for root, `@qulib/core`, and `@qulib/mcp` now accurately describe all seven MCP tools (led by `qulib_score_confidence`), all CLI commands including `scaffold`, `score-automation`, and `confidence`, and the correct quickstart (`npx @qulib/core confidence`). CI snippet refs pinned from `@v1` to `@v0.9.0`.
+
 ## [0.8.2] — 2026-06-01
 
 ### Added
