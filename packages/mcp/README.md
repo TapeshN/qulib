@@ -43,22 +43,48 @@ For verbose server-side stderr logs while troubleshooting host wiring, add:
 }
 ```
 
-## What it does
+## MCP tools
 
-Tools:
+| Tool | Purpose |
+|---|---|
+| **`qulib_score_confidence`** | **Flagship.** Fuses evidence from `analyze_app`, `qulib_score_automation`, and `qulib_score_api` into one verdict: **ship / caution / hold / block** with a 0–100 confidence score, L1–L5 level, per-source contributions, honesty notes, and recommended next checks. Pass `url` and/or `repoPath`. |
+| `analyze_app` | Live-app quality scan: release confidence (0–100), axe-core a11y, broken links, console errors, prioritized gaps. Default payload is summary-first; pass `includeFullReport: true` for all scenarios. Optional form-login / storage-state auth. |
+| `qulib_score_automation` | Score a local repo's test-automation maturity across six dimensions (test coverage breadth, framework adoption, test-id hygiene, CI integration, auth test coverage, component test ratio) — plus a conditional 7th dimension (API coverage) when API endpoints are detected. Returns overall 0–100, level (L1–L5), and top recommendations. Each dimension carries `applicability`; score normalizes over applicable dimensions only. |
+| `qulib_score_api` | Discover API endpoints in a repo and score their test coverage. Tier1=OpenAPI specs, Tier2=framework routes (Next.js, Express, Fastify, NestJS), Tier3=heuristic opt-in (tRPC). Returns an api-test-coverage dimension score with per-endpoint evidence. |
+| `qulib_scaffold_tests` | Generate a ready-to-run test scaffold (Cypress or Playwright config + spec files) by crawling a deployed URL. Returns `generatedTests` and `projectConfig` so an agent can write files directly. Pass `recipes` (e.g. `["auth","a11y"]`) to append proven test patterns. |
+| `explore_auth` | List all sign-in paths (OAuth, SSO, forms, magic link) and what the agent must collect before `analyze_app`. Prefer on unfamiliar apps. |
+| `detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 
-- **`explore_auth(url, timeoutMs?)`** — list all sign-in paths (OAuth, unknown SSO heuristics, forms, magic link) and what the agent must collect before `analyze_app`. Prefer this on unfamiliar apps.
-- **`analyze_app`** — quality scan (optional form-login or storage-state auth). **Default payload is summary-first:** `summary`, `topGaps`, `costIntelligenceSummary`, `nextDeterministicChecks`, small previews. Set **`includeFullReport: true`** for the full `analyzeApp` result (all scenarios). Optional harness overrides: **`llmMaxOutputTokensPerCall`**, **`llmTokenBudget`** (legacy), **`testGenerationLimit`**, **`enableLlmScenarios`** (default true when omitted).
-- **`detect_auth(url, timeoutMs?)`** — single-pattern auth guess with a short recommendation (lighter than `explore_auth`).
-- **`qulib_score_automation(repoPath, includeFullDimensions?)`** — score a local automation repo across six dimensions (test coverage breadth, framework adoption, test-id hygiene, CI integration, auth test coverage, component test ratio). Returns an overall 0–100 score, maturity level (L1–L5), and top recommendations. Each dimension carries an **`applicability`** field (`applicable` / `not_applicable` / `unknown`); the overall score normalizes across applicable dimensions only so absent capabilities never get silent partial credit. **`repoPath`** must be an absolute path on the MCP host. Pass **`includeFullDimensions: true`** for per-dimension evidence and reasons.
+**Example — flagship confidence call:**
 
-Returns from `analyze_app`:
+```
+qulib_score_confidence({ url: "https://example.com", repoPath: "/path/to/repo" })
+```
 
-- Release confidence score (0-100)
-- Accessibility violations (axe-core, WCAG 2 A/AA)
-- Broken links
-- Console errors and coverage warnings
-- Prioritized gaps with severity
+Returns a verdict like:
+
+```json
+{
+  "releaseConfidence": {
+    "verdict": "caution",
+    "confidenceScore": 54,
+    "level": 3,
+    "label": "Moderate confidence — proceed with known risks",
+    "topRisks": ["Low crawl coverage (2 pages)", "No CI integration detected"],
+    "recommendedNextChecks": ["Add CI pipeline", "Increase crawl depth"],
+    "honestyNotes": ["API coverage: not_applicable (no API endpoints found — excluded from score)"]
+  }
+}
+```
+
+### `analyze_app` detail
+
+- **Default payload:** `summary`, `topGaps`, `costIntelligenceSummary`, `nextDeterministicChecks`, small previews.
+- **`includeFullReport: true`** — full `gapAnalysis` (all scenarios) and full `repoInventory`.
+- **`agentSummary: true`** — compact gate-decision payload (`pass`/`warn`/`fail`) for CI orchestrators.
+- Optional harness overrides: **`llmMaxOutputTokensPerCall`**, **`llmTokenBudget`** (legacy), **`testGenerationLimit`**, **`enableLlmScenarios`**.
+
+Returns: release confidence score (0–100), accessibility violations (axe-core, WCAG 2 A/AA), broken links, console errors and coverage warnings, prioritized gaps with severity.
 
 Supports optional form-login auth for scanning authenticated pages. If auth is required but not configured, the scan can stop early with `mode: auth-required` and guidance in `detectedAuth` / the decision log.
 

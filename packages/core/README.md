@@ -140,14 +140,36 @@ After a normal **`analyze`**, `output/report.json` includes **`gapAnalysis.costI
 Re-print that block from disk:
 
 ```bash
-npx tsx src/cli/index.ts cost doctor
-# or: npx tsx src/cli/index.ts cost doctor --report output/report.json
+qulib cost doctor
+# or: qulib cost doctor --report output/report.json
 ```
 
 ## CLI (from npm)
 
+**Release confidence — the flagship command:**
+
+```bash
+npx @qulib/core confidence --url https://example.com
+```
+
+Returns ship / caution / hold / block with a 0–100 score, top risks, and recommended next checks. Add `--repo` to also score test-automation maturity and API coverage.
+
+**Analyze (full gap report):**
+
 ```bash
 npx @qulib/core analyze --url https://example.com
+```
+
+**Scaffold a test suite:**
+
+```bash
+npx @qulib/core scaffold --url https://example.com --framework cypress-e2e
+```
+
+**Score automation maturity (repo-only, no URL needed):**
+
+```bash
+npx @qulib/core score-automation --repo /path/to/repo
 ```
 
 Use `npx playwright install chromium` the first time you scan (Playwright is a dependency).
@@ -344,10 +366,13 @@ Use these as conservative reference numbers:
 
 | Tool | When to use | Key input |
 |---|---|---|
-| `analyze_app` | Main QA scan for release confidence + gaps | `url`, optional `auth`, optional LLM knobs |
-| `detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
+| **`qulib_score_confidence`** | **Flagship.** Fused verdict (ship/caution/hold/block) from all collectors | `url` and/or `repoPath`, optional `includeViews.replay` |
+| `analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
+| `qulib_score_automation` | Score local repo test-automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
+| `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
+| `qulib_scaffold_tests` | Generate Cypress/Playwright scaffold from a live URL | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
 | `explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |
-| `qulib_score_automation` | Score local repo automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
+| `detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
 
 ## Output directories
 

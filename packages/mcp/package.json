@@ -1,7 +1,7 @@
 {
   "name": "@qulib/mcp",
   "version": "0.8.2",
-  "description": "MCP server for Qulib — AI-callable QA gap analysis",
+  "description": "MCP server for Qulib — AI-callable release confidence. Seven tools: fused verdict, live-app scan, automation maturity, API coverage, test scaffold, and auth tools.",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
   "homepage": "https://github.com/TapeshN/qulib#readme",
@@ -44,10 +44,12 @@
   },
   "keywords": [
     "mcp",
+    "release-confidence",
     "qa",
     "quality",
+    "ship-verdict",
+    "automation-maturity",
     "accessibility",
-    "release-confidence",
     "ai"
   ]
 }
