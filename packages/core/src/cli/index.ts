@@ -37,8 +37,37 @@ const FormLoginCliSchema = z.object({
 
 async function loadConfigFile(relativePath: string): Promise<HarnessConfig> {
   const configPath = resolve(process.cwd(), relativePath);
-  const configModule = await import(pathToFileURL(configPath).href);
+  const href = pathToFileURL(configPath).href;
+  let configModule: { default?: unknown };
+  try {
+    configModule = await import(href);
+  } catch (err) {
+    // Plain node (the published CLI) cannot import a .ts config directly.
+    if (
+      !configPath.endsWith('.ts') ||
+      (err as NodeJS.ErrnoException).code !== 'ERR_UNKNOWN_FILE_EXTENSION'
+    ) {
+      throw err;
+    }
+    configModule = await importTsConfigViaTsx(configPath, href);
+  }
   return HarnessConfigSchema.parse(configModule.default);
+}
+
+async function importTsConfigViaTsx(
+  configPath: string,
+  href: string
+): Promise<{ default?: unknown }> {
+  let tsImport: typeof import('tsx/esm/api').tsImport;
+  try {
+    ({ tsImport } = await import('tsx/esm/api'));
+  } catch {
+    throw new Error(
+      `"${configPath}" is a TypeScript config, which this Node runtime cannot import directly. ` +
+        'Install tsx (npm i -D tsx) or point --config at a .js or .mjs config file.'
+    );
+  }
+  return tsImport(href, import.meta.url);
 }
 
 function redactConfigForLog(config: HarnessConfig): Record<string, unknown> {

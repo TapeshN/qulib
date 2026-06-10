@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,8 +25,8 @@ test('packed tarball CLI runs via plain node, without src/ or tsx', () => {
       encoding: 'utf8',
     });
     assert.equal(pack.status, 0, `npm pack failed: ${pack.stderr}`);
-    const tarball = pack.stdout.trim().split('\n').pop();
-    assert.ok(tarball, 'npm pack did not report a tarball filename');
+    const tarball = readdirSync(tmp).find((f) => f.endsWith('.tgz'));
+    assert.ok(tarball, 'npm pack did not produce a tarball');
 
     const untar = spawnSync('tar', ['-xzf', join(tmp, tarball), '-C', tmp], {
       encoding: 'utf8',
