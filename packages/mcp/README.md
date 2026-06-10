@@ -136,8 +136,6 @@ When the model sees **`unrecognizedButtons`**, it can ask the user to register a
 | Size | Small: top gaps, cost summary, next checks, `repoInventorySummary` (counts only) | Full `gapAnalysis` (all scenarios) and full `repoInventory` (test files, missing test IDs) |
 | When to use | Routine agent turns, chat context limits | Deep dives, exporting full scenario JSON |
 
-> **0.4.2 note:** The compact response now ships `repoInventorySummary` (route/test/missing-id counts plus framework verdict) instead of the full `repoInventory`. Agents that need the raw `testFiles` or `missingTestIds` arrays should pass `includeFullReport: true`.
-
 Example (full):
 
 ```json

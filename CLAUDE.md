@@ -28,13 +28,9 @@ packages/mcp/src/    — MCP tool wrappers over core
 
 ## Roadmap
 
-The release plan lives in `roadmap.json` at the repo root. Any agent planning work reads it first.
-
-**Current:** v0.8.2 on main and npm registry.
+**Current:** v0.9.0 on main and npm registry.
 
 **Target:** v1.0.0 — full auth intelligence, composable audit tools, CI integration.
-
-Before starting new feature work, read `roadmap.json` to understand where the feature fits in the release sequence and what its dependencies are.
 
 ---
 
@@ -56,8 +52,8 @@ You talk to one agent. That agent auto-scales based on what you ask. Slash comma
 
 | You say | Agent does |
 |---|---|
-| "what's next?" | Reads roadmap.json + initiatives.json, recommends next task |
-| "ship 0.7.0" | Plans the train, spawns parallel subagents if safe, handles release + publish prompt |
+| "what's next?" | Reads initiatives.json, recommends next task |
+| "ship X.Y.Z" | Plans the train, spawns parallel subagents if safe, handles release + publish prompt |
 | "fix this bug" | Solo work — branch, fix, test, PR. Suggests a patch release after. |
 | "find test sites" | Spawns research agent in background |
 | "run QA sweep" | Spawns sweep agent, presents findings |
@@ -148,7 +144,6 @@ Every agent — parent or subagent — runs this before touching code:
 3. Read this file — know the rules
 4. Read `.cursor/state/initiatives.json` — know what's in flight
 5. Read `.cursor/state/sessions.json` — is the user clocked in?
-6. If planning work: read `roadmap.json` — know what ships when
 
 ### Autonomy levels
 
@@ -172,7 +167,6 @@ Set by the user at session start. Default is **standard**.
 | What it is | Where it goes |
 |---|---|
 | Workflow rule, agent behavior | This file (`CLAUDE.md`) |
-| Release plan, feature scope | `roadmap.json` |
 | File-specific coding pattern | `.cursor/rules/<name>.mdc` |
 | One-off session context | Chat memory (do not persist) |
 
@@ -208,11 +202,11 @@ When spawning subagents, include:
 When shipping multiple dependent changes:
 
 ```
-main (v0.8.2)
+main (v0.9.0)
   └── fix/thing           → PR, CI green, merge
-        └── chore/release-0.8.x  → PR, CI green, merge, PUBLISH
+        └── chore/release-X.Y.Z  → PR, CI green, merge, PUBLISH
               └── feature/next   → PR, CI green, merge
-                    └── chore/release-0.6.0  → PR, CI green, merge, PUBLISH
+                    └── chore/release-X.Y.Z  → PR, CI green, merge, PUBLISH
 ```
 
 Each branch is created from the **updated main** after the previous PR merges. Gate: `npm run build && npm test` green before each PR opens.

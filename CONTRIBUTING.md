@@ -11,11 +11,10 @@ npm install
 npm run build
 ```
 
-Run the CLI against any URL to verify the build works (from `packages/core` so the default `qulib.config.ts` is found):
+Run the CLI against any URL to verify the build works:
 
 ```bash
-cd packages/core
-node bin/qulib.js analyze --url https://example.com --ephemeral
+node packages/core/bin/qulib.js analyze --url https://example.com --ephemeral
 ```
 
 You should see a JSON report on stdout with a `releaseConfidence` score.
@@ -24,7 +23,7 @@ You should see a JSON report on stdout with a `releaseConfidence` score.
 
 1. Open an issue first if the change is non-trivial — saves wasted effort if the direction needs discussion.
 2. Read `CLAUDE.md` — it documents the project's rules, branch conventions, and design principles.
-3. Run `npm run build` and confirm it passes before submitting.
+3. Run `npm run build && npm test` and confirm both pass before submitting.
 
 ## Branch and commit conventions
 

@@ -58,27 +58,27 @@ node packages/core/bin/qulib.js detect-auth --url "<URL>" --timeout 30000
 | Amazon | `https://www.amazon.com/ap/signin` | Often `unknown`; storage-state path should stay honest |
 | Wikipedia | `https://en.wikipedia.org/wiki/Main_Page` | May follow login link → `form-login` on `Special:UserLogin` |
 
-## Scaffold CLI (`qulib scaffold` — shipped v0.7.0)
+## Scaffold CLI (`qulib scaffold`)
 
 - [ ] Dry-run: `node packages/core/bin/qulib.js scaffold --url https://notquality.com --dry-run` exits 0 and prints `[qulib scaffold] Dry-run` without writing files
 - [ ] Write mode: `node packages/core/bin/qulib.js scaffold --url https://notquality.com --out /tmp/qulib-scaffold-test` exits 0, writes `projectConfig.json` + at least one spec file
 - [ ] `--json` flag: output is valid JSON with a `specs` array
-- [ ] Framework flag: `--framework playwright` produces `.spec.ts` files; `--framework cypress` produces `.cy.ts` files
+- [ ] Framework flag: `--framework cypress-e2e` produces `.cy.ts` files; `--framework playwright` currently errors with an actionable message (adapter not yet implemented)
 
-## Score-automation CLI (`qulib score-automation` — shipped v0.7.0)
+## Score-automation CLI (`qulib score-automation`)
 
 - [ ] `node packages/core/bin/qulib.js score-automation --repo .` exits 0 and prints an automation maturity score
 - [ ] `--json` flag: output is valid JSON with `automationMaturity.score` and `automationMaturity.level`
 - [ ] Missing `--repo` exits non-zero with a clear error message
 
-## Confidence CLI (`qulib confidence` — shipped v0.8.x)
+## Confidence CLI (`qulib confidence`)
 
 - [ ] `node packages/core/bin/qulib.js confidence --url https://notquality.com` exits 0, prints a `ship | caution | hold | block` verdict and score
 - [ ] `--json` flag: output is valid JSON with `verdict` and `confidenceScore` fields
 - [ ] `--repo .` combined with `--url` merges automation maturity into the confidence input
 - [ ] Missing both `--url` and `--repo` exits non-zero with a clear error
 
-## Cost doctor (`qulib cost doctor` — shipped v0.6.0)
+## Cost doctor (`qulib cost doctor`)
 
 - [ ] Run `node packages/core/bin/qulib.js analyze --url https://notquality.com` (non-ephemeral) to generate `output/report.json`
 - [ ] `node packages/core/bin/qulib.js cost doctor` (from `packages/core`) prints `maxOutputTokensPerLlmCall`, `usageSummary`, and `deterministicMaturity`
