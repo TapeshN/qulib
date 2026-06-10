@@ -7,6 +7,11 @@
  * targets a REAL route the crawler discovered, that disk writes land where the
  * scaffold says, that the playwright not-implemented adapter degrades to an
  * honest actionable error, and that argument validation rejects bad input.
+ *
+ * The "qulib scaffold against the fixture server" suite requires a Playwright
+ * Chromium install. On machines where Chromium is absent (or PLAYWRIGHT_SKIP=1
+ * is set) that suite is SKIPped — an acknowledged missing dependency, not a
+ * failure. The pure-unit and argument-validation tests run unconditionally.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,6 +24,7 @@ import { startFixtureServer, type FixtureServerHandle } from '../../__tests__/fi
 import { collectScaffoldFiles, enforceSpecValidation, SpecValidationError } from '../scaffold-run.js';
 import type { ScaffoldResult } from '../../scaffold-tests.js';
 import type { SpecValidationReport } from '../../adapters/validate-specs.js';
+import { chromiumAvailable, CHROMIUM_SKIP_REASON } from '../../__tests__/playwright-available.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -195,9 +201,13 @@ test('enforceSpecValidation is a no-op (returns null, never throws) on a clean r
 
 // ---------------------------------------------------------------------------
 // Behavioral: spawn the CLI against the offline fixture server.
+// Requires Playwright Chromium — skipped when the binary is absent.
 // ---------------------------------------------------------------------------
 
-test('qulib scaffold against the fixture server', async (t) => {
+test(
+  'qulib scaffold against the fixture server',
+  { skip: chromiumAvailable ? false : CHROMIUM_SKIP_REASON },
+  async (t) => {
   let handle: FixtureServerHandle | undefined;
 
   t.before(async () => {
@@ -354,7 +364,8 @@ test('qulib scaffold against the fixture server', async (t) => {
     );
     assert.doesNotMatch(run.stderr, /at PlaywrightAdapter/, 'must not leak a raw stack trace frame');
   });
-});
+},
+);
 
 // ---------------------------------------------------------------------------
 // Validation: loud on bad input. These fail BEFORE any network call (arg parse
