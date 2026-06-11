@@ -48,6 +48,7 @@ import { registerScaffoldCommand } from './scaffold-run.js';
 import { registerScoreAutomationCommand } from './score-automation-run.js';
 import { registerConfidenceCommand } from './confidence-run.js';
 import { registerBaselineCommand } from './baseline-run.js';
+import { registerAnalyzeDiffCommand } from './analyze-diff-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -268,6 +269,7 @@ registerScaffoldCommand(program);
 registerScoreAutomationCommand(program);
 registerConfidenceCommand(program);
 registerBaselineCommand(program);
+registerAnalyzeDiffCommand(program);
 
 program
   .command('clean')

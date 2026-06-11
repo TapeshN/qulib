@@ -1,0 +1,77 @@
+{
+  "id": "regression-new-critical-gaps",
+  "suite": "analyze-diff",
+  "description": "A regressed run: confidence dropped from 85 to 60, /login escalated from high to critical, /dashboard a11y resolved, /checkout and /api/payments are new critical/high gaps.",
+  "tags": ["no-llm", "deterministic", "regression", "severity-change"],
+  "input": {
+    "from": {
+      "analyzedAt": "2024-01-15T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 85,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login-untested",
+          "path": "/login",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        },
+        {
+          "id": "gap-dashboard-a11y",
+          "path": "/dashboard",
+          "severity": "medium",
+          "category": "a11y",
+          "reason": "Dashboard missing aria-label on primary nav"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    },
+    "to": {
+      "analyzedAt": "2024-01-16T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 60,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login-untested",
+          "path": "/login",
+          "severity": "critical",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        },
+        {
+          "id": "gap-checkout-new",
+          "path": "/checkout",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Checkout flow has no test coverage"
+        },
+        {
+          "id": "gap-payments-api",
+          "path": "/api/payments",
+          "severity": "critical",
+          "category": "untested-api-endpoint",
+          "reason": "Payment endpoint has no API tests"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    }
+  },
+  "expected": {
+    "addedLength": 2,
+    "removedLength": 1,
+    "changedLength": 1,
+    "confidenceDelta": -25,
+    "direction": "regressed",
+    "summaryContains": "regressed",
+    "addedPaths": ["/checkout", "/api/payments"],
+    "removedPaths": ["/dashboard"],
+    "changedPaths": ["/login"],
+    "changedStatuses": ["severity-increased"]
+  }
+}

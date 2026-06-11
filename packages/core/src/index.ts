@@ -83,6 +83,9 @@ export type {
 export { RecipeIdSchema } from './schemas/index.js';
 // P3 — Confidence Layer exports
 export { computeReleaseConfidence } from './tools/scoring/confidence.js';
+// analyze-diff — structured diff between two analyze_app outputs
+export { analyzeRunDiff, formatAnalyzeDiffMarkdown, loadGapAnalysisFile } from './cli/analyze-diff-run.js';
+export type { AnalyzeDiffResult } from './cli/analyze-diff-run.js';
 // P4 — Evidence adapters (CI results + PR metadata)
 export { ciResultsToEvidence } from './adapters/ci-results-adapter.js';
 export type { CiRunInput } from './adapters/ci-results-adapter.js';

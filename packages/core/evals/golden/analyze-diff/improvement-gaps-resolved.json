@@ -1,0 +1,52 @@
+{
+  "id": "improvement-gaps-resolved",
+  "suite": "analyze-diff",
+  "description": "An improved run: confidence rose from 60 to 90, all prior gaps resolved, no new gaps. Direction must be improved with zero added findings.",
+  "tags": ["no-llm", "deterministic", "improvement"],
+  "input": {
+    "from": {
+      "analyzedAt": "2024-01-16T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 60,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login-untested",
+          "path": "/login",
+          "severity": "critical",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        },
+        {
+          "id": "gap-checkout-new",
+          "path": "/checkout",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Checkout flow has no test coverage"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    },
+    "to": {
+      "analyzedAt": "2024-01-17T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 90,
+      "coveragePagesScanned": 8,
+      "coverageBudgetExceeded": false,
+      "gaps": [],
+      "scenarios": [],
+      "generatedTests": []
+    }
+  },
+  "expected": {
+    "addedLength": 0,
+    "removedLength": 2,
+    "changedLength": 0,
+    "confidenceDelta": 30,
+    "direction": "improved",
+    "summaryContains": "improved",
+    "removedPaths": ["/login", "/checkout"]
+  }
+}
