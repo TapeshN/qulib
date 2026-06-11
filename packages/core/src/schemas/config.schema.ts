@@ -59,7 +59,14 @@ export const HarnessConfigSchema = z.object({
   readOnlyMode: z.boolean(),
   requireHumanReview: z.boolean(),
   failOnConsoleError: z.boolean(),
-  explorer: z.enum(['playwright', 'cypress']).default('playwright'),
+  explorer: z
+    .enum(['playwright', 'cypress'])
+    .default('playwright')
+    .describe(
+      "Browser explorer to use. 'playwright' is the production explorer. " +
+        "'cypress' is reserved for future Cypress-driven exploration and is not yet implemented — " +
+        'it will throw at runtime. Always use playwright in production.'
+    ),
   defaultAdapter: z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility']).default('playwright'),
   adapters: z.array(z.enum(['playwright', 'cypress-e2e', 'cypress-component', 'api', 'accessibility'])).default(['playwright']),
   llmProvider: z.enum(['anthropic']).optional(),

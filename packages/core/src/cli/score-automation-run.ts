@@ -132,10 +132,14 @@ export async function runScoreAutomation(
 }
 
 export function registerScoreAutomationCommand(program: Command): void {
+  // Canonical name kept for backwards compatibility. Alias: automation-score
+  // (confidence-family naming — shorter and consistent with the qulib_ MCP convention).
   program
     .command('score-automation')
+    .alias('automation-score')
     .description(
-      "Score a local repo's test-automation maturity (overall + per-dimension, with honest applicability)"
+      "Score a local repo's test-automation maturity (overall + per-dimension, with honest applicability). " +
+      '(Alias: automation-score)'
     )
     .requiredOption('--repo <path>', 'Path to the local repository to score')
     .option('--json', 'Emit the full AutomationMaturity object as JSON to stdout', false)

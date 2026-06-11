@@ -65,6 +65,19 @@ const mcpProgressLog: AnalyzeProgressSink = {
   debug: (message: string) => log.debug(message),
 };
 
+// ---------------------------------------------------------------------------
+// Naming convergence — 0.10 (non-breaking aliases)
+//
+// Three legacy tools predate the qulib_ prefix convention:
+//   explore_auth → qulib_explore_auth (alias)
+//   detect_auth  → qulib_detect_auth  (alias)
+//   analyze_app  → qulib_analyze_app  (alias)
+//
+// The legacy names keep working unchanged. New integrations should prefer the
+// qulib_ forms. Both will coexist through 1.0; the legacy names are marked
+// "alias" in their descriptions. Removal is planned for 1.0.
+// ---------------------------------------------------------------------------
+
 // NOTE: MCP `auth` shape intentionally flattens the core `AuthConfigSchema` so an LLM
 // can populate it without nested objects. We translate it back into core's nested
 // `AuthConfig` (with `credentials: { username, password }` and `selectors: { ... }`)
@@ -157,137 +170,201 @@ const DetectAuthToolInputSchema = z.object({
   timeoutMs: z.number().int().positive().optional().describe('Page load timeout in milliseconds (default 15000)'),
 });
 
+async function handleExploreAuth({
+  url,
+  timeoutMs,
+}: {
+  url: string;
+  timeoutMs?: number;
+}): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    log.info(`explore_auth url=${url} timeoutMs=${timeoutMs ?? 20000}`);
+    const result = await exploreAuth(url, timeoutMs, mcpProgressLog);
+    log.info(`explore_auth done authRequired=${result.authRequired} paths=${result.authPaths.length}`);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`explore_auth failed: ${msg}`);
+    return toolError('QULIB_AUTH_EXPLORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+const EXPLORE_AUTH_DESCRIPTION =
+  'Use this BEFORE analyze_app when scanning unfamiliar apps. Returns all detected sign-in paths with per-path requirements describing what credentials or actions the agent must collect from the user before calling analyze_app. Combines built-in OAuth/SSO labels, user-local patterns from ~/.qulib/providers.json, and heuristic unknown buttons.';
+
 mcpServer.registerTool(
   'explore_auth',
   {
-    description:
-      'Use this BEFORE analyze_app when scanning unfamiliar apps. Returns all detected sign-in paths with per-path requirements describing what credentials or actions the agent must collect from the user before calling analyze_app. Combines built-in OAuth/SSO labels, user-local patterns from ~/.qulib/providers.json, and heuristic unknown buttons.',
+    description: `${EXPLORE_AUTH_DESCRIPTION} (Alias for new integrations: qulib_explore_auth)`,
     inputSchema: ExploreAuthToolInputSchema,
   },
-  async ({ url, timeoutMs }) => {
-    try {
-      log.info(`explore_auth tool url=${url} timeoutMs=${timeoutMs ?? 20000}`);
-      const result = await exploreAuth(url, timeoutMs, mcpProgressLog);
-      log.info(`explore_auth tool done authRequired=${result.authRequired} paths=${result.authPaths.length}`);
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.error(`explore_auth failed: ${msg}`);
-      return toolError('QULIB_AUTH_EXPLORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
-    }
-  }
+  handleExploreAuth
 );
+
+mcpServer.registerTool(
+  'qulib_explore_auth',
+  {
+    description: `${EXPLORE_AUTH_DESCRIPTION} (Canonical qulib_ form; explore_auth is the legacy alias kept for backwards compatibility.)`,
+    inputSchema: ExploreAuthToolInputSchema,
+  },
+  handleExploreAuth
+);
+
+async function handleDetectAuth({
+  url,
+  timeoutMs,
+}: {
+  url: string;
+  timeoutMs?: number;
+}): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    log.info(`detect_auth url=${url} timeoutMs=${timeoutMs ?? 15000}`);
+    const result = await detectAuth(url, timeoutMs, mcpProgressLog);
+    const providerSummary =
+      result.oauthButtons.length > 0
+        ? result.oauthButtons.map((b) => b.provider).join(', ')
+        : result.provider ?? 'none';
+    log.info(
+      `detect_auth done type=${result.type} providers=${providerSummary} automatable=${result.type === 'form-login'}`
+    );
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`detect_auth failed: ${msg}`);
+    return toolError('QULIB_AUTH_DETECT_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+const DETECT_AUTH_DESCRIPTION =
+  'Detect the authentication pattern used by a deployed web app. Returns the auth type (form-login, oauth, magic-link, none, or unknown) and a recommendation for how to configure qulib to scan past it.';
 
 mcpServer.registerTool(
   'detect_auth',
   {
-    description:
-      'Detect the authentication pattern used by a deployed web app. Returns the auth type (form-login, oauth, magic-link, none, or unknown) and a recommendation for how to configure qulib to scan past it.',
+    description: `${DETECT_AUTH_DESCRIPTION} (Alias for new integrations: qulib_detect_auth)`,
     inputSchema: DetectAuthToolInputSchema,
   },
-  async ({ url, timeoutMs }) => {
-    try {
-      log.info(`detect_auth tool url=${url} timeoutMs=${timeoutMs ?? 15000}`);
-      const result = await detectAuth(url, timeoutMs, mcpProgressLog);
-      const providerSummary =
-        result.oauthButtons.length > 0
-          ? result.oauthButtons.map((b) => b.provider).join(', ')
-          : result.provider ?? 'none';
-      log.info(
-        `detect_auth tool done type=${result.type} providers=${providerSummary} automatable=${result.type === 'form-login'}`
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.error(`detect_auth failed: ${msg}`);
-      return toolError('QULIB_AUTH_DETECT_FAILED', msg, err instanceof Error ? err.stack : undefined);
-    }
-  }
+  handleDetectAuth
 );
+
+mcpServer.registerTool(
+  'qulib_detect_auth',
+  {
+    description: `${DETECT_AUTH_DESCRIPTION} (Canonical qulib_ form; detect_auth is the legacy alias kept for backwards compatibility.)`,
+    inputSchema: DetectAuthToolInputSchema,
+  },
+  handleDetectAuth
+);
+
+type AnalyzeInput = {
+  url: string;
+  maxPagesToScan?: number;
+  timeoutMs?: number;
+  auth?: { type: 'form-login'; loginUrl: string; username: string; password: string; usernameSelector: string; passwordSelector: string; submitSelector: string; successUrlContains?: string } | { type: 'storage-state'; path: string };
+  includeFullReport?: boolean;
+  agentSummary?: boolean;
+  llmTokenBudget?: number;
+  llmMaxOutputTokensPerCall?: number;
+  testGenerationLimit?: number;
+  enableLlmScenarios?: boolean;
+};
+
+async function handleAnalyzeApp(input: AnalyzeInput): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    const successIndicator =
+      input.auth?.type === 'form-login' &&
+      input.auth.successUrlContains !== undefined &&
+      input.auth.successUrlContains !== ''
+        ? { urlContains: input.auth.successUrlContains }
+        : {};
+
+    const authConfig =
+      input.auth?.type === 'form-login'
+        ? {
+            type: 'form-login' as const,
+            loginUrl: input.auth.loginUrl,
+            credentials: { username: input.auth.username, password: input.auth.password },
+            selectors: {
+              username: input.auth.usernameSelector,
+              password: input.auth.passwordSelector,
+              submit: input.auth.submitSelector,
+            },
+            successIndicator,
+          }
+        : input.auth?.type === 'storage-state'
+          ? { type: 'storage-state' as const, path: input.auth.path }
+          : undefined;
+
+    const harnessConfig: HarnessConfig = {
+      maxPagesToScan: input.maxPagesToScan ?? 10,
+      maxDepth: 3,
+      minPagesForConfidence: 3,
+      timeoutMs: input.timeoutMs ?? 30000,
+      retryCount: 0,
+      llmTokenBudget: input.llmTokenBudget ?? input.llmMaxOutputTokensPerCall ?? 4096,
+      llmMaxOutputTokensPerCall: input.llmMaxOutputTokensPerCall,
+      testGenerationLimit: input.testGenerationLimit ?? 5,
+      enableLlmScenarios: input.enableLlmScenarios !== false,
+      readOnlyMode: true,
+      requireHumanReview: false,
+      failOnConsoleError: false,
+      explorer: 'playwright',
+      defaultAdapter: 'playwright',
+      adapters: ['playwright'],
+      ...(authConfig && { auth: authConfig }),
+    };
+
+    const result = await analyzeApp({
+      url: input.url,
+      writeArtifacts: false,
+      config: harnessConfig,
+      progressLog: mcpProgressLog,
+      telemetry: telemetrySink,
+    });
+
+    const payload = buildAnalyzeAppMcpPayload(result, {
+      includeFullReport: input.includeFullReport,
+      agentSummary: input.agentSummary,
+    });
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify(payload, null, 2),
+        },
+      ],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`analyze_app failed: ${msg}`);
+    return toolError('QULIB_SCAN_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+const ANALYZE_APP_DESCRIPTION =
+  'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Set agentSummary for the compact gate-decision payload (pass/warn/fail with honesty notes) — use this when calling from a CI gate or orchestrator. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.';
 
 mcpServer.registerTool(
   'analyze_app',
   {
-    description:
-      'Analyze a deployed web app for quality gaps. Default response is summary-first (top gaps, cost summary, next checks). Set includeFullReport for the full gapAnalysis. Set agentSummary for the compact gate-decision payload (pass/warn/fail with honesty notes) — use this when calling from a CI gate or orchestrator. Optional llmMaxOutputTokensPerCall / llmTokenBudget (legacy), testGenerationLimit, enableLlmScenarios align with @qulib/core HarnessConfig.',
+    description: `${ANALYZE_APP_DESCRIPTION} (Alias for new integrations: qulib_analyze_app)`,
     inputSchema: AnalyzeInputSchema,
   },
-  async (input) => {
-    try {
-      const successIndicator =
-        input.auth?.type === 'form-login' &&
-        input.auth.successUrlContains !== undefined &&
-        input.auth.successUrlContains !== ''
-          ? { urlContains: input.auth.successUrlContains }
-          : {};
+  handleAnalyzeApp
+);
 
-      const authConfig =
-        input.auth?.type === 'form-login'
-          ? {
-              type: 'form-login' as const,
-              loginUrl: input.auth.loginUrl,
-              credentials: { username: input.auth.username, password: input.auth.password },
-              selectors: {
-                username: input.auth.usernameSelector,
-                password: input.auth.passwordSelector,
-                submit: input.auth.submitSelector,
-              },
-              successIndicator,
-            }
-          : input.auth?.type === 'storage-state'
-            ? { type: 'storage-state' as const, path: input.auth.path }
-            : undefined;
-
-      const harnessConfig: HarnessConfig = {
-        maxPagesToScan: input.maxPagesToScan ?? 10,
-        maxDepth: 3,
-        minPagesForConfidence: 3,
-        timeoutMs: input.timeoutMs ?? 30000,
-        retryCount: 0,
-        llmTokenBudget: input.llmTokenBudget ?? input.llmMaxOutputTokensPerCall ?? 4096,
-        llmMaxOutputTokensPerCall: input.llmMaxOutputTokensPerCall,
-        testGenerationLimit: input.testGenerationLimit ?? 5,
-        enableLlmScenarios: input.enableLlmScenarios !== false,
-        readOnlyMode: true,
-        requireHumanReview: false,
-        failOnConsoleError: false,
-        explorer: 'playwright',
-        defaultAdapter: 'playwright',
-        adapters: ['playwright'],
-        ...(authConfig && { auth: authConfig }),
-      };
-
-      const result = await analyzeApp({
-        url: input.url,
-        writeArtifacts: false,
-        config: harnessConfig,
-        progressLog: mcpProgressLog,
-        telemetry: telemetrySink,
-      });
-
-      const payload = buildAnalyzeAppMcpPayload(result, {
-        includeFullReport: input.includeFullReport,
-        agentSummary: input.agentSummary,
-      });
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(payload, null, 2),
-          },
-        ],
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.error(`analyze_app failed: ${msg}`);
-      return toolError('QULIB_SCAN_FAILED', msg, err instanceof Error ? err.stack : undefined);
-    }
-  }
+mcpServer.registerTool(
+  'qulib_analyze_app',
+  {
+    description: `${ANALYZE_APP_DESCRIPTION} (Canonical qulib_ form; analyze_app is the legacy alias kept for backwards compatibility.)`,
+    inputSchema: AnalyzeInputSchema,
+  },
+  handleAnalyzeApp
 );
 
 mcpServer.registerTool(
@@ -337,7 +414,7 @@ const ScaffoldTestsInputSchema = z.object({
   framework: z
     .enum(['cypress-e2e', 'playwright'])
     .optional()
-    .describe('Test framework to generate. Default: cypress-e2e'),
+    .describe('Test framework to generate. Default and recommended: cypress-e2e. playwright is accepted but not yet implemented (returns an error).'),
   maxPagesToScan: z
     .number()
     .int()
@@ -364,7 +441,7 @@ mcpServer.registerTool(
   'qulib_scaffold_tests',
   {
     description:
-      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files (Cypress or Playwright) plus the project config (cypress.config.ts or playwright.config.ts) and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers.',
+      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported framework: cypress-e2e (default). playwright scaffold is experimental and not yet implemented. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers.',
     inputSchema: ScaffoldTestsInputSchema,
   },
   async ({ url, framework, maxPagesToScan, recipes }) => {

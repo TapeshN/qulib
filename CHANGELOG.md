@@ -13,6 +13,13 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 - **`qulib baseline` CLI — save, list, and compare (headline feature for 0.10):** Exposes the existing file-backed baseline store as a first-class CLI. `qulib baseline save --url <url> --from-report output/report.json` snapshots any `qulib analyze` run; `qulib baseline list --url <url>` shows all saved snapshots newest-first; `qulib baseline compare --url <url>` diffs the two most-recent snapshots and reports per-dimension drift — new gaps, resolved gaps, severity changes, and a confidence delta. Each changed item carries `path`, `category`, and `severity` so CI can attribute regressions to the exact dimension. `--from <id> --to <id>` lets you compare any two snapshots by explicit id. `--json` on all three commands emits machine-readable output for CI pipelines. Baselines are stored under `.qulib-baselines/` (local, gitignored); `--dir` overrides the storage root.
 
+- **Naming convergence — 0.10 non-breaking aliases:** Confidence is the product; naming now converges on that truth without breaking any existing integration. Three legacy MCP tool names predate the `qulib_` prefix convention; they are now aliased under canonical forms: `qulib_analyze_app` (was `analyze_app`), `qulib_explore_auth` (was `explore_auth`), `qulib_detect_auth` (was `detect_auth`). Legacy names keep working unchanged. Two CLI commands gain aliases for integrations that prefer the full concept name: `qulib release-confidence` (alias for `qulib confidence`) and `qulib automation-score` (alias for `qulib score-automation`). All help text for the legacy names is annotated with the canonical form; all canonical help text notes the legacy alias. No deprecation warnings are emitted at runtime (notes in docs only). Removal is planned for 1.0. The `qulib_scaffold_tests` description is corrected: the `playwright` framework option is experimental and not yet implemented (it throws at runtime); the description no longer advertises it as working. The `explorer: 'cypress'` config field description now explicitly states it is not yet implemented and reserved for future use.
+
+### Changed
+
+- **MCP `qulib_scaffold_tests` description:** corrected to not advertise Playwright as a supported scaffold framework. The `cypress-e2e` default remains the only implemented option; `playwright` is now documented as experimental/unreleased.
+- **Config schema `explorer` field:** description updated to note that `'cypress'` is reserved for future Cypress-driven exploration and throws at runtime. Always use `'playwright'` in production.
+
 ---
 
 ## [0.9.0] — 2026-06-10

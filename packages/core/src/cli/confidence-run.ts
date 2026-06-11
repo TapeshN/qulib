@@ -165,13 +165,17 @@ export async function runConfidence(
 }
 
 export function registerConfidenceCommand(program: Command): void {
+  // Canonical flagship command. Alias: release-confidence (for integrations that prefer the
+  // full concept name over the short form). Both names are kept through 1.0.
   program
     .command('confidence')
+    .alias('release-confidence')
     .description(
       'Compute a fused Release Confidence verdict from qulib evidence collectors. ' +
       'Pass --url to include live-app quality + a11y + coverage evidence. ' +
       'Pass --repo to include test-automation maturity + API coverage. ' +
-      'Both may be combined.'
+      'Both may be combined. ' +
+      '(Alias: release-confidence)'
     )
     .option('--url <url>', 'URL of the deployed app to analyze')
     .option('--repo <path>', 'Path to the local repository to score')
