@@ -1,0 +1,66 @@
+{
+  "id": "identical-run-zero-drift",
+  "suite": "analyze-diff",
+  "description": "Diffing two identical GapAnalysis objects (same gaps, same confidence) must produce zero drift — no added, no removed, no changed findings.",
+  "tags": ["no-llm", "deterministic", "zero-drift"],
+  "input": {
+    "from": {
+      "analyzedAt": "2024-01-15T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 85,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login-untested",
+          "path": "/login",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        },
+        {
+          "id": "gap-dashboard-a11y",
+          "path": "/dashboard",
+          "severity": "medium",
+          "category": "a11y",
+          "reason": "Dashboard missing aria-label on primary nav"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    },
+    "to": {
+      "analyzedAt": "2024-01-15T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 85,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login-untested",
+          "path": "/login",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        },
+        {
+          "id": "gap-dashboard-a11y",
+          "path": "/dashboard",
+          "severity": "medium",
+          "category": "a11y",
+          "reason": "Dashboard missing aria-label on primary nav"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    }
+  },
+  "expected": {
+    "addedLength": 0,
+    "removedLength": 0,
+    "changedLength": 0,
+    "confidenceDelta": 0,
+    "direction": "unchanged",
+    "summaryContains": "unchanged"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "null-confidence-unknown-direction",
+  "suite": "analyze-diff",
+  "description": "When one report has null releaseConfidence (auth-required mode), confidenceDelta must be null and direction must be 'unknown' — never fabricate a numeric delta.",
+  "tags": ["no-llm", "deterministic", "null-confidence", "honesty"],
+  "input": {
+    "from": {
+      "analyzedAt": "2024-01-15T12:00:00.000Z",
+      "mode": "auth-required",
+      "releaseConfidence": null,
+      "coveragePagesScanned": 0,
+      "coverageBudgetExceeded": false,
+      "gaps": [],
+      "scenarios": [],
+      "generatedTests": []
+    },
+    "to": {
+      "analyzedAt": "2024-01-16T12:00:00.000Z",
+      "mode": "url-only",
+      "releaseConfidence": 75,
+      "coveragePagesScanned": 5,
+      "coverageBudgetExceeded": false,
+      "gaps": [
+        {
+          "id": "gap-login",
+          "path": "/login",
+          "severity": "high",
+          "category": "untested-route",
+          "reason": "Login route has no automated test coverage"
+        }
+      ],
+      "scenarios": [],
+      "generatedTests": []
+    }
+  },
+  "expected": {
+    "addedLength": 1,
+    "removedLength": 0,
+    "changedLength": 0,
+    "confidenceDeltaIsNull": true,
+    "direction": "unknown",
+    "summaryContains": "unavailable"
+  }
+}
