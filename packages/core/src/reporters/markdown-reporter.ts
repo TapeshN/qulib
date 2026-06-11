@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { GapAnalysis } from '../schemas/gap-analysis.schema.js';
+import { buildPageHeatmap, renderHeatmapSection } from './heatmap.js';
 
 export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: string): Promise<void> {
   await mkdir(outputDir, { recursive: true });
@@ -22,6 +23,9 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
   const scenarioBlocks = analysis.scenarios
     .map((s) => `### ${s.title}\n${s.description}\n\nSteps:\n${s.steps.map((step) => `- ${step.description}`).join('\n')}\n\nRecommended adapters: ${s.recommendations.map((r) => r.adapter).join(', ')}`)
     .join('\n\n---\n\n');
+
+  const heatmap = buildPageHeatmap(analysis.gaps);
+  const heatmapSection = renderHeatmapSection(heatmap);
 
   const ci = analysis.costIntelligence;
   const costSection = ci
@@ -49,7 +53,7 @@ export async function writeMarkdownReport(analysis: GapAnalysis, outputDir: stri
 - Scan budget exhausted (unfinished queue): ${analysis.coverageBudgetExceeded ? 'yes' : 'no'}
 ${analysis.coverageWarning ? `- Warning: **${analysis.coverageWarning}**` : '- Warning: none'}
 
-${costSection}
+${heatmapSection}${costSection}
 ## Coverage gaps (${analysis.gaps.length})
 
 | Path | Category | Severity | Reason |

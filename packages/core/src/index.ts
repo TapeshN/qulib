@@ -85,6 +85,9 @@ export { RecipeIdSchema } from './schemas/index.js';
 export { computeReleaseConfidence } from './tools/scoring/confidence.js';
 // analyze-diff — structured diff between two analyze_app outputs
 export { analyzeRunDiff, formatAnalyzeDiffMarkdown, loadGapAnalysisFile } from './cli/analyze-diff-run.js';
+// per-page coverage heatmap
+export { buildPageHeatmap, renderHeatmapSection, HEATMAP_DIMENSIONS, DIMENSION_LABELS } from './reporters/heatmap.js';
+export type { PageHeatmap, HeatmapRow, HeatmapCell, HeatmapDimension } from './reporters/heatmap.js';
 export type { AnalyzeDiffResult } from './cli/analyze-diff-run.js';
 // P4 — Evidence adapters (CI results + PR metadata)
 export { ciResultsToEvidence } from './adapters/ci-results-adapter.js';

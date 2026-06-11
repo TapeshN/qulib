@@ -1,0 +1,56 @@
+{
+  "id": "worst-first-sort",
+  "suite": "heatmap",
+  "description": "Four pages with different total severity scores. Verifies the rows are sorted worst-first regardless of input order. /api/payments (critical+critical) > /checkout (critical+medium) > /profile (high) > /about (low).",
+  "tags": ["no-llm", "deterministic", "heatmap", "sort"],
+  "input": {
+    "gaps": [
+      {
+        "id": "g-about",
+        "path": "/about",
+        "severity": "low",
+        "category": "a11y",
+        "reason": "Minor contrast issue"
+      },
+      {
+        "id": "g-payments-1",
+        "path": "/api/payments",
+        "severity": "critical",
+        "category": "untested-api-endpoint",
+        "reason": "Payment endpoint untested"
+      },
+      {
+        "id": "g-payments-2",
+        "path": "/api/payments",
+        "severity": "critical",
+        "category": "untested-route",
+        "reason": "Payment page no coverage"
+      },
+      {
+        "id": "g-profile",
+        "path": "/profile",
+        "severity": "high",
+        "category": "console-error",
+        "reason": "JS error on profile load"
+      },
+      {
+        "id": "g-checkout-1",
+        "path": "/checkout",
+        "severity": "critical",
+        "category": "untested-route",
+        "reason": "Checkout untested"
+      },
+      {
+        "id": "g-checkout-2",
+        "path": "/checkout",
+        "severity": "medium",
+        "category": "a11y",
+        "reason": "Missing alt text"
+      }
+    ]
+  },
+  "expected": {
+    "rowCount": 4,
+    "orderedPaths": ["/api/payments", "/checkout", "/profile", "/about"]
+  }
+}

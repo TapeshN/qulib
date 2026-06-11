@@ -1,0 +1,72 @@
+{
+  "id": "single-page-all-dimensions",
+  "suite": "heatmap",
+  "description": "One page (/dashboard) has a gap in every tracked dimension. Verifies all 7 columns render and the correct worst-severity glyphs appear.",
+  "tags": ["no-llm", "deterministic", "heatmap", "all-dimensions"],
+  "input": {
+    "gaps": [
+      {
+        "id": "g1",
+        "path": "/dashboard",
+        "severity": "critical",
+        "category": "untested-route",
+        "reason": "No test covers the dashboard"
+      },
+      {
+        "id": "g2",
+        "path": "/dashboard",
+        "severity": "high",
+        "category": "a11y",
+        "reason": "Missing landmark roles"
+      },
+      {
+        "id": "g3",
+        "path": "/dashboard",
+        "severity": "medium",
+        "category": "console-error",
+        "reason": "Uncaught promise rejection on load"
+      },
+      {
+        "id": "g4",
+        "path": "/dashboard",
+        "severity": "low",
+        "category": "broken-link",
+        "reason": "Help link 404"
+      },
+      {
+        "id": "g5",
+        "path": "/dashboard",
+        "severity": "high",
+        "category": "coverage",
+        "reason": "Widget interactions not covered"
+      },
+      {
+        "id": "g6",
+        "path": "/dashboard",
+        "severity": "critical",
+        "category": "untested-api-endpoint",
+        "reason": "GET /api/metrics has no test"
+      },
+      {
+        "id": "g7",
+        "path": "/dashboard",
+        "severity": "medium",
+        "category": "auth-surface",
+        "reason": "Auth boundary not tested"
+      }
+    ]
+  },
+  "expected": {
+    "rowCount": 1,
+    "firstRowPath": "/dashboard",
+    "dimensionCount": 7,
+    "untestedGlyph": "🚨",
+    "a11yGlyph": "🔴",
+    "consoleGlyph": "🟠",
+    "brokenLinkGlyph": "🟡",
+    "coverageGlyph": "🔴",
+    "apiGlyph": "🚨",
+    "authGlyph": "🟠",
+    "markdownContainsAllDimensionLabels": true
+  }
+}
