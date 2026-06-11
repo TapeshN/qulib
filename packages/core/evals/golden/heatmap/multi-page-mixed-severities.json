@@ -1,0 +1,58 @@
+{
+  "id": "multi-page-mixed-severities",
+  "suite": "heatmap",
+  "description": "Three pages with different gap categories and severities. /checkout is worst (critical untested-route + high a11y), /login has medium console-error, /about is clean (no gaps → absent from heatmap).",
+  "tags": ["no-llm", "deterministic", "heatmap", "worst-first"],
+  "input": {
+    "gaps": [
+      {
+        "id": "g1",
+        "path": "/checkout",
+        "severity": "critical",
+        "category": "untested-route",
+        "reason": "Checkout flow has no test coverage"
+      },
+      {
+        "id": "g2",
+        "path": "/checkout",
+        "severity": "high",
+        "category": "a11y",
+        "reason": "Missing aria-label on submit button"
+      },
+      {
+        "id": "g3",
+        "path": "/checkout",
+        "severity": "low",
+        "category": "a11y",
+        "reason": "Low-contrast helper text"
+      },
+      {
+        "id": "g4",
+        "path": "/login",
+        "severity": "medium",
+        "category": "console-error",
+        "reason": "Uncaught TypeError on invalid credentials"
+      },
+      {
+        "id": "g5",
+        "path": "/login",
+        "severity": "medium",
+        "category": "untested-route",
+        "reason": "Login route partially covered"
+      }
+    ]
+  },
+  "expected": {
+    "rowCount": 2,
+    "firstRowPath": "/checkout",
+    "secondRowPath": "/login",
+    "checkoutUntestedGlyph": "🚨",
+    "checkoutA11yGlyph": "🔴",
+    "checkoutA11yCount": 2,
+    "loginConsoleGlyph": "🟠",
+    "loginUntestedGlyph": "🟠",
+    "loginA11yGlyph": "·",
+    "markdownContainsLegend": true,
+    "markdownContainsHeader": true
+  }
+}

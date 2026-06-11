@@ -1,0 +1,13 @@
+{
+  "id": "empty-gaps",
+  "suite": "heatmap",
+  "description": "No gaps at all — heatmap has zero rows; renderHeatmapSection returns an empty string.",
+  "tags": ["no-llm", "deterministic", "heatmap", "empty"],
+  "input": {
+    "gaps": []
+  },
+  "expected": {
+    "rowCount": 0,
+    "renderedSectionEmpty": true
+  }
+}
