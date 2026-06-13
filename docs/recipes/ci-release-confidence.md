@@ -259,4 +259,4 @@ Both surfaces are complementary. Many teams run both: the analyze action on ever
 
 - [CI integration — analyze action](../../README.md#ci-integration-github-actions) — the existing coarse gate
 - [Orchestrator integration](../orchestrator-integration.md) — feeding qulib verdicts into an AI agent loop
-- [Release confidence — scoring details](../../README.md#confidence-layer-p3) — how the score is computed and what each verdict means
+- [Release confidence — scoring details](../../README.md#confidence-layer) — how the score is computed and what each verdict means
