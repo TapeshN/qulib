@@ -81,9 +81,13 @@ runs:
   using: "composite"
   steps:
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node-version }}
+        # v5+ auto-caches when a packageManager field is present; this action
+        # does no `npm ci`, so keep v4's no-cache behavior to avoid a
+        # "lockfile not found" failure in consumer repos without a lockfile.
+        package-manager-cache: false
 
     - name: Install Playwright Chromium
       if: ${{ inputs.install-browser == 'true' }}
@@ -124,7 +128,7 @@ runs:
 
     - name: Upload agent-summary artifact
       if: ${{ always() }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: qulib-agent-summary
         path: ${{ inputs.output-path }}

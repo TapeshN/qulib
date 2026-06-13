@@ -86,14 +86,14 @@ jobs:
     steps:
       - name: Check out caller repo
         if: ${{ inputs.checkout }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # The composite action lives in this repo, so check it out to a subdir
       # to reference it by local path. (When the action is published, callers
       # use `uses: TapeshN/qulib/.github/actions/qulib-analyze@v1` directly and
       # do not need this step.)
       - name: Check out qulib (for the composite action)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: TapeshN/qulib
           ref: ${{ inputs.qulib-version != 'latest' && format('v{0}', inputs.qulib-version) || 'main' }}
