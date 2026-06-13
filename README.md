@@ -11,6 +11,7 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![npm @qulib/core](https://img.shields.io/npm/v/@qulib/core?label=%40qulib%2Fcore)](https://www.npmjs.com/package/@qulib/core)
 [![npm @qulib/mcp](https://img.shields.io/npm/v/@qulib/mcp?label=%40qulib%2Fmcp)](https://www.npmjs.com/package/@qulib/mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
 ---
 
@@ -45,6 +46,28 @@ npx @qulib/core confidence --url https://example.com
 ```
 
 Returns a verdict (`ship` / `caution` / `hold` / `block`) with a 0–100 score, top risks, and recommended next checks.
+
+**Sample output:**
+
+```json
+{
+  "verdict": "caution",
+  "confidenceScore": 54,
+  "level": 3,
+  "label": "L3 — moderate confidence, known risks",
+  "topRisks": [
+    "Low crawl coverage (2 pages scanned)",
+    "No CI integration detected"
+  ],
+  "recommendedNextChecks": [
+    "Add a CI pipeline that runs qulib on each deploy",
+    "Increase crawl depth or provide auth credentials"
+  ],
+  "honestyNotes": [
+    "API coverage: not_applicable (no API endpoints found — excluded from score)"
+  ]
+}
+```
 
 Add `--repo` to also score test-automation maturity and API coverage:
 
@@ -110,6 +133,20 @@ Ask your agent:
 
 The agent will call **`qulib_score_confidence`** for the fused release verdict, or **`qulib_analyze_app`** for a detailed gap report. Default **`qulib_analyze_app`** responses are **summary-first** (top gaps, cost summary, next deterministic checks). Pass **`includeFullReport: true`** for the full `gapAnalysis` including all scenarios.
 
+### MCP tool catalog
+
+| Tool | What it tells you |
+|------|-------------------|
+| **`qulib_score_confidence`** | Fused **ship / caution / hold / block** verdict (0–100 score) from all evidence sources. Start here. |
+| `qulib_analyze_app` | Live-app gaps — a11y, broken links, console errors, release confidence. |
+| `qulib_score_automation` | Repo test-maturity from L1 (none) to L5 (advanced), across 6–7 scored dimensions. |
+| `qulib_score_api` | API endpoint discovery + test coverage: are your routes exercised? |
+| `qulib_scaffold_tests` | Ready-to-run Cypress spec + config, generated from a live crawl. |
+| `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
+| `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
+
+Legacy names (`analyze_app`, `explore_auth`, `detect_auth`) are kept as aliases through v1.0.
+
 ---
 
 ## CI integration (GitHub Actions)
@@ -129,7 +166,7 @@ jobs:
         with:
           url: https://your-app.example.com
           fail-on: fail        # fail (default) | warn | never
-          qulib-version: 0.9.0 # pin a version for reproducible CI
+          qulib-version: 0.10.0 # pin a version for reproducible CI
 ```
 
 ### Option B — reusable workflow (whole job in one line)
@@ -192,18 +229,18 @@ Every run **uploads the agent-summary JSON as an artifact** (`qulib-agent-summar
 ## Release confidence (short)
 
 - Score starts from **100** and is reduced by **high / medium / low** gaps (see [`gaps.ts`](./packages/core/src/tools/scoring/gaps.ts)).
-- If **fewer than `minPagesForConfidence`** pages were scanned, confidence is **capped at 40** and a **`low-coverage`** warning is set—thin coverage must not read as “ready”.
+- If **fewer than `minPagesForConfidence`** pages were scanned, confidence is **capped at 40** and a **`low-coverage`** warning is set—thin coverage must not read as "ready".
 - **`auth-required`** early exit sets confidence **0** with no gap inventory: the deployment was not actually exercised.
 
 Details: [packages/core/README.md](./packages/core/README.md).
 
 ---
 
-## Confidence Layer (P3)
+## Confidence Layer
 
-> **Qulib turns delivery signals into release confidence.** The one question: *”Given everything we know right now, should we ship this?”*
+> **Qulib turns delivery signals into release confidence.** The one question: *"Given everything we know right now, should we ship this?"*
 
-The Confidence Layer (`v1`, P3) fuses qulib's own evidence collectors into a single scored verdict:
+The Confidence Layer fuses qulib's own evidence collectors into a single scored verdict:
 
 | Verdict | Meaning |
 |---|---|
@@ -292,6 +329,18 @@ qulib analyze --url https://staging.example.com
 qulib baseline save --url https://staging.example.com --from-report output/report.json
 qulib baseline compare --url https://staging.example.com --json
 ```
+
+---
+
+## Runnable examples
+
+[`examples/confidence-from-report.ts`](./examples/confidence-from-report.ts) — shows how to call `computeReleaseConfidence()` from TypeScript against a saved report fixture. Run it with:
+
+```bash
+npx tsx examples/confidence-from-report.ts
+```
+
+A more complete dogfood example using real notquality.com signals is at [`packages/core/src/examples/notquality-dogfood/run.ts`](./packages/core/src/examples/notquality-dogfood/run.ts).
 
 ---
 

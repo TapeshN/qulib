@@ -9,6 +9,10 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+---
+
+## [0.10.0] — 2026-06-13
+
 ### Added
 
 - **Per-page coverage heatmap in Markdown reports:** `report.md` now includes a `## Per-page coverage heatmap` section — a sorted table of scanned pages × coverage dimensions (`untested-route`, `a11y`, `console-error`, `broken-link`, `coverage`, `untested-api-endpoint`, `auth-surface`). Each cell shows the worst-severity gap for that page × dimension using an emoji intensity scale (🚨 critical · 🔴 high · 🟠 medium · 🟡 low · `·` none). Rows are sorted worst-first so the pages most in need of attention appear at the top. When no gaps are present the section is omitted entirely (no noise on clean runs). The two pure functions `buildPageHeatmap()` and `renderHeatmapSection()` — plus the `HEATMAP_DIMENSIONS` constant and `DIMENSION_LABELS` map — are exported from `@qulib/core` for programmatic use. Four golden-fixture test cases cover: empty gaps, multi-page mixed severities, a single page with all 7 dimensions populated, and worst-first sort order.
