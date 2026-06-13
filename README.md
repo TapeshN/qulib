@@ -353,6 +353,7 @@ A more complete dogfood example using real notquality.com signals is at [`packag
 - [Security](./SECURITY.md)
 - [Code of Conduct](./CODE_OF_CONDUCT.md)
 - [Manual testing checklist](./docs/manual-testing-checklist.md)
+- [Recipe: Gate your release on qulib confidence in CI](./docs/recipes/ci-release-confidence.md) — copy-paste GitHub Actions workflow for a scored release gate
 
 ---
 
