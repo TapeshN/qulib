@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "coverage_tags": [
+    "form-login",
+    "oauth",
+    "oauth-sso",
+    "sso-redirect",
+    "magic-link",
+    "none",
+    "public",
+    "click-reveal",
+    "spa"
+  ],
+  "sites": [
+    {
+      "id": "example-com",
+      "url": "https://example.com/",
+      "name": "Example.com",
+      "rationale": "IANA-reserved documentation domain with no sign-in surface.",
+      "coverage_tags": ["none", "public"],
+      "expected": {
+        "hasAuth": false,
+        "type": "none"
+      }
+    },
+    {
+      "id": "wikipedia-main",
+      "url": "https://en.wikipedia.org/wiki/Main_Page",
+      "name": "Wikipedia Main Page",
+      "rationale": "Public encyclopedia homepage; readable without authentication.",
+      "coverage_tags": ["none", "public"],
+      "expected": {
+        "hasAuth": false,
+        "type": "none"
+      }
+    },
+    {
+      "id": "notquality-home",
+      "url": "https://notquality.com/",
+      "name": "notquality.com homepage",
+      "rationale": "Marketing homepage with sign-in CTAs but no auth wall on the entry URL.",
+      "coverage_tags": ["none", "public"],
+      "expected": {
+        "hasAuth": false,
+        "type": "none"
+      }
+    },
+    {
+      "id": "github-login",
+      "url": "https://github.com/login",
+      "name": "GitHub login",
+      "rationale": "Canonical username/password form login page documented in qulib manual testing.",
+      "coverage_tags": ["form-login"],
+      "expected": {
+        "hasAuth": true,
+        "type": "form-login"
+      }
+    },
+    {
+      "id": "gitlab-sign-in",
+      "url": "https://gitlab.com/users/sign_in",
+      "name": "GitLab sign in",
+      "rationale": "Dedicated login route with visible email/username and password fields.",
+      "coverage_tags": ["form-login"],
+      "expected": {
+        "hasAuth": true,
+        "type": "form-login"
+      }
+    },
+    {
+      "id": "notquality-login",
+      "url": "https://notquality.com/login",
+      "name": "notquality.com login",
+      "rationale": "Known qulib dogfood login route; exercises click-to-reveal form paths.",
+      "coverage_tags": ["form-login", "click-reveal"],
+      "expected": {
+        "hasAuth": true,
+        "type": "form-login"
+      }
+    },
+    {
+      "id": "slack-signin",
+      "url": "https://slack.com/signin",
+      "name": "Slack sign in",
+      "rationale": "Enterprise SSO entry with prominent Continue with Google/Apple/Microsoft OAuth buttons.",
+      "coverage_tags": ["oauth", "oauth-sso"],
+      "expected": {
+        "hasAuth": true,
+        "type": "oauth"
+      }
+    },
+    {
+      "id": "dropbox-login",
+      "url": "https://www.dropbox.com/login",
+      "name": "Dropbox login",
+      "rationale": "Consumer login with Continue with Google/Apple OAuth provider buttons.",
+      "coverage_tags": ["oauth"],
+      "expected": {
+        "hasAuth": true,
+        "type": "oauth"
+      }
+    },
+    {
+      "id": "microsoft-entra",
+      "url": "https://login.microsoftonline.com/",
+      "name": "Microsoft Entra ID",
+      "rationale": "Canonical enterprise SSO redirect endpoint (Azure AD / Entra ID sign-in).",
+      "coverage_tags": ["oauth-sso", "sso-redirect"],
+      "expected": {
+        "hasAuth": true
+      }
+    },
+    {
+      "id": "medium-signin",
+      "url": "https://medium.com/m/signin",
+      "name": "Medium sign in",
+      "rationale": "Passwordless email magic-link flow (Sign in with email) with no password field on first paint.",
+      "coverage_tags": ["magic-link"],
+      "expected": {
+        "hasAuth": true,
+        "type": "magic-link"
+      }
+    },
+    {
+      "id": "linear-login",
+      "url": "https://linear.app/login",
+      "name": "Linear login",
+      "rationale": "Modern SPA login shell; auth required but client-rendered UI often needs storage-state.",
+      "coverage_tags": ["spa"],
+      "expected": {
+        "hasAuth": true
+      }
+    }
+  ]
+}

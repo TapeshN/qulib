@@ -1,4 +1,12 @@
 export {
+  GoldenManifestSchema,
+  GoldenSiteSchema,
+  GoldenSiteExpectedSchema,
+  type GoldenManifest,
+  type GoldenSite,
+  type GoldenSiteExpected,
+} from './golden-manifest.schema.js';
+export {
   HarnessConfigSchema,
   resolveMaxOutputTokensPerLlmCall,
   AuthConfigSchema,
