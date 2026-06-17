@@ -1,0 +1,100 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    # Report-only: findings are surfaced but do not fail the PR.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  semgrep:
+    name: OWASP + TS static analysis (semgrep)
+    runs-on: ubuntu-latest
+    # Report-only: findings surface as job summary / artifact; no --error flag.
+    continue-on-error: true
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run semgrep
+        run: |
+          semgrep \
+            --config p/owasp-top-ten \
+            --config p/typescript \
+            --config p/react \
+            --sarif \
+            --output semgrep-results.sarif \
+            --no-rewrite-rule-ids \
+            . || true
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## Semgrep findings" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f semgrep-results.sarif ]; then
+            TOTAL=$(python3 -c "
+          import json, sys
+          data = json.load(open('semgrep-results.sarif'))
+          results = []
+          for run in data.get('runs', []):
+              results.extend(run.get('results', []))
+          print(len(results))
+          " 2>/dev/null || echo "unknown")
+            echo "Total findings: **${TOTAL}** (report-only — not blocking merge)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No SARIF output found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload SARIF as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sarif
+          path: semgrep-results.sarif
+          if-no-files-found: ignore
+
+  npm-audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (high+)
+        run: |
+          npm audit --audit-level=high --json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          meta = data.get('metadata', {})
+          vulns = meta.get('vulnerabilities', {})
+          total = meta.get('totalDependencies', '?')
+          print(f'Vulnerabilities: critical={vulns.get(\"critical\",0)}, high={vulns.get(\"high\",0)}, moderate={vulns.get(\"moderate\",0)}, low={vulns.get(\"low\",0)}')
+          print(f'Total dependencies scanned: {total}')
+          " 2>/dev/null || true
+          npm audit --audit-level=high || true
