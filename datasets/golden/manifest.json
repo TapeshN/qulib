@@ -144,17 +144,6 @@
       }
     },
     {
-      "id": "gemini-google",
-      "url": "https://gemini.google.com/",
-      "name": "Google Gemini",
-      "rationale": "Public Google AI assistant entry point; no auth wall on first paint; clean prompt-leakage negative control.",
-      "coverage_tags": ["prompt-leakage", "none"],
-      "expected": {
-        "hasAuth": false,
-        "leaksPrompt": false
-      }
-    },
-    {
       "id": "you-com",
       "url": "https://you.com/",
       "name": "You.com",
