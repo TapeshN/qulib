@@ -5,14 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadGoldenManifest, goldenManifestPath } from '../load-golden-manifest.js';
 
-test('loadGoldenManifest: tracked manifest parses and has 8-12 diverse sites', () => {
+test('loadGoldenManifest: tracked manifest parses and has 8-14 diverse sites', () => {
   const manifest = loadGoldenManifest();
 
   assert.equal(manifest.schemaVersion, 1);
   assert.ok(manifest.coverage_tags.length >= 5, 'manifest must declare coverage_tags');
   assert.ok(
-    manifest.sites.length >= 8 && manifest.sites.length <= 12,
-    `expected 8-12 sites, got ${manifest.sites.length}`
+    manifest.sites.length >= 8 && manifest.sites.length <= 14,
+    `expected 8-14 sites, got ${manifest.sites.length}`
   );
 
   const siteTags = new Set<string>();
@@ -24,7 +24,7 @@ test('loadGoldenManifest: tracked manifest parses and has 8-12 diverse sites', (
     }
   }
 
-  for (const required of ['form-login', 'oauth', 'magic-link', 'none'] as const) {
+  for (const required of ['form-login', 'oauth', 'magic-link', 'none', 'prompt-leakage'] as const) {
     assert.ok(siteTags.has(required), `coverage must include at least one "${required}" site`);
   }
 });
