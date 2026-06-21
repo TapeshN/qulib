@@ -2,6 +2,7 @@ import type { HarnessConfig } from '../schemas/config.schema.js';
 import { GapAnalysisSchema, type GapAnalysis } from '../schemas/gap-analysis.schema.js';
 import type { ObserveResult } from './observe.js';
 import { analyzeGaps } from '../tools/scoring/gaps.js';
+import { detectPromptLeakage } from '../tools/scoring/prompt-leakage.js';
 import { logDecision } from '../harness/decision-logger.js';
 import type { RunArtifactsOptions } from '../harness/run-options.js';
 import { finalizeGapAnalysisFromDraft } from './think-finalize.js';
@@ -23,6 +24,12 @@ export async function think(
   emitTelemetry(artifacts.telemetry, 'phase.think.started', sessionId, { mode });
 
   const gapBlock = analyzeGaps(observed.routes, observed.repo, mode, config);
+
+  // Merge prompt-leakage gaps from all scanned routes (additive signal).
+  const promptLeakageGaps = observed.routes.routes.flatMap((route) =>
+    detectPromptLeakage(route)
+  );
+
   const draft = {
     analyzedAt: gapBlock.analyzedAt,
     mode: gapBlock.mode,
@@ -30,7 +37,7 @@ export async function think(
     coveragePagesScanned: gapBlock.coveragePagesScanned,
     coverageBudgetExceeded: gapBlock.coverageBudgetExceeded,
     coverageWarning: gapBlock.coverageWarning,
-    gaps: gapBlock.gaps,
+    gaps: [...gapBlock.gaps, ...promptLeakageGaps],
   };
 
   const partialAnalysis = GapAnalysisSchema.parse({
