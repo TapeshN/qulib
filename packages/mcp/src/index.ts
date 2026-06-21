@@ -11,6 +11,7 @@
 
 import { createRequire } from 'node:module';
 import { isAbsolute, normalize, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
@@ -27,26 +28,16 @@ import {
   computeApiCoverage,
   computeReleaseConfidence,
   buildConfidenceInputFromQulib,
+  analyzeRunDiff,
+  loadGapAnalysisFile,
   detectPromptLeakage,
 } from '@qulib/core';
-import type { HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
+import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
 import { z } from 'zod';
 import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
 import { log } from './logger.js';
-
-function toolError(code: string, message: string, detail?: unknown): {
-  content: [{ type: 'text'; text: string }];
-} {
-  return {
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify({ error: { code, message, detail: detail ?? null } }, null, 2),
-      },
-    ],
-  };
-}
+import { toolError } from './tool-error.js';
 
 function stderrTelemetrySink(): TelemetrySink {
   return {
@@ -675,6 +666,70 @@ mcpServer.registerTool(
   }
 );
 
+function validateAbsoluteGapAnalysisPath(path: string): string {
+  const norm = normalize(path.trim());
+  if (!isAbsolute(norm)) {
+    throw new Error('from and to must be absolute paths');
+  }
+  return resolve(norm);
+}
+
+export async function handleQulibDiff(input: {
+  from: string;
+  to: string;
+  labelFrom?: string;
+  labelTo?: string;
+}): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    const fromPath = validateAbsoluteGapAnalysisPath(input.from);
+    const toPath = validateAbsoluteGapAnalysisPath(input.to);
+    log.info(`qulib_diff from=${fromPath} to=${toPath}`);
+    const fromGap = await loadGapAnalysisFile(fromPath);
+    const toGap = await loadGapAnalysisFile(toPath);
+    const result: AnalyzeDiffResult = analyzeRunDiff(fromGap, toGap, {
+      fromLabel: input.labelFrom,
+      toLabel: input.labelTo,
+    });
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('from and to must be absolute paths')) {
+      return toolError('QULIB_DIFF_INVALID_INPUT', 'from and to must be absolute paths');
+    }
+    log.error(`qulib_diff failed: ${msg}`);
+    return toolError('QULIB_DIFF_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+const QulibDiffInputSchema = z.object({
+  from: z
+    .string()
+    .describe('Absolute path to the baseline qulib report.json (the "before" analyze output)'),
+  to: z
+    .string()
+    .describe('Absolute path to the current qulib report.json (the "after" analyze output)'),
+  labelFrom: z
+    .string()
+    .optional()
+    .describe('Optional human label for the baseline report (default: the from path)'),
+  labelTo: z
+    .string()
+    .optional()
+    .describe('Optional human label for the current report (default: the to path)'),
+});
+
+mcpServer.registerTool(
+  'qulib_diff',
+  {
+    description:
+      'Structured diff between two analyze outputs — added findings, resolved findings, severity changes, and a confidence delta.',
+    inputSchema: QulibDiffInputSchema,
+  },
+  handleQulibDiff
+);
+
 // ---------------------------------------------------------------------------
 // qulib_detect_prompt_leakage — scan a page surface for exposed AI system prompts
 // ---------------------------------------------------------------------------
@@ -717,5 +772,15 @@ mcpServer.registerTool(
   }
 );
 
-const transport = new StdioServerTransport();
-await mcpServer.connect(transport);
+async function startMcpServer(): Promise<void> {
+  const transport = new StdioServerTransport();
+  await mcpServer.connect(transport);
+}
+
+const isDirectExecution =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (isDirectExecution) {
+  await startMcpServer();
+}

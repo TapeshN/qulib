@@ -142,6 +142,7 @@ The agent will call **`qulib_score_confidence`** for the fused release verdict, 
 | `qulib_score_automation` | Repo test-maturity from L1 (none) to L5 (advanced), across 6–7 scored dimensions. |
 | `qulib_score_api` | API endpoint discovery + test coverage: are your routes exercised? |
 | `qulib_scaffold_tests` | Ready-to-run Cypress spec + config, generated from a live crawl. |
+| **`qulib_diff`** | Structured diff between two analyze outputs — added findings, resolved findings, severity changes, and a confidence delta. |
 | `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
 | `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 
