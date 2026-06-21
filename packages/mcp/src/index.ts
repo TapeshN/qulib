@@ -30,6 +30,7 @@ import {
   buildConfidenceInputFromQulib,
   analyzeRunDiff,
   loadGapAnalysisFile,
+  detectPromptLeakage,
 } from '@qulib/core';
 import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -727,6 +728,48 @@ mcpServer.registerTool(
     inputSchema: QulibDiffInputSchema,
   },
   handleQulibDiff
+);
+
+// ---------------------------------------------------------------------------
+// qulib_detect_prompt_leakage — scan a page surface for exposed AI system prompts
+// ---------------------------------------------------------------------------
+
+const DetectPromptLeakageInputSchema = z.object({
+  path: z.string().describe('The URL path being scanned (used as the gap path label, e.g. "/api/chat")'),
+  bodySnippet: z
+    .string()
+    .max(8000)
+    .optional()
+    .describe(
+      'Up to 8000 characters of raw HTML body from the page. Include inline scripts, HTML comments, meta tags, and any visible text.'
+    ),
+  headers: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Response headers from the page request, as a flat string→string map.'),
+});
+
+mcpServer.registerTool(
+  'qulib_detect_prompt_leakage',
+  {
+    description:
+      'Scan a captured page surface (HTML body, inline scripts, HTML comments, meta tags, response headers) for signals that an AI system prompt or agent instructions are inadvertently exposed to the public. Conservative — requires corroborating signals to minimise false positives. Returns an array of prompt-leakage Gaps (may be empty when nothing is detected). Each Gap includes severity (critical/high/medium), evidence, and a remediation recommendation.',
+    inputSchema: DetectPromptLeakageInputSchema,
+  },
+  async ({ path, bodySnippet, headers }) => {
+    try {
+      log.info(`qulib_detect_prompt_leakage path=${path}`);
+      const gaps = detectPromptLeakage({ path, bodySnippet, headers });
+      log.info(`qulib_detect_prompt_leakage done gapsFound=${gaps.length}`);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ path, gapsFound: gaps.length, gaps }, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`qulib_detect_prompt_leakage failed: ${msg}`);
+      return toolError('QULIB_PROMPT_LEAKAGE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    }
+  }
 );
 
 async function startMcpServer(): Promise<void> {
