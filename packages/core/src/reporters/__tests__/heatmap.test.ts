@@ -77,7 +77,7 @@ test('golden: multi-page-mixed-severities — worst-first row order, correct gly
   assert.ok(rendered.includes('Per-page coverage heatmap'), 'rendered section must include header');
 });
 
-test('golden: single-page-all-dimensions — all 7 columns populated with correct glyphs', async () => {
+test('golden: single-page-all-dimensions — all 8 columns populated with correct glyphs', async () => {
   const fixture = await loadFixture('single-page-all-dimensions');
   const input = fixture['input'] as { gaps: Gap[] };
   const expected = fixture['expected'] as Record<string, unknown>;

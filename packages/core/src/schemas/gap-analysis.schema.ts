@@ -6,7 +6,7 @@ export const GapSchema = z.object({
   path: z.string(),
   severity: z.enum(['critical', 'high', 'medium', 'low']),
   reason: z.string(),
-  category: z.enum(['untested-route', 'a11y', 'console-error', 'broken-link', 'auth-surface', 'coverage', 'untested-api-endpoint']),
+  category: z.enum(['untested-route', 'a11y', 'console-error', 'broken-link', 'auth-surface', 'coverage', 'untested-api-endpoint', 'prompt-leakage']),
   description: z.string().optional(),
   recommendation: z.string().optional(),
 });

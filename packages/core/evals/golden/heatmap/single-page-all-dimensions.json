@@ -1,7 +1,7 @@
 {
   "id": "single-page-all-dimensions",
   "suite": "heatmap",
-  "description": "One page (/dashboard) has a gap in every tracked dimension. Verifies all 7 columns render and the correct worst-severity glyphs appear.",
+  "description": "One page (/dashboard) has a gap in every tracked dimension. Verifies all 8 columns render and the correct worst-severity glyphs appear.",
   "tags": ["no-llm", "deterministic", "heatmap", "all-dimensions"],
   "input": {
     "gaps": [
@@ -53,13 +53,20 @@
         "severity": "medium",
         "category": "auth-surface",
         "reason": "Auth boundary not tested"
+      },
+      {
+        "id": "g8",
+        "path": "/dashboard",
+        "severity": "high",
+        "category": "prompt-leakage",
+        "reason": "System instruction exposed in an inline script block"
       }
     ]
   },
   "expected": {
     "rowCount": 1,
     "firstRowPath": "/dashboard",
-    "dimensionCount": 7,
+    "dimensionCount": 8,
     "untestedGlyph": "🚨",
     "a11yGlyph": "🔴",
     "consoleGlyph": "🟠",

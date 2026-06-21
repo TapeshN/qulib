@@ -24,6 +24,7 @@ export const HEATMAP_DIMENSIONS = [
   'coverage',
   'untested-api-endpoint',
   'auth-surface',
+  'prompt-leakage',
 ] as const satisfies ReadonlyArray<Gap['category']>;
 
 export type HeatmapDimension = (typeof HEATMAP_DIMENSIONS)[number];
@@ -37,6 +38,7 @@ export const DIMENSION_LABELS: Record<HeatmapDimension, string> = {
   'coverage': 'Coverage',
   'untested-api-endpoint': 'API',
   'auth-surface': 'Auth',
+  'prompt-leakage': 'PromptLeak',
 };
 
 /** Severity order — higher index = worse. */

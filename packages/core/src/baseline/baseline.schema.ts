@@ -16,6 +16,7 @@ export const BaselineGapSchema = z.object({
     'auth-surface',
     'coverage',
     'untested-api-endpoint',
+    'prompt-leakage',
   ]),
   reason: z.string(),
 });
