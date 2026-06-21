@@ -1,0 +1,13 @@
+{
+  "id": "clean-route",
+  "suite": "prompt-leakage",
+  "description": "Same chat page structure without role-directive or confidentiality markers must produce zero prompt-leakage gaps.",
+  "tags": ["no-llm", "deterministic", "negative"],
+  "input": {
+    "path": "/chat",
+    "bodySnippet": "<!DOCTYPE html>\n<html>\n<head><title>Chat</title></head>\n<body>\n<script>\nvar AGENT_CONFIG = {\n  model: \"gpt-assistant\",\n  temperature: 0.7\n};\nwindow.__chat_init(AGENT_CONFIG);\n</script>\n<main>\n<p>Welcome to our support assistant.</p>\n<p>Our AI-powered chat can help with questions about products and services.</p>\n</main>\n</body>\n</html>"
+  },
+  "expected": {
+    "zeroGaps": true
+  }
+}

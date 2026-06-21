@@ -1,0 +1,13 @@
+{
+  "id": "ai-mention-only",
+  "suite": "prompt-leakage",
+  "description": "Marketing copy mentioning an AI assistant without a second corroborating marker must not trigger prompt-leakage detection.",
+  "tags": ["no-llm", "deterministic", "false-positive-guard"],
+  "input": {
+    "path": "/",
+    "bodySnippet": "<!DOCTYPE html>\n<html>\n<head><title>AI Product</title></head>\n<body>\n  <h1>Our AI-powered platform</h1>\n  <p>Try our new AI assistant today. Smart automation for your team.</p>\n  <p>We use artificial intelligence to help teams work smarter.</p>\n</body>\n</html>"
+  },
+  "expected": {
+    "zeroGaps": true
+  }
+}

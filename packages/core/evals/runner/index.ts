@@ -27,6 +27,7 @@ import { runScoreAutomationCase } from './run-score-automation.js';
 import { runConfidenceCase } from './run-confidence.js';
 import { runEvidenceCase } from './run-evidence.js';
 import { runAnalyzeDiffCase } from './run-analyze-diff.js';
+import { runPromptLeakageCase } from './run-prompt-leakage.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
 import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
 
@@ -64,6 +65,7 @@ export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise
     else if (suite === 'score-automation') results.push(await runScoreAutomationCase(c, opts.judge));
     else if (suite === 'evidence') results.push(await runEvidenceCase(c, opts.judge));
     else if (suite === 'analyze-diff') results.push(await runAnalyzeDiffCase(c));
+    else if (suite === 'prompt-leakage') results.push(await runPromptLeakageCase(c));
     else results.push(await runConfidenceCase(c, opts.judge));
   }
   const finishedAt = new Date().toISOString();
@@ -109,7 +111,8 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
         next === 'score-automation' ||
         next === 'confidence' ||
         next === 'evidence' ||
-        next === 'analyze-diff'
+        next === 'analyze-diff' ||
+        next === 'prompt-leakage'
       ) {
         suites.push(next);
         i += 1;
