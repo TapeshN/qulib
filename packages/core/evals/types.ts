@@ -21,7 +21,7 @@
 export type EvalOutcome = 'PASS' | 'WARN' | 'FAIL' | 'SKIP';
 
 /** Which qulib surface a golden case exercises. One suite per CLI under eval. */
-export type EvalSuite = 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff';
+export type EvalSuite = 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
 
 /**
  * A single golden case: an input the CLI is run against plus the expectation the
@@ -32,7 +32,7 @@ export type EvalSuite = 'scaffold' | 'score-automation' | 'confidence' | 'eviden
 export interface EvalCase {
   /** Stable id, kebab-case, unique within a suite. e.g. "scaffold-static-marketing". */
   id: string;
-  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff';
+  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
   /** One-line human description of what this case probes. */
   description: string;
   /** Suite-specific input (e.g. { url, framework } for scaffold). */
@@ -97,7 +97,7 @@ export interface EvalRunSummary {
 /** One line appended to evals/ledger.jsonl per run — the self-optimizing maturity loop reads this. */
 export interface EvalLedgerEntry {
   ts: string;
-  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff';
+  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
   outcome: EvalOutcome;
   score: number;
   counts: EvalRunSummary['counts'];

@@ -1,0 +1,19 @@
+{
+  "id": "leaky-header",
+  "suite": "prompt-leakage",
+  "description": "An x-system-prompt response header must produce exactly one critical prompt-leakage gap.",
+  "tags": ["no-llm", "deterministic", "header-leak"],
+  "input": {
+    "path": "/api/chat",
+    "headers": {
+      "content-type": "application/json",
+      "x-system-prompt": "You are a helpful assistant. Answer questions about our products.",
+      "cache-control": "no-store"
+    }
+  },
+  "expected": {
+    "gapsLength": 1,
+    "hasCategory": "prompt-leakage",
+    "minSeverity": "critical"
+  }
+}
