@@ -9,7 +9,8 @@
     "none",
     "public",
     "click-reveal",
-    "spa"
+    "spa",
+    "prompt-leakage"
   ],
   "sites": [
     {
@@ -129,6 +130,28 @@
       "coverage_tags": ["spa"],
       "expected": {
         "hasAuth": true
+      }
+    },
+    {
+      "id": "huggingface-chat",
+      "url": "https://huggingface.co/chat/",
+      "name": "Hugging Face Chat",
+      "rationale": "Public AI chat landing page; exercises prompt-leakage detection on a consumer assistant surface with no login wall.",
+      "coverage_tags": ["prompt-leakage", "none"],
+      "expected": {
+        "hasAuth": false,
+        "leaksPrompt": false
+      }
+    },
+    {
+      "id": "you-com",
+      "url": "https://you.com/",
+      "name": "You.com",
+      "rationale": "Public AI search assistant homepage; readable without credentials; expected to pass prompt-leakage scan.",
+      "coverage_tags": ["prompt-leakage", "none"],
+      "expected": {
+        "hasAuth": false,
+        "leaksPrompt": false
       }
     }
   ]

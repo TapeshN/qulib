@@ -5,6 +5,7 @@ export const GoldenSiteExpectedSchema = z
   .object({
     hasAuth: z.boolean().optional(),
     type: z.enum(['none', 'form-login', 'oauth', 'magic-link', 'unknown']).optional(),
+    leaksPrompt: z.boolean().optional(),
   })
   .strict();
 
