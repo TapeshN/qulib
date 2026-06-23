@@ -58,6 +58,11 @@ export function formatConfidenceReport(rc: ReleaseConfidence, subjectRef: string
     for (const b of rc.blockers) lines.push(`    • ${b}`);
   }
 
+  if (rc.honestyNotes.length > 0) {
+    lines.push('  honesty notes:');
+    for (const n of rc.honestyNotes) lines.push(`    • ${n}`);
+  }
+
   lines.push('  contributions:');
   for (const c of rc.contributions) {
     const scoreLabel = c.score !== null ? `${c.score}/100` : 'n/a';
@@ -78,11 +83,6 @@ export function formatConfidenceReport(rc: ReleaseConfidence, subjectRef: string
   if (rc.recommendedNextChecks.length > 0) {
     lines.push('  recommended next checks:');
     for (const r of rc.recommendedNextChecks) lines.push(`    • ${r}`);
-  }
-
-  if (rc.honestyNotes.length > 0) {
-    lines.push('  honesty notes:');
-    for (const n of rc.honestyNotes) lines.push(`    • ${n}`);
   }
 
   return lines.join('\n');

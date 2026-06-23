@@ -27,6 +27,7 @@ import type {
   ConfidenceInput,
   ConfidencePolicy,
   EvidenceItem,
+  EvidenceSourceKind,
   ReleaseConfidence,
   ConfidenceVerdict,
 } from '../../schemas/confidence.schema.js';
@@ -52,6 +53,22 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
   'doc-health': 0.0,
   'human-approval': 0.0,
   'agent-evidence': 0.0,
+};
+
+/** Model sources with non-zero default weight — the full evidence model for partial-run disclosure. */
+const MODEL_SOURCES: EvidenceSourceKind[] = (
+  Object.entries(DEFAULT_WEIGHTS)
+    .filter(([, weight]) => weight > 0)
+    .map(([source]) => source) as EvidenceSourceKind[]
+);
+
+const UNCOLLECTED_NEXT_CHECKS: Record<string, string> = {
+  'live-app-quality': 'Run analyze_app against the deployed URL to collect live-app quality evidence.',
+  'accessibility': 'Run analyze_app against the deployed URL to evaluate accessibility.',
+  'crawl-coverage': 'Run analyze_app against the deployed URL to measure crawl coverage.',
+  'test-automation': 'Run qulib score-automation against the repo to score test automation maturity.',
+  'api-coverage': 'Run qulib score-api against the repo to measure API test coverage.',
+  'ci-results': 'Ingest CI status from your pipeline (ci-results source not yet wired).',
 };
 
 interface ResolvedPolicy {
@@ -92,6 +109,115 @@ function buildHonestyNote(item: EvidenceItem): string {
     return `${base} ran but returned a null score${item.reason ? ': ' + item.reason : ''}.`;
   }
   return `${base} has partial or degraded signal.`;
+}
+
+function resolveModelWeight(source: string, policyWeights: Record<string, number> | undefined): number {
+  if (policyWeights && source in policyWeights) {
+    return policyWeights[source]!;
+  }
+  return DEFAULT_WEIGHTS[source] ?? 0;
+}
+
+function inferUncollectedReason(
+  source: string,
+  presentSources: Set<string>
+): string {
+  const hasAnalyzeEvidence =
+    presentSources.has('live-app-quality') ||
+    presentSources.has('accessibility') ||
+    presentSources.has('crawl-coverage');
+  const hasRepoEvidence =
+    presentSources.has('test-automation') || presentSources.has('api-coverage');
+
+  switch (source) {
+    case 'live-app-quality':
+    case 'accessibility':
+    case 'crawl-coverage':
+      return hasAnalyzeEvidence
+        ? 'not collected in this confidence run'
+        : 'app-runtime analysis not run — no url provided';
+    case 'test-automation':
+    case 'api-coverage':
+      return hasRepoEvidence
+        ? 'not collected in this confidence run'
+        : 'repo scoring not run — no repo provided';
+    case 'ci-results':
+      return 'CI status not ingested — no ci-results source wired';
+    default:
+      return 'not collected';
+  }
+}
+
+function buildUncollectedHonestyNote(source: string, reason: string, rawWeight: number): string {
+  const pct = Math.round(rawWeight * 100);
+  return `'${source}' not collected (${pct}% raw model weight): ${reason}.`;
+}
+
+function buildCoverageSummaryNote(
+  scoredSourceCount: number,
+  modelSourceCount: number,
+  rawWeightScored: number,
+  rawWeightModel: number
+): string {
+  const coveragePct = rawWeightModel > 0 ? Math.round((rawWeightScored / rawWeightModel) * 100) : 0;
+  return (
+    `Partial evidence: verdict computed on ${scoredSourceCount} of ${modelSourceCount} model sources ` +
+    `(~${coveragePct}% of raw model weight). Collected weights were renormalized to 100% for the score.`
+  );
+}
+
+function isPositiveEvidence(text: string): boolean {
+  if (/appear covered/i.test(text)) return true;
+  if (/Automation maturity: L\d/i.test(text)) return true;
+  if (/No a11y gaps/i.test(text)) return true;
+  if (/^L\d —/i.test(text)) return true;
+  if (/^releaseConfidence=/i.test(text)) return true;
+  if (/^coverageScore=/i.test(text)) return true;
+  if (/^No .* gaps detected/i.test(text)) return true;
+  return false;
+}
+
+function extractItemRisks(item: EvidenceItem, passThreshold: number): string[] {
+  const risks: string[] = [];
+
+  if (item.blocking) {
+    if (item.reason) risks.push(item.reason);
+    risks.push(...item.evidence.filter((entry) => !isPositiveEvidence(entry)));
+    return risks;
+  }
+
+  const applicability = item.applicability ?? 'applicable';
+  if (applicability === 'unknown' || item.score === null) {
+    if (item.reason) risks.push(`${item.source}: ${item.reason}`);
+    risks.push(
+      ...item.evidence.filter(
+        (entry) => !isPositiveEvidence(entry) && /(gap|critical|high|untested|uncovered|missing|block|fail|warning|auth|blocked)/i.test(entry)
+      )
+    );
+    return risks;
+  }
+
+  if (applicability === 'not_applicable') {
+    if (item.reason) risks.push(`${item.source}: ${item.reason}`);
+    return risks;
+  }
+
+  if (item.score !== null && item.score < passThreshold) {
+    risks.push(...item.evidence.filter((entry) => !isPositiveEvidence(entry)));
+    if (item.score < passThreshold) {
+      risks.push(`${item.source} scored ${item.score}/100 — below pass threshold (${passThreshold}).`);
+    }
+  } else {
+    risks.push(
+      ...item.evidence.filter(
+        (entry) =>
+          !isPositiveEvidence(entry) &&
+          /(gap|critical|high|untested|uncovered|missing|block|fail|warning|penalty|below)/i.test(entry)
+      )
+    );
+  }
+
+  return risks;
 }
 
 /**
@@ -178,12 +304,28 @@ export function computeReleaseConfidence(input: ConfidenceInput): ReleaseConfide
   // Level / label from shared ladder.
   const { level, label } = scoreLevel(confidenceScore ?? 0);
 
-  // Honesty notes — one per degraded/excluded source.
+  const presentSources = new Set(input.evidence.map((item) => item.source));
+  const uncollectedSources = MODEL_SOURCES.filter((source) => !presentSources.has(source));
+  const modelWeightSum = MODEL_SOURCES.reduce(
+    (sum, source) => sum + resolveModelWeight(source, policy.weights),
+    0
+  );
+
+  // Honesty notes — partial-run summary first, then uncollected, then degraded/excluded collected sources.
   const honestyNotes: string[] = [];
+  if (uncollectedSources.length > 0 || (weightSum > 0 && weightSum < modelWeightSum - 0.001)) {
+    honestyNotes.push(
+      buildCoverageSummaryNote(applicable.length, MODEL_SOURCES.length, weightSum, modelWeightSum)
+    );
+  }
+  for (const source of uncollectedSources) {
+    const rawWeight = resolveModelWeight(source, policy.weights);
+    const reason = inferUncollectedReason(source, presentSources);
+    honestyNotes.push(buildUncollectedHonestyNote(source, reason, rawWeight));
+  }
   for (const item of excluded) {
     honestyNotes.push(buildHonestyNote(item));
   }
-  // Also note any blocking items that aren't in the excluded set.
   for (const item of blockingItems) {
     if ((item.applicability ?? 'applicable') === 'applicable' && item.score !== null) {
       honestyNotes.push(
@@ -192,19 +334,36 @@ export function computeReleaseConfidence(input: ConfidenceInput): ReleaseConfide
     }
   }
 
-  // Top risks — merge evidence across sources, severity-sorted by position.
-  const allRisks: string[] = [
-    ...blockingItems.flatMap((item) => item.evidence),
-    ...input.evidence
-      .filter((item) => (item.applicability ?? 'applicable') === 'applicable')
-      .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
-      .flatMap((item) => item.evidence),
-  ];
-  const topRisks = [...new Set(allRisks)].slice(0, limit);
+  // Top risks — gaps and blockers only; never surface coverage successes as risks.
+  const allRisks: string[] = [];
+  for (const source of uncollectedSources) {
+    const rawWeight = resolveModelWeight(source, policy.weights);
+    if (rawWeight >= 0.10) {
+      const reason = inferUncollectedReason(source, presentSources);
+      allRisks.push(
+        `Uncollected high-weight evidence: ${source} (${Math.round(rawWeight * 100)}% raw weight) — ${reason}.`
+      );
+    }
+  }
+  for (const item of blockingItems) {
+    allRisks.push(...extractItemRisks(item, policy.passThreshold));
+  }
+  for (const item of [...excluded].sort((a, b) => resolveWeight(a, policy.weights) - resolveWeight(b, policy.weights))) {
+    allRisks.push(...extractItemRisks(item, policy.passThreshold));
+  }
+  for (const item of [...applicable].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))) {
+    allRisks.push(...extractItemRisks(item, policy.passThreshold));
+  }
+  const topRisks = [...new Set(allRisks.filter(Boolean))].slice(0, limit);
 
-  // Recommended next checks — merge and deduplicate.
-  const allRecs: string[] = input.evidence.flatMap((item) => item.recommendations ?? []);
-  const recommendedNextChecks = [...new Set(allRecs)].slice(0, limit);
+  // Recommended next checks — concrete actions for uncollected sources plus per-item recommendations.
+  const allRecs: string[] = [];
+  for (const source of uncollectedSources) {
+    const rec = UNCOLLECTED_NEXT_CHECKS[source];
+    if (rec) allRecs.push(rec);
+  }
+  allRecs.push(...input.evidence.flatMap((item) => item.recommendations ?? []));
+  const recommendedNextChecks = [...new Set(allRecs.filter(Boolean))].slice(0, limit);
 
   const result = {
     schemaVersion: 1 as const,

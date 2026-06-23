@@ -96,6 +96,35 @@ test('runConfidence --repo: api-coverage contribution present (may be not_applic
   assert.ok(apiContrib, 'api-coverage contribution should be present for repo input');
 });
 
+test('runConfidence --repo: partial run discloses uncollected sources in honestyNotes', async () => {
+  const { rc } = await confidence({ repo: MATURITY_REPO });
+  assert.ok(rc.honestyNotes.length > 0, 'repo-only partial runs must populate honestyNotes');
+  assert.ok(
+    rc.honestyNotes.some((n) => /Partial evidence:/i.test(n)),
+    'honestyNotes must include partial-evidence summary'
+  );
+  assert.ok(
+    rc.honestyNotes.some((n) => /live-app-quality/i.test(n)),
+    'honestyNotes must name uncollected app-runtime source'
+  );
+});
+
+test('runConfidence --repo: topRisks excludes automation maturity success strings', async () => {
+  const { rc } = await confidence({ repo: MATURITY_REPO });
+  assert.ok(
+    !rc.topRisks.some((r) => /Automation maturity: L\d/i.test(r)),
+    'topRisks must not list automation maturity achievements as risks'
+  );
+});
+
+test('runConfidence --repo: recommendedNextChecks suggests gathering skipped evidence', async () => {
+  const { rc } = await confidence({ repo: MATURITY_REPO });
+  assert.ok(
+    rc.recommendedNextChecks.some((r) => /analyze_app/i.test(r)),
+    'recommendedNextChecks must suggest analyze_app when app-runtime sources were skipped'
+  );
+});
+
 test('runConfidence --repo human report includes verdict and score', async () => {
   const { out } = await confidence({ repo: MATURITY_REPO });
   assert.match(out, /Release confidence for/i);
