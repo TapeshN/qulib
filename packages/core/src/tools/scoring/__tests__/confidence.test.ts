@@ -240,3 +240,83 @@ test('scoreFormula is documented on the result', () => {
   assert.ok(rc.scoreFormula, 'scoreFormula present');
   assert.match(rc.scoreFormula, /applicable/i);
 });
+
+// ---------------------------------------------------------------------------
+// G. Partial-run honesty (repoPath-only / subset of model sources)
+// ---------------------------------------------------------------------------
+
+function repoOnlyPartialInput(): ConfidenceInput {
+  const items = [
+    makeItem('test-automation', 96, 0.22, {
+      evidence: ['Automation maturity: L5 — advanced QA automation (score 96)'],
+      recommendations: ['Balance component vs E2E Cypress tests so critical flows stay fast in CI.'],
+      collector: { tool: 'qulib_score_automation', inputRef: '/repo/example' },
+    }),
+    makeItem('api-coverage', 100, 0.15, {
+      evidence: ['32/32 API endpoints appear covered by test files.'],
+      recommendations: [],
+      collector: { tool: 'qulib_score_api' },
+    }),
+  ];
+  return { subject: { kind: 'repo', ref: '/repo/example', tenantId: 'test' }, evidence: items };
+}
+
+test('partial model coverage: score/verdict/contributions unchanged (honesty-only projection)', () => {
+  const rc = computeReleaseConfidence(repoOnlyPartialInput());
+  const weightSum = 0.22 + 0.15;
+  const expectedScore = Math.round((96 * 0.22 + 100 * 0.15) / weightSum);
+  assert.equal(rc.confidenceScore, expectedScore);
+  assert.equal(rc.verdict, 'ship');
+  assert.equal(rc.contributions.length, 2);
+  const testAuto = rc.contributions.find((c) => c.source === 'test-automation');
+  assert.ok(testAuto);
+  assert.equal(testAuto!.score, 96);
+  assert.ok(Math.abs(testAuto!.effectiveWeight - 0.22 / weightSum) < 0.001);
+  const api = rc.contributions.find((c) => c.source === 'api-coverage');
+  assert.ok(api);
+  assert.equal(api!.score, 100);
+  assert.ok(Math.abs(api!.effectiveWeight - 0.15 / weightSum) < 0.001);
+});
+
+test('partial model coverage: honestyNotes discloses uncollected sources and coverage fraction', () => {
+  const rc = computeReleaseConfidence(repoOnlyPartialInput());
+  assert.ok(rc.honestyNotes.length > 0, 'honestyNotes must not be empty on partial runs');
+  assert.ok(
+    rc.honestyNotes.some((n) => /Partial evidence:/i.test(n) && /of 6 model sources/i.test(n)),
+    'honestyNotes must state N-of-M source coverage'
+  );
+  assert.ok(
+    rc.honestyNotes.some((n) => /live-app-quality/i.test(n) && /not collected/i.test(n)),
+    'honestyNotes must name an uncollected source'
+  );
+  assert.ok(
+    rc.honestyNotes.some((n) => /raw model weight/i.test(n)),
+    'honestyNotes must disclose raw weight coverage'
+  );
+});
+
+test('partial model coverage: topRisks excludes coverage successes and surfaces gaps', () => {
+  const rc = computeReleaseConfidence(repoOnlyPartialInput());
+  assert.ok(rc.topRisks.length > 0, 'topRisks should list partial-run risks');
+  assert.ok(
+    !rc.topRisks.some((r) => /appear covered/i.test(r)),
+    'topRisks must not treat endpoint coverage success as a risk'
+  );
+  assert.ok(
+    !rc.topRisks.some((r) => /Automation maturity: L5/i.test(r)),
+    'topRisks must not treat automation maturity success as a risk'
+  );
+  assert.ok(
+    rc.topRisks.some((r) => /Uncollected high-weight evidence/i.test(r)),
+    'topRisks must flag uncollected high-weight sources'
+  );
+});
+
+test('partial model coverage: recommendedNextChecks populated when sources skipped', () => {
+  const rc = computeReleaseConfidence(repoOnlyPartialInput());
+  assert.ok(rc.recommendedNextChecks.length > 0, 'recommendedNextChecks must not be empty');
+  assert.ok(
+    rc.recommendedNextChecks.some((r) => /analyze_app/i.test(r)),
+    'recommendedNextChecks must suggest running analyze_app for uncollected app-runtime sources'
+  );
+});
