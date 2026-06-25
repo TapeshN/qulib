@@ -1,0 +1,53 @@
+{
+  "id": "wsr-deterministic-repeat",
+  "suite": "provenance",
+  "description": "Mixed grades — WSR must be identical on repeated runs (determinism golden).",
+  "tags": ["no-llm", "deterministic"],
+  "input": {
+    "subject": { "kind": "pr", "ref": "42", "tenantId": "default" },
+    "evidence": [
+      {
+        "source": "test-automation",
+        "score": 75,
+        "weight": 0.4,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["L3 maturity."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T11:00:00.000Z",
+        "collector": { "tool": "qulib.score-automation" }
+      },
+      {
+        "source": "deploy-metadata",
+        "score": 70,
+        "weight": 0.3,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["PR approved."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T11:00:00.000Z",
+        "collector": {
+          "tool": "qulib.pr-metadata-adapter",
+          "inputRef": "https://github.com/example/repo/pull/42"
+        }
+      },
+      {
+        "source": "agent-evidence",
+        "score": 60,
+        "weight": 0.3,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Agent says looks good."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T11:00:00.000Z",
+        "collector": { "tool": "cursor-agent" }
+      }
+    ],
+    "referenceTime": "2026-06-25T12:00:00.000Z"
+  },
+  "expected": {
+    "wsrExact": 0.7,
+    "shipGate": "ship",
+    "rubricVersion": "provenance-v1"
+  }
+}

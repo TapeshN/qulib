@@ -1,0 +1,40 @@
+{
+  "id": "wsr-claimed-no-ship",
+  "suite": "provenance",
+  "description": "Mostly bare assertions with one witnessed item — WSR below 0.6 threshold, shipGate=no-ship.",
+  "tags": ["no-llm", "deterministic", "claimed", "ship-gate"],
+  "input": {
+    "subject": { "kind": "release", "ref": "v1.0.1", "tenantId": "default" },
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 85,
+        "weight": 0.2,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Scan complete."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T10:00:00.000Z",
+        "collector": { "tool": "qulib.analyze" }
+      },
+      {
+        "source": "human-approval",
+        "score": 100,
+        "weight": 0.8,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["PM signed off in Slack."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T10:00:00.000Z",
+        "collector": { "tool": "bare-assertion" }
+      }
+    ],
+    "policy": { "wsrShipThreshold": 0.6 },
+    "referenceTime": "2026-06-25T12:00:00.000Z"
+  },
+  "expected": {
+    "shipGate": "no-ship",
+    "wsrMax": 0.6,
+    "rubricVersion": "provenance-v1"
+  }
+}
