@@ -13,6 +13,8 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
+**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.10.0** are published on npm. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
+
 ---
 
 ## What Qulib does
@@ -143,6 +145,7 @@ The agent will call **`qulib_score_confidence`** for the fused release verdict, 
 | `qulib_score_api` | API endpoint discovery + test coverage: are your routes exercised? |
 | `qulib_scaffold_tests` | Ready-to-run Cypress spec + config, generated from a live crawl. |
 | **`qulib_diff`** | Structured diff between two analyze outputs — added findings, resolved findings, severity changes, and a confidence delta. |
+| **`qulib_detect_prompt_leakage`** | Scan a page surface for signals that AI system prompts or agent instructions are inadvertently exposed publicly. |
 | `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
 | `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 
@@ -259,11 +262,15 @@ qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
 
 ### The 5 views (data model)
 
-1. **Release Confidence** — the fused score + verdict (available now; the `computeReleaseConfidence` output)
-2. **Delivery Traffic** — time-series of verdicts per subject (schema + `diffConfidence` helper; persistence P4)
-3. **Inbox** — human-judgment items: blockers, unknown signals, approvals needed (schema + `deriveInbox`; queue P4)
-4. **Replay** — provenance trace: how each score was computed and by which tool (`buildReplay`)
-5. **Audit Trail** — tamper-evident append-only ledger entry per verdict (`toAuditEntry`; sink P4)
+| View | Status | Notes |
+|---|---|---|
+| **Release Confidence** | **Shipped** | Fused score + verdict via `computeReleaseConfidence` / `qulib_score_confidence` |
+| **Replay** | **Shipped** | Provenance trace — how each score was computed and by which tool (`buildReplay`) |
+| **Delivery Traffic** | Planned | Time-series of verdicts per subject (`diffConfidence` helper exists; persistence planned for 1.0) |
+| **Inbox** | Planned | Human-judgment queue for blockers and approvals (`deriveInbox` helper exists; workflow planned for 1.0) |
+| **Audit Trail** | Planned | Tamper-evident ledger entry per verdict (`toAuditEntry` helper exists; sink planned for 1.0) |
+
+The forward roadmap centers on **trust**: witnessed delivery state, durable provenance, and later **agent-action / skill gating** so orchestrators can safely act on ship verdicts. Details: [`roadmap.json`](./roadmap.json).
 
 **Honesty over fake confidence:** sources that are `not_applicable`, `unknown`, or `null` are excluded from the denominator but reported in `contributions` and `honestyNotes`. An auth wall or empty corpus forces `verdict=block` — qulib never silently passes an unevaluated surface.
 
@@ -349,6 +356,7 @@ A more complete dogfood example using real notquality.com signals is at [`packag
 
 - [Core (CLI, API, Cost Intelligence)](./packages/core/README.md)
 - [MCP server](./packages/mcp/README.md)
+- [Public roadmap](./roadmap.json) — shipped tools and planned trust / release-confidence milestones
 - [Source map](./docs/source-map.md) — new contributors: start here to navigate the codebase
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)

@@ -22,4 +22,3 @@ datasets/*
 !datasets/golden/
 datasets/golden/*
 !datasets/golden/manifest.json
-roadmap.json

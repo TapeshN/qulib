@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "lastUpdated": "2026-06-22",
+  "positioning": "Release confidence for deployed web apps — the one question: should this ship?",
+  "version": {
+    "current": "0.10.0",
+    "published": "0.10.0",
+    "target": "1.0.0"
+  },
+  "direction": {
+    "summary": "Ship honest release-confidence evidence today; deepen trust with provenance, witnessed state, and later agent-action gating.",
+    "northStar": "Every ship verdict should be explainable, replayable, and safe to act on in CI and agent workflows."
+  },
+  "shipped": [
+    {
+      "id": "live-app-analysis",
+      "title": "Live-app gap analysis",
+      "summary": "Crawl a deployed URL, run deterministic checks (a11y, links, console, coverage), and emit structured gap reports.",
+      "tools": ["qulib_analyze_app", "analyze_app"],
+      "shippedIn": "0.3.0"
+    },
+    {
+      "id": "auth-intelligence",
+      "title": "Auth detection and exploration",
+      "summary": "Detect sign-in patterns and enumerate auth paths before scanning authenticated surfaces.",
+      "tools": ["qulib_detect_auth", "detect_auth", "qulib_explore_auth", "explore_auth"],
+      "shippedIn": "0.5.0"
+    },
+    {
+      "id": "automation-maturity",
+      "title": "Repo automation maturity scoring",
+      "summary": "Score test-automation maturity from a local checkout without a live crawl.",
+      "tools": ["qulib_score_automation"],
+      "shippedIn": "0.9.0"
+    },
+    {
+      "id": "api-coverage",
+      "title": "API endpoint coverage scoring",
+      "summary": "Discover API routes in a repo and score how well they are exercised by tests.",
+      "tools": ["qulib_score_api"],
+      "shippedIn": "0.8.0"
+    },
+    {
+      "id": "release-confidence",
+      "title": "Fused release-confidence verdict",
+      "summary": "Combine live-app, automation, and API evidence into one ship / caution / hold / block verdict with honesty notes.",
+      "tools": ["qulib_score_confidence"],
+      "shippedIn": "0.9.0"
+    },
+    {
+      "id": "test-scaffolding",
+      "title": "Crawl-driven test scaffolding",
+      "summary": "Generate ready-to-run Cypress specs and config from a live URL crawl.",
+      "tools": ["qulib_scaffold_tests"],
+      "shippedIn": "0.9.0"
+    },
+    {
+      "id": "analyze-diff",
+      "title": "Structured analyze diff and baseline drift",
+      "summary": "Diff two analyze outputs for added/resolved gaps, severity changes, and confidence delta. CLI baseline save/list/compare plus MCP diff.",
+      "tools": ["qulib_diff"],
+      "shippedIn": "0.10.0"
+    },
+    {
+      "id": "prompt-leakage",
+      "title": "Prompt and instruction exposure detection",
+      "summary": "Scan page surfaces for signals that AI system prompts or agent instructions are publicly exposed.",
+      "tools": ["qulib_detect_prompt_leakage"],
+      "shippedIn": "0.10.0"
+    },
+    {
+      "id": "ci-gate",
+      "title": "GitHub Actions release gate",
+      "summary": "Composite action and reusable workflow that map agent-summary gate verdicts to CI pass/fail with artifact upload.",
+      "tools": [],
+      "shippedIn": "0.9.0"
+    },
+    {
+      "id": "confidence-views-core",
+      "title": "Confidence data model — release verdict and replay",
+      "summary": "Release-confidence output and provenance replay trace are available programmatically; delivery traffic, inbox, and audit sinks are planned.",
+      "tools": [],
+      "shippedIn": "0.9.0"
+    }
+  ],
+  "planned": [
+    {
+      "id": "witnessed-delivery-traffic",
+      "title": "Witnessed delivery traffic",
+      "summary": "Persist a time-series of release-confidence verdicts per subject so drift and regressions are visible across deploys.",
+      "targetRelease": "1.0.0",
+      "theme": "trust"
+    },
+    {
+      "id": "human-inbox",
+      "title": "Human judgment inbox",
+      "summary": "Queue blockers, unknown signals, and approval items derived from confidence output for operator review.",
+      "targetRelease": "1.0.0",
+      "theme": "trust"
+    },
+    {
+      "id": "audit-trail-sink",
+      "title": "Tamper-evident audit trail",
+      "summary": "Append-only ledger entries for each verdict so ship decisions carry durable provenance.",
+      "targetRelease": "1.0.0",
+      "theme": "trust"
+    },
+    {
+      "id": "agent-evidence",
+      "title": "Agent evidence ingestion",
+      "summary": "Let external agentic decisions feed the same confidence aggregator as first-class evidence without changing the math.",
+      "targetRelease": "1.0.0",
+      "theme": "trust"
+    },
+    {
+      "id": "agent-action-gating",
+      "title": "Agent-action and skill gating",
+      "summary": "Trust tiers for MCP tools — read-only discovery vs write-capable actions — so orchestrators can gate risky agent steps.",
+      "targetRelease": "post-1.0.0",
+      "theme": "trust"
+    },
+    {
+      "id": "golden-dataset-gate",
+      "title": "Golden dataset regression gate",
+      "summary": "15+ public sites across coverage tags with zero regressions in the final pre-1.0 sweep.",
+      "targetRelease": "1.0.0",
+      "theme": "release-confidence"
+    },
+    {
+      "id": "auth-intelligence-v1",
+      "title": "Full auth intelligence for 1.0",
+      "summary": "Harden auth exploration, login automation, and storage-state flows for production agent and CI use.",
+      "targetRelease": "1.0.0",
+      "theme": "release-confidence"
+    }
+  ]
+}
