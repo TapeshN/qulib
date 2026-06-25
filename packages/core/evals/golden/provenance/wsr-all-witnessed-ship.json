@@ -1,0 +1,42 @@
+{
+  "id": "wsr-all-witnessed-ship",
+  "suite": "provenance",
+  "description": "Two high-grade qulib/CI evidence items — WSR=1.0, shipGate=ship.",
+  "tags": ["no-llm", "deterministic", "witnessed"],
+  "input": {
+    "subject": { "kind": "release", "ref": "v1.0.0", "tenantId": "default" },
+    "evidence": [
+      {
+        "source": "live-app-quality",
+        "score": 90,
+        "weight": 0.5,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Live app scan passed."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T10:00:00.000Z",
+        "collector": { "tool": "qulib.analyze" }
+      },
+      {
+        "source": "ci-results",
+        "score": 95,
+        "weight": 0.5,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["42/42 tests passed."],
+        "recommendations": [],
+        "collectedAt": "2026-06-25T10:00:00.000Z",
+        "collector": {
+          "tool": "qulib.ci-results-adapter",
+          "inputRef": "https://github.com/example/repo/actions/runs/99"
+        }
+      }
+    ],
+    "referenceTime": "2026-06-25T12:00:00.000Z"
+  },
+  "expected": {
+    "wsr": 1,
+    "shipGate": "ship",
+    "rubricVersion": "provenance-v1"
+  }
+}
