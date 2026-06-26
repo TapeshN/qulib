@@ -210,15 +210,70 @@ export const CONFIDENCE_NARRATIVE_RUBRIC_V1: Rubric = {
   criticalFloor: 0.20,
 };
 
+/**
+ * judgment-v1 — grades an agent's pivotal coding fork decision against the least-code
+ * ladder + hard-stop discipline. Deterministic checks gate ladder/verdict/hard-stops;
+ * the judge grades rationale quality, deferral honesty, and output discipline only.
+ */
+export const JUDGMENT_RUBRIC_V1: Rubric = {
+  suite: 'judgment',
+  version: 'judgment-v1',
+  summary:
+    'Agent chose the lowest sufficient ladder rung, preserved hard-stops, named deferrals honestly, and kept explanation ≤ diff.',
+  dimensions: [
+    {
+      key: 'ladder-rung-correct',
+      title: 'Ladder rung correct',
+      guidance:
+        'Did the agent choose the lowest sufficient rung on the least-code ladder (needed? → reuse → stdlib → dep → one-liner → minimal new code)? ' +
+        'Score 1.0 if the rationale shows they stopped at the correct rung; 0.5 if one rung too high but defensible; ' +
+        '0.0 if ≥2 rungs too high (over-engineered or skipped obvious reuse/stdlib).',
+      weight: 0.35,
+    },
+    {
+      key: 'hard-stop-preserved',
+      title: 'Hard-stop preserved',
+      guidance:
+        'At trust boundaries, were validation, auth/permission checks, error handling that prevents data loss, and accessibility basics preserved? ' +
+        'Score 1.0 if all required hard-stops are explicitly preserved; 0.0 if any were simplified away.',
+      weight: 0.35,
+      critical: true,
+    },
+    {
+      key: 'deferral-honesty',
+      title: 'Deferral honesty',
+      guidance:
+        'If scope was deliberately deferred, did the agent name the ceiling AND the upgrade trigger in an auditable way? ' +
+        'Score 1.0 if deferral is named with both ceiling + trigger, or N/A when nothing deferred; 0.5 if vague deferral; 0.0 if silent scope cut.',
+      weight: 0.15,
+    },
+    {
+      key: 'output-discipline',
+      title: 'Output discipline',
+      guidance:
+        'Is the explanation no longer than the diff it describes? Score 1.0 if concise and proportional; 0.5 if slightly padded; 0.0 if explanation materially exceeds the diff.',
+      weight: 0.15,
+    },
+  ],
+  thresholds: { passAt: 0.8, warnAt: 0.6 },
+  criticalFloor: 0.2,
+};
+
 /** Registry of the CURRENT pinned rubric per suite. Flip these to bump a version. */
-export const RUBRICS: Record<EvalSuite, Rubric> = {
+export const RUBRICS: Partial<Record<EvalSuite, Rubric>> = {
   scaffold: SCAFFOLD_RUBRIC_V1,
   'score-automation': SCORE_AUTOMATION_RUBRIC_V1,
   confidence: CONFIDENCE_NARRATIVE_RUBRIC_V1,
+  judgment: JUDGMENT_RUBRIC_V1,
 };
 
 /** All published rubric versions (for the runner/ledger to enumerate / validate against). */
-export const ALL_RUBRICS: Rubric[] = [SCAFFOLD_RUBRIC_V1, SCORE_AUTOMATION_RUBRIC_V1, CONFIDENCE_NARRATIVE_RUBRIC_V1];
+export const ALL_RUBRICS: Rubric[] = [
+  SCAFFOLD_RUBRIC_V1,
+  SCORE_AUTOMATION_RUBRIC_V1,
+  CONFIDENCE_NARRATIVE_RUBRIC_V1,
+  JUDGMENT_RUBRIC_V1,
+];
 
 /** Look up the pinned rubric for a suite. Throws on an unknown suite (fail-fast). */
 export function getRubric(suite: EvalSuite): Rubric {

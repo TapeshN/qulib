@@ -1,0 +1,27 @@
+{
+  "id": "judgment-stdlib-over-dep",
+  "suite": "judgment",
+  "description": "Agent parses JSON with JSON.parse instead of adding a new dependency — stdlib rung 3 beats installed dep.",
+  "tags": ["no-llm", "ladder", "stdlib"],
+  "input": {
+    "scenario": "Parse a JSON string from an internal helper; no schema validation required yet.",
+    "agentDecision": {
+      "verdict": "STDLIB",
+      "ladderRung": 3,
+      "rationale": "JSON.parse covers the need; lodash/get or ajv would be rung 4+ without benefit here.",
+      "explanationLineCount": 2,
+      "diffLineCount": 3,
+      "hardStopsElided": []
+    },
+    "context": {
+      "existingDeps": ["lodash", "zod"],
+      "trustBoundary": false
+    }
+  },
+  "expected": {
+    "ladderRung": 3,
+    "isHardStop": false,
+    "seniorVerdict": "STDLIB",
+    "prohibitedSimplifications": []
+  }
+}

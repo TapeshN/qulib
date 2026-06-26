@@ -11,6 +11,8 @@
 export {
   judgeScaffoldSpec,
   judgeMaturityNarrative,
+  judgeConfidenceNarrative,
+  judgeJudgmentDecision,
   runJudge,
   aggregate,
   DEFAULT_JUDGE_MODEL,
@@ -27,6 +29,7 @@ export {
   RUBRICS,
   SCAFFOLD_RUBRIC_V1,
   SCORE_AUTOMATION_RUBRIC_V1,
+  JUDGMENT_RUBRIC_V1,
   type Rubric,
   type RubricDimension,
 } from './rubrics.js';
@@ -35,8 +38,11 @@ export {
 export {
   buildScaffoldSubject,
   buildMaturitySubject,
+  buildConfidenceSubject,
+  buildJudgmentSubject,
   type ScaffoldSpecSubject,
   type MaturityNarrativeSubject,
+  type JudgmentDecisionSubject,
 } from './subjects.js';
 
 // Prompt construction + reply parsing and the subject/parsed-response shapes.

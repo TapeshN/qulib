@@ -23,8 +23,8 @@ import type { JudgeVerdict, JudgeDimensionScore } from '../types.js';
 import type { Rubric } from './rubrics.js';
 import { getRubric, scoreToOutcome, validateRubric } from './rubrics.js';
 import { buildJudgePrompt, parseJudgeResponse, type JudgeSubject } from './prompt.js';
-import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject } from './subjects.js';
-import { buildScaffoldSubject, buildMaturitySubject, buildConfidenceSubject } from './subjects.js';
+import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject, JudgmentDecisionSubject } from './subjects.js';
+import { buildScaffoldSubject, buildMaturitySubject, buildConfidenceSubject, buildJudgmentSubject } from './subjects.js';
 
 /**
  * Default pinned judge model. Judging is a reasoning task (grounding/no-hallucination
@@ -206,4 +206,12 @@ export function judgeConfidenceNarrative(
   options: RunJudgeOptions = {}
 ): Promise<JudgeVerdict> {
   return runJudge(getRubric('confidence'), buildConfidenceSubject(subject), options);
+}
+
+/** Grade an agent pivotal-decision rationale against judgment-v1. */
+export function judgeJudgmentDecision(
+  subject: JudgmentDecisionSubject,
+  options: RunJudgeOptions = {}
+): Promise<JudgeVerdict> {
+  return runJudge(getRubric('judgment'), buildJudgmentSubject(subject), options);
 }

@@ -28,6 +28,7 @@ import { runConfidenceCase } from './run-confidence.js';
 import { runEvidenceCase } from './run-evidence.js';
 import { runAnalyzeDiffCase } from './run-analyze-diff.js';
 import { runPromptLeakageCase } from './run-prompt-leakage.js';
+import { runJudgmentCase, runJudgmentSelftest } from './run-judgment.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
 import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
 
@@ -58,6 +59,12 @@ function qulibVersion(): string {
 /** Run one suite to a summary. Empty corpus ⇒ SKIP summary (not PASS). */
 export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise<EvalRunSummary> {
   const startedAt = new Date().toISOString();
+  if (suite === 'judgment') {
+    const selftest = runJudgmentSelftest();
+    if (!selftest.ok) {
+      throw new Error(`judgment selftest failed before spend — aborting:\n${selftest.notes.join('\n')}`);
+    }
+  }
   const cases = loadCases(suite, opts.goldenRoot);
   const results = [];
   for (const c of cases) {
@@ -66,6 +73,7 @@ export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise
     else if (suite === 'evidence') results.push(await runEvidenceCase(c, opts.judge));
     else if (suite === 'analyze-diff') results.push(await runAnalyzeDiffCase(c));
     else if (suite === 'prompt-leakage') results.push(await runPromptLeakageCase(c));
+    else if (suite === 'judgment') results.push(await runJudgmentCase(c, opts.judge));
     else results.push(await runConfidenceCase(c, opts.judge));
   }
   const finishedAt = new Date().toISOString();
@@ -99,12 +107,15 @@ export async function runEval(
   return { summaries, exitCode };
 }
 
-function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolean } {
+function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolean; selftest: boolean } {
   const suites: EvalSuite[] = [];
   let appendLedger = true;
+  let selftest = false;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--suite') {
+    if (arg === '--selftest') {
+      selftest = true;
+    } else if (arg === '--suite') {
       const next = argv[i + 1];
       if (
         next === 'scaffold' ||
@@ -112,7 +123,8 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
         next === 'confidence' ||
         next === 'evidence' ||
         next === 'analyze-diff' ||
-        next === 'prompt-leakage'
+        next === 'prompt-leakage' ||
+        next === 'judgment'
       ) {
         suites.push(next);
         i += 1;
@@ -123,7 +135,7 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
       appendLedger = false;
     }
   }
-  return { suites: suites.length ? suites : undefined, appendLedger };
+  return { suites: suites.length ? suites : undefined, appendLedger, selftest };
 }
 
 function printSummary(summaries: EvalRunSummary[], env: NodeJS.ProcessEnv): void {
@@ -192,7 +204,17 @@ export function filterLedgerByTenant(tenantId: string, path: string = ledgerPath
 }
 
 async function main(): Promise<void> {
-  const { suites, appendLedger } = parseArgs(process.argv.slice(2));
+  const { suites, appendLedger, selftest } = parseArgs(process.argv.slice(2));
+  if (selftest) {
+    const result = runJudgmentSelftest();
+    for (const note of result.notes) console.log(`[qulib:eval:selftest] ${note}`);
+    if (!result.ok) {
+      console.error('[qulib:eval:selftest] ABORT — scorer miscalibrated');
+      process.exit(1);
+    }
+    console.log('[qulib:eval:selftest] PASS');
+    process.exit(0);
+  }
   const { summaries, exitCode } = await runEval({ suites, appendLedger });
   printSummary(summaries, process.env);
   process.exit(exitCode);

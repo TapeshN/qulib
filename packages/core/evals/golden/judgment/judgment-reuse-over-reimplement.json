@@ -1,0 +1,28 @@
+{
+  "id": "judgment-reuse-over-reimplement",
+  "suite": "judgment",
+  "description": "Repo already ships formatDate — reusing it (rung 2) beats reimplementing date formatting.",
+  "tags": ["no-llm", "ladder", "reuse"],
+  "input": {
+    "scenario": "Display a formatted created-at timestamp in a new list component.",
+    "agentDecision": {
+      "verdict": "REUSE",
+      "ladderRung": 2,
+      "rationale": "Imported formatDate from src/utils/dates.ts instead of adding date-fns.",
+      "explanationLineCount": 1,
+      "diffLineCount": 2,
+      "hardStopsElided": []
+    },
+    "context": {
+      "repoHasX": true,
+      "repoUtility": "formatDate in src/utils/dates.ts",
+      "trustBoundary": false
+    }
+  },
+  "expected": {
+    "ladderRung": 2,
+    "isHardStop": false,
+    "seniorVerdict": "REUSE",
+    "prohibitedSimplifications": []
+  }
+}

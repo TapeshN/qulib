@@ -21,7 +21,14 @@
 export type EvalOutcome = 'PASS' | 'WARN' | 'FAIL' | 'SKIP';
 
 /** Which qulib surface a golden case exercises. One suite per CLI under eval. */
-export type EvalSuite = 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
+export type EvalSuite =
+  | 'scaffold'
+  | 'score-automation'
+  | 'confidence'
+  | 'evidence'
+  | 'analyze-diff'
+  | 'prompt-leakage'
+  | 'judgment';
 
 /**
  * A single golden case: an input the CLI is run against plus the expectation the
@@ -32,7 +39,14 @@ export type EvalSuite = 'scaffold' | 'score-automation' | 'confidence' | 'eviden
 export interface EvalCase {
   /** Stable id, kebab-case, unique within a suite. e.g. "scaffold-static-marketing". */
   id: string;
-  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
+  suite:
+    | 'scaffold'
+    | 'score-automation'
+    | 'confidence'
+    | 'evidence'
+    | 'analyze-diff'
+    | 'prompt-leakage'
+    | 'judgment';
   /** One-line human description of what this case probes. */
   description: string;
   /** Suite-specific input (e.g. { url, framework } for scaffold). */
@@ -97,7 +111,14 @@ export interface EvalRunSummary {
 /** One line appended to evals/ledger.jsonl per run — the self-optimizing maturity loop reads this. */
 export interface EvalLedgerEntry {
   ts: string;
-  suite: 'scaffold' | 'score-automation' | 'confidence' | 'evidence' | 'analyze-diff' | 'prompt-leakage';
+  suite:
+    | 'scaffold'
+    | 'score-automation'
+    | 'confidence'
+    | 'evidence'
+    | 'analyze-diff'
+    | 'prompt-leakage'
+    | 'judgment';
   outcome: EvalOutcome;
   score: number;
   counts: EvalRunSummary['counts'];
@@ -107,6 +128,14 @@ export interface EvalLedgerEntry {
   qulibVersion: string;
   /** Total judge cost for the run, if a judge ran. */
   cost?: { inputTokens: number; outputTokens: number };
+  /** Wall-clock duration of the suite run in milliseconds. */
+  durationMs?: number;
+  /** Estimated judge spend in USD when token usage was recorded. */
+  judgeCostUsd?: number;
+  /** Total judge input tokens for the run (duplicate of cost.inputTokens when present). */
+  judgeInputTokens?: number;
+  /** Total judge output tokens for the run (duplicate of cost.outputTokens when present). */
+  judgeOutputTokens?: number;
   /**
    * Tenant that produced this run. Source precedence:
    *   explicit RunOptions.tenantId → env TAP_TENANT_ID → "default".

@@ -35,6 +35,12 @@ import { runScoreAutomationCase } from '../run-score-automation.js';
 import { judgeConfigured, skipVerdict, judgeOrSkip, reduceScaffoldVerdicts } from '../judge-bridge.js';
 import type { JudgeImpl } from '../judge-bridge.js';
 import { runSuite, runEval, ledgerLineCount, readLedger, filterLedgerByTenant } from '../index.js';
+import {
+  runJudgmentCase,
+  runJudgmentSelftest,
+  JUDGMENT_SELFTEST_GOOD,
+  JUDGMENT_SELFTEST_BAD,
+} from '../run-judgment.js';
 import type { EvalCaseResult, JudgeVerdict } from '../../types.js';
 import type { NeutralScenario } from '../../../src/schemas/gap-analysis.schema.js';
 
@@ -283,6 +289,8 @@ function stubJudge(verdict: JudgeVerdict): JudgeImpl {
   return {
     judgeScaffoldSpec: async () => verdict,
     judgeMaturityNarrative: async () => verdict,
+    judgeConfidenceNarrative: async () => verdict,
+    judgeJudgmentDecision: async () => verdict,
   };
 }
 
@@ -322,6 +330,12 @@ test('judgeOrSkip: degrades to SKIP (never throws) when the judge impl throws', 
       throw new Error('boom');
     },
     judgeMaturityNarrative: async () => {
+      throw new Error('boom');
+    },
+    judgeConfidenceNarrative: async () => {
+      throw new Error('boom');
+    },
+    judgeJudgmentDecision: async () => {
       throw new Error('boom');
     },
   };
@@ -544,4 +558,33 @@ test('readLedger: old records without tenantId parse back as "legacy" (backward-
   assert.equal(entries.length, 1);
   assert.equal(entries[0].tenantId, 'legacy', 'old record without tenantId must read back as "legacy"');
   rmSync(dir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// judgment suite + selftest gate
+// ---------------------------------------------------------------------------
+
+test('runJudgmentSelftest: good-ref PASS and bad-ref FAIL', () => {
+  const { ok, notes } = runJudgmentSelftest();
+  assert.equal(ok, true, notes.join('; '));
+});
+
+test('runJudgmentSelftest: aborts when scorer is miscalibrated', () => {
+  const miscalibrated = runJudgmentSelftest(JUDGMENT_SELFTEST_BAD, JUDGMENT_SELFTEST_GOOD);
+  assert.equal(miscalibrated.ok, false);
+});
+
+test('runSuite(judgment): real golden corpus passes with deterministic gate only', async () => {
+  const summary = await runSuite('judgment', { appendLedger: false });
+  assert.equal(summary.outcome, 'PASS', `judgment suite failed: ${JSON.stringify(summary.counts)}`);
+  assert.equal(summary.counts.total, 7);
+});
+
+test('runJudgmentCase: negative fixture passes harness when scorer correctly FAILs', async () => {
+  const cases = loadCases('judgment');
+  const negative = cases.find((c) => c.id === 'judgment-hard-stop-auth-removed');
+  assert.ok(negative);
+  const result = await runJudgmentCase(negative!);
+  assert.equal(result.outcome, 'PASS', 'harness passes when scorer FAILs a bad decision');
+  assert.equal(result.deterministic.outcome, 'FAIL');
 });

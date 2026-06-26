@@ -1,0 +1,26 @@
+{
+  "id": "judgment-correct-minimal",
+  "suite": "judgment",
+  "description": "Positive minimal fix — a one-line guard clause is the lowest sufficient change.",
+  "tags": ["no-llm", "ladder", "minimal"],
+  "input": {
+    "scenario": "Fix off-by-one when slicing an array for pagination (empty page when length equals page size).",
+    "agentDecision": {
+      "verdict": "ONE_LINER",
+      "ladderRung": 5,
+      "rationale": "Changed slice end index with a single comparison; no new module warranted.",
+      "explanationLineCount": 1,
+      "diffLineCount": 1,
+      "hardStopsElided": []
+    },
+    "context": {
+      "trustBoundary": false
+    }
+  },
+  "expected": {
+    "ladderRung": 5,
+    "isHardStop": false,
+    "seniorVerdict": "ONE_LINER",
+    "prohibitedSimplifications": []
+  }
+}

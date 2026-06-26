@@ -14,7 +14,15 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import type { EvalCase, EvalSuite } from '../types.js';
 
-export const EVAL_SUITES: readonly EvalSuite[] = ['scaffold', 'score-automation', 'confidence', 'evidence', 'analyze-diff', 'prompt-leakage'] as const;
+export const EVAL_SUITES: readonly EvalSuite[] = [
+  'scaffold',
+  'score-automation',
+  'confidence',
+  'evidence',
+  'analyze-diff',
+  'prompt-leakage',
+  'judgment',
+] as const;
 
 /** Shared envelope validator. `input`/`expected` are passthrough objects (suite narrows them). */
 const EvalCaseSchema = z.object({
@@ -22,7 +30,15 @@ const EvalCaseSchema = z.object({
     .string()
     .min(1)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'case id must be kebab-case'),
-  suite: z.enum(['scaffold', 'score-automation', 'confidence', 'evidence', 'analyze-diff', 'prompt-leakage']),
+  suite: z.enum([
+    'scaffold',
+    'score-automation',
+    'confidence',
+    'evidence',
+    'analyze-diff',
+    'prompt-leakage',
+    'judgment',
+  ]),
   description: z.string().min(1),
   input: z.record(z.unknown()),
   expected: z.record(z.unknown()),

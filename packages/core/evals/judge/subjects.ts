@@ -73,6 +73,29 @@ export function buildScaffoldSubject(input: ScaffoldSpecSubject): JudgeSubject {
   };
 }
 
+export function buildMaturitySubject(input: MaturityNarrativeSubject): JudgeSubject {
+  const { maturity } = input;
+  return {
+    candidate: input.narrative,
+    grounding: {
+      overallScore: maturity.overallScore,
+      level: maturity.level,
+      label: maturity.label,
+      scoreFormula: maturity.scoreFormula,
+      dimensions: maturity.dimensions.map((d) => ({
+        dimension: d.dimension,
+        score: d.score,
+        weight: d.weight,
+        applicability: d.applicability ?? 'applicable',
+        evidence: d.evidence,
+      })),
+      computedRecommendations: maturity.topRecommendations,
+      note: 'not_applicable / unknown dimensions are excluded from the overall score and must NOT be reported as failures.',
+    },
+    subjectModel: input.subjectModel,
+  };
+}
+
 /** Input for grading a release-confidence narrative (P4 — confidence-narrative rubric). */
 export interface ConfidenceNarrativeSubject {
   /** The human-facing narrative text under judgment (from buildConfidenceNarrative or similar). */
@@ -120,29 +143,56 @@ export function buildConfidenceSubject(input: ConfidenceNarrativeSubject): Judge
   };
 }
 
-/**
- * Build the maturity-narrative judge subject. Grounding includes the overall score,
- * level/label, and every dimension's score + weight + applicability + evidence — so
- * the judge can catch invented numbers, ungrounded claims, and mishandled N/A dims.
- */
-export function buildMaturitySubject(input: MaturityNarrativeSubject): JudgeSubject {
-  const { maturity } = input;
+/** Input for grading a pivotal agent coding decision (judgment-v1 rubric). */
+export interface JudgmentDecisionSubject {
+  scenario: string;
+  agentDecision: {
+    verdict: string;
+    ladderRung: number;
+    rationale: string;
+    explanationLineCount?: number;
+    diffLineCount?: number;
+    hardStopsElided?: string[];
+    deferredScope?: { ceiling: string; upgradeTrigger: string; auditableComment?: boolean } | null;
+  };
+  context: Record<string, unknown>;
+  expected: {
+    ladderRung: number;
+    isHardStop: boolean;
+    seniorVerdict: string;
+    prohibitedSimplifications?: string[];
+  };
+  deterministicOutcome: string;
+  subjectModel?: string;
+}
+
+/** Build the judgment judge subject — rationale is graded against ladder + hard-stop facts. */
+export function buildJudgmentSubject(input: JudgmentDecisionSubject): JudgeSubject {
+  const d = input.agentDecision;
+  const candidate = [
+    `Verdict: ${d.verdict} (ladder rung ${d.ladderRung})`,
+    `Rationale: ${d.rationale}`,
+    d.deferredScope
+      ? `Deferred: ${d.deferredScope.ceiling}; upgrade when ${d.deferredScope.upgradeTrigger}`
+      : '',
+    d.explanationLineCount !== undefined && d.diffLineCount !== undefined
+      ? `Explanation lines: ${d.explanationLineCount}, diff lines: ${d.diffLineCount}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
   return {
-    candidate: input.narrative,
+    candidate,
     grounding: {
-      overallScore: maturity.overallScore,
-      level: maturity.level,
-      label: maturity.label,
-      scoreFormula: maturity.scoreFormula,
-      dimensions: maturity.dimensions.map((d) => ({
-        dimension: d.dimension,
-        score: d.score,
-        weight: d.weight,
-        applicability: d.applicability ?? 'applicable',
-        evidence: d.evidence,
-      })),
-      computedRecommendations: maturity.topRecommendations,
-      note: 'not_applicable / unknown dimensions are excluded from the overall score and must NOT be reported as failures.',
+      scenario: input.scenario,
+      context: input.context,
+      seniorExpectation: input.expected,
+      deterministicScorerOutcome: input.deterministicOutcome,
+      hardStopsElided: d.hardStopsElided ?? [],
+      leastCodeLadder:
+        '1=needed at all, 2=reuse repo, 3=stdlib, 4=installed dep, 5=one-liner, 6=minimal new code. Lower rung = more senior.',
+      note: 'Grade the rationale only. Deterministic checks already ran; you may downgrade PASS but never rescue a deterministic FAIL.',
     },
     subjectModel: input.subjectModel,
   };

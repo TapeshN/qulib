@@ -1,0 +1,29 @@
+{
+  "id": "judgment-comprehension-skipped",
+  "suite": "judgment",
+  "description": "Agent reimplemented slugify while repo already exports slugify — comprehension skipped (negative).",
+  "tags": ["no-llm", "ladder", "negative", "must-fail-grader"],
+  "input": {
+    "scenario": "Slugify a title string for a new route param.",
+    "agentDecision": {
+      "verdict": "MINIMAL_NEW",
+      "ladderRung": 6,
+      "rationale": "Added a local slugify helper with regex — did not search the repo first.",
+      "explanationLineCount": 2,
+      "diffLineCount": 14,
+      "hardStopsElided": []
+    },
+    "context": {
+      "repoHasX": true,
+      "repoUtility": "slugify in src/utils/text.ts",
+      "trustBoundary": false
+    }
+  },
+  "expected": {
+    "ladderRung": 2,
+    "isHardStop": false,
+    "seniorVerdict": "REUSE",
+    "prohibitedSimplifications": [],
+    "graderOutcome": "FAIL"
+  }
+}

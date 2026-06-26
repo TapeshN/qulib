@@ -26,8 +26,14 @@ import {
   judgeScaffoldSpec as realJudgeScaffoldSpec,
   judgeMaturityNarrative as realJudgeMaturityNarrative,
   judgeConfidenceNarrative as realJudgeConfidenceNarrative,
+  judgeJudgmentDecision as realJudgeJudgmentDecision,
 } from '../judge/judge.js';
-import type { ScaffoldSpecSubject, MaturityNarrativeSubject, ConfidenceNarrativeSubject } from '../judge/subjects.js';
+import type {
+  ScaffoldSpecSubject,
+  MaturityNarrativeSubject,
+  ConfidenceNarrativeSubject,
+  JudgmentDecisionSubject,
+} from '../judge/subjects.js';
 
 /** What the runner hands the bridge for a scaffold case (one generated spec + its grounding). */
 export interface ScaffoldJudgeRequest {
@@ -53,19 +59,36 @@ export interface ConfidenceJudgeRequest {
   subjectModel?: string;
 }
 
-export type JudgeRequest = ScaffoldJudgeRequest | MaturityJudgeRequest | ConfidenceJudgeRequest;
+/** What the runner hands the bridge for a judgment case (decision + fork context). */
+export interface JudgmentJudgeRequest {
+  suite: 'judgment';
+  scenario: string;
+  agentDecision: JudgmentDecisionSubject['agentDecision'];
+  context: Record<string, unknown>;
+  expected: JudgmentDecisionSubject['expected'];
+  deterministicOutcome: string;
+  subjectModel?: string;
+}
+
+export type JudgeRequest =
+  | ScaffoldJudgeRequest
+  | MaturityJudgeRequest
+  | ConfidenceJudgeRequest
+  | JudgmentJudgeRequest;
 
 /** Injectable judge implementation (defaults to Q2c's real module; tests pass a stub). */
 export interface JudgeImpl {
   judgeScaffoldSpec(subject: ScaffoldSpecSubject): Promise<JudgeVerdict>;
   judgeMaturityNarrative(subject: MaturityNarrativeSubject): Promise<JudgeVerdict>;
   judgeConfidenceNarrative(subject: ConfidenceNarrativeSubject): Promise<JudgeVerdict>;
+  judgeJudgmentDecision(subject: JudgmentDecisionSubject): Promise<JudgeVerdict>;
 }
 
 const defaultJudge: JudgeImpl = {
   judgeScaffoldSpec: (subject) => realJudgeScaffoldSpec(subject),
   judgeMaturityNarrative: (subject) => realJudgeMaturityNarrative(subject),
   judgeConfidenceNarrative: (subject) => realJudgeConfidenceNarrative(subject),
+  judgeJudgmentDecision: (subject) => realJudgeJudgmentDecision(subject),
 };
 
 /** A SKIP verdict with zero cost — used whenever the judge cannot honestly run. */
@@ -104,6 +127,16 @@ export async function judgeOrSkip(req: JudgeRequest, judge: JudgeImpl = defaultJ
       return await judge.judgeConfidenceNarrative({
         narrative: req.narrative,
         releaseConfidence: req.releaseConfidence,
+        subjectModel: req.subjectModel,
+      });
+    }
+    if (req.suite === 'judgment') {
+      return await judge.judgeJudgmentDecision({
+        scenario: req.scenario,
+        agentDecision: req.agentDecision,
+        context: req.context,
+        expected: req.expected,
+        deterministicOutcome: req.deterministicOutcome,
         subjectModel: req.subjectModel,
       });
     }

@@ -84,6 +84,10 @@ export function resolveTenantId(
   return 'default';
 }
 
+/** Pinned USD-per-token rates for judge cost ledger projection (Sonnet-class judge). */
+const JUDGE_INPUT_USD_PER_TOKEN = 3 / 1_000_000;
+const JUDGE_OUTPUT_USD_PER_TOKEN = 15 / 1_000_000;
+
 /** Project a run summary into the single append-only ledger line. */
 export function toLedgerEntry(
   summary: EvalRunSummary,
@@ -104,6 +108,10 @@ export function toLedgerEntry(
     { inputTokens: 0, outputTokens: 0, any: false }
   );
 
+  const startedMs = Date.parse(summary.startedAt);
+  const finishedMs = Date.parse(summary.finishedAt);
+  const durationMs = Number.isFinite(startedMs) && Number.isFinite(finishedMs) ? Math.max(0, finishedMs - startedMs) : undefined;
+
   const entry: EvalLedgerEntry = {
     ts: summary.finishedAt,
     suite: summary.suite,
@@ -113,12 +121,18 @@ export function toLedgerEntry(
     qulibVersion,
     tenantId,
   };
+  if (durationMs !== undefined) entry.durationMs = durationMs;
   if (judged) {
     entry.judgeModel = judged.judgeModel;
     entry.rubricVersion = judged.rubricVersion;
   }
   if (cost.any) {
     entry.cost = { inputTokens: cost.inputTokens, outputTokens: cost.outputTokens };
+    entry.judgeInputTokens = cost.inputTokens;
+    entry.judgeOutputTokens = cost.outputTokens;
+    entry.judgeCostUsd =
+      Math.round((cost.inputTokens * JUDGE_INPUT_USD_PER_TOKEN + cost.outputTokens * JUDGE_OUTPUT_USD_PER_TOKEN) * 1_000_000) /
+      1_000_000;
   }
   return entry;
 }

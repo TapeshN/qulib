@@ -1,0 +1,29 @@
+{
+  "id": "judgment-hard-stop-validation-preserved",
+  "suite": "judgment",
+  "description": "Public API handler keeps zod validation at the trust boundary — hard-stop preserved (positive).",
+  "tags": ["no-llm", "hard-stop", "validation"],
+  "input": {
+    "scenario": "Add POST /api/users handler accepting JSON body from untrusted clients.",
+    "agentDecision": {
+      "verdict": "HARD_STOP_OK",
+      "ladderRung": 6,
+      "rationale": "Added minimal handler plus existing CreateUserSchema.parse(body) before persistence — validation preserved at boundary.",
+      "explanationLineCount": 2,
+      "diffLineCount": 8,
+      "hardStopsElided": [],
+      "deferredScope": null
+    },
+    "context": {
+      "trustBoundary": true,
+      "repoHasX": true,
+      "repoUtility": "CreateUserSchema in src/schemas/user.ts"
+    }
+  },
+  "expected": {
+    "ladderRung": 6,
+    "isHardStop": true,
+    "seniorVerdict": "HARD_STOP_OK",
+    "prohibitedSimplifications": ["validation"]
+  }
+}

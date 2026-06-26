@@ -74,6 +74,7 @@ test('every published rubric is internally valid (weights sum to 1, thresholds o
 test('getRubric returns the pinned rubric per suite and throws on unknown', () => {
   assert.equal(getRubric('scaffold').version, 'scaffold-v1');
   assert.equal(getRubric('score-automation').version, 'score-automation-v1');
+  assert.equal(getRubric('judgment').version, 'judgment-v1');
   // @ts-expect-error — exercising the runtime guard for an unregistered suite.
   assert.throws(() => getRubric('nope'));
 });
