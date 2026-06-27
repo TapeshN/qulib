@@ -311,20 +311,21 @@ export function computeReleaseConfidence(input: ConfidenceInput): ReleaseConfide
     0
   );
 
-  // Honesty notes — partial-run summary first, then uncollected, then degraded/excluded collected sources.
+  // Honesty notes — partial-run summary first, then present-but-excluded sources (must not
+  // be truncated by maxListLength), then uncollected model sources.
   const honestyNotes: string[] = [];
   if (uncollectedSources.length > 0 || (weightSum > 0 && weightSum < modelWeightSum - 0.001)) {
     honestyNotes.push(
       buildCoverageSummaryNote(applicable.length, MODEL_SOURCES.length, weightSum, modelWeightSum)
     );
   }
+  for (const item of excluded) {
+    honestyNotes.push(buildHonestyNote(item));
+  }
   for (const source of uncollectedSources) {
     const rawWeight = resolveModelWeight(source, policy.weights);
     const reason = inferUncollectedReason(source, presentSources);
     honestyNotes.push(buildUncollectedHonestyNote(source, reason, rawWeight));
-  }
-  for (const item of excluded) {
-    honestyNotes.push(buildHonestyNote(item));
   }
   for (const item of blockingItems) {
     if ((item.applicability ?? 'applicable') === 'applicable' && item.score !== null) {
