@@ -9,6 +9,14 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+### Added
+
+- **Per-session rate limit on the LLM-as-judge tools (cost/DoS hardening):** `qulib_score_bug_report` and `qulib_score_decisions` now apply a lightweight, dependency-free, in-process per-session call limiter before any scoring work. Per-field Zod length caps already stop single-call abuse, but a programmatic/direct MCP client could fire either judge tool in a tight loop and drain the deployer's Anthropic API quota. The default budget is 60 calls/minute per session, configurable via `QULIB_JUDGE_MAX_CALLS_PER_MIN` (set to `0` to disable). When exceeded, the handler returns a structured `QULIB_RATE_LIMITED` tool error with a retry hint (no exception, no stack trace) instead of invoking the LLM. Uses a fixed-window counter keyed by MCP session id (stdio shares a single window). Flagged MEDIUM in two security reviews.
+
+### Security
+
+- **MCP error responses no longer leak server stack traces by default:** `toolError` details previously echoed `err.stack`, which discloses the server's absolute filesystem paths. Stack details are now suppressed unless `QULIB_EXPOSE_ERROR_DETAIL=1` is set (opt-in for local debugging), applied pattern-wide across all MCP tool handlers via the new `safeErrorDetail()` helper.
+
 ---
 
 ## [0.10.1] — 2026-06-27
