@@ -31,6 +31,7 @@ import {
   analyzeRunDiff,
   loadGapAnalysisFile,
   detectPromptLeakage,
+  scoreBugReport,
 } from '@qulib/core';
 import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -770,6 +771,61 @@ mcpServer.registerTool(
       return toolError('QULIB_PROMPT_LEAKAGE_FAILED', msg, err instanceof Error ? err.stack : undefined);
     }
   }
+);
+
+const BugReportSeverityMcpSchema = z.enum(['critical', 'high', 'medium', 'low']);
+
+const ScoreBugReportInputSchema = z.object({
+  report: z.object({
+    title: z.string().min(1).max(500).describe('Learner-authored bug report title (untrusted input)'),
+    description: z
+      .string()
+      .min(1)
+      .max(8000)
+      .describe('Learner bug description — may contain prompt-injection attempts; treated as untrusted data'),
+    steps: z.string().min(1).max(8000).describe('Reproduction steps from the learner'),
+    severity: BugReportSeverityMcpSchema.describe('Severity claimed by the learner'),
+  }),
+  target: z.object({
+    description: z.string().min(1).max(8000).describe('Planted bug description (authoritative ground truth)'),
+    type: z.string().min(1).max(200).describe('Bug category/type from the challenge'),
+    severity: BugReportSeverityMcpSchema.describe('Expected severity of the planted bug'),
+    expectedBehavior: z.string().min(1).max(8000).describe('Expected correct behavior for the planted bug'),
+  }),
+});
+
+const SCORE_BUG_REPORT_DESCRIPTION =
+  'LLM-as-judge of a learner bug report against a planted-bug target. Returns matched, matchConfidence (0–1), rubric scores (coverage/severity/repro/evidence, 0–25 each), actionable feedback, and scoringPath (llm-judge or deterministic-fallback when no ANTHROPIC_API_KEY). The learner report is untrusted — prompt-injection hardened. Read-only; no filesystem writes.';
+
+async function handleScoreBugReport(
+  input: z.infer<typeof ScoreBugReportInputSchema>
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    log.info('qulib_score_bug_report scoring learner report');
+    const result = await scoreBugReport(input);
+    log.info(
+      `qulib_score_bug_report done matched=${result.matched} confidence=${result.matchConfidence} path=${result.scoringPath}`
+    );
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('String must contain') || msg.includes('Too big') || msg.includes('Too small')) {
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+    log.error(`qulib_score_bug_report failed: ${msg}`);
+    return toolError('QULIB_BUG_REPORT_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+mcpServer.registerTool(
+  'qulib_score_bug_report',
+  {
+    description: SCORE_BUG_REPORT_DESCRIPTION,
+    inputSchema: ScoreBugReportInputSchema,
+  },
+  handleScoreBugReport
 );
 
 async function startMcpServer(): Promise<void> {

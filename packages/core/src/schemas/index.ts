@@ -116,6 +116,22 @@ export {
   type ReleaseConfidence,
 } from './confidence.schema.js';
 export {
+  BugReportSeveritySchema,
+  BugReportInputSchema,
+  BugReportTargetSchema,
+  ScoreBugReportInputSchema,
+  BugReportRubricSchema,
+  BugReportScoringPathSchema,
+  BugReportScoreResultSchema,
+  type BugReportSeverity,
+  type BugReportInput,
+  type BugReportTarget,
+  type ScoreBugReportInput,
+  type BugReportRubric,
+  type BugReportScoringPath,
+  type BugReportScoreResult,
+} from './bug-report-score.schema.js';
+export {
   DeliveryTrafficPointSchema,
   InboxItemKindSchema,
   InboxItemSchema,
