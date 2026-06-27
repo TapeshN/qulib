@@ -105,6 +105,10 @@ export async function validateForksPath(
   } catch {
     rootReal = rawRoot;
   }
+  // Re-check breadth on the REALPATH'd root: a symlinked allowed root
+  // (e.g. QULIB_FORKS_ALLOWED_ROOT=/tmp/link -> /) passes the rawRoot guard but
+  // resolves to '/', which would nullify containment below. Guard rootReal too.
+  assertSafeForksRoot(rootReal);
 
   let real: string;
   try {

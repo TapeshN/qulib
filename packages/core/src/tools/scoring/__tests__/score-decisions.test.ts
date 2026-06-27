@@ -4,7 +4,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -121,6 +121,22 @@ test('untrusted fork text cannot forge the close-delimiter (PI escape)', () => {
 
 test('filesystem-root forks allowed root (/) is rejected (LFI guard)', async () => {
   await assert.rejects(() => validateForksPath('/etc/hosts', '/'), /filesystem root/);
+});
+
+test('symlinked allowed root resolving to / is rejected (LFI guard, realpath)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'qulib-forks-symlink-'));
+  const linkPath = join(dir, 'root-link');
+  try {
+    await symlink('/', linkPath); // allowed root is a symlink -> filesystem root
+    // A path *under* the symlinked root passes the pre-realpath prefix check,
+    // so the realpath'd-root breadth guard is what must reject it.
+    await assert.rejects(
+      () => validateForksPath(join(linkPath, 'etc/hosts'), linkPath),
+      /filesystem root/
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('parseDecisionJudgeResponse tolerates fenced JSON', () => {
