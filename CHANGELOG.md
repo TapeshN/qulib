@@ -11,6 +11,14 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ---
 
+## [0.12.0] — 2026-06-27
+
+### Added
+
+- **CI release gate** on `qulib confidence`: `--fail-on <verdict>` exits non-zero when the verdict is at or worse than the threshold (`caution` | `hold` | `block`), and `--min-score <n>` exits non-zero when the 0–100 confidence score is below `n` (a `null` score — nothing evaluable — always fails). Prints a `GATE: PASS|FAIL — <reason>` line; in `--json` mode the gate line goes to stderr so stdout stays pure JSON. This wires the "should we ship?" verdict straight into a pipeline. The pure `evaluateConfidenceGate()` is exported for programmatic use.
+
+---
+
 ## [0.11.0] — 2026-06-27
 
 ### Added

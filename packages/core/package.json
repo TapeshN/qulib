@@ -1,6 +1,6 @@
 {
   "name": "@qulib/core",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Qulib — release confidence for deployed web apps. Fuses live-app quality, automation maturity, and API coverage into a single ship/caution/hold/block verdict.",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
