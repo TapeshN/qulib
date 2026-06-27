@@ -960,16 +960,17 @@ mcpServer.registerTool(
       // Classify input validation errors — never leak a stack trace.
       if (
         msg.includes('String must contain') ||
-        msg.includes('Too big') ||
-        msg.includes('Too small') ||
         msg.includes('Array must contain') ||
+        msg.includes('Expected') ||
         msg.includes('Invalid input') ||
         msg.includes('Required')
       ) {
         return toolError('QULIB_INPUT_INVALID', msg, undefined);
       }
-      log.error(`qulib_validate_spec failed: ${msg}`);
-      return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      // Log the stack to stderr for server-side diagnosis, but never return it
+      // in the client-visible detail (it discloses server filesystem paths).
+      log.error(`qulib_validate_spec failed: ${err instanceof Error ? err.stack : msg}`);
+      return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, undefined);
     }
   }
 );

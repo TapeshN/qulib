@@ -31,6 +31,7 @@ import type {
 } from '../schemas/spec-conformance.schema.js';
 
 const MAX_SPEC_FILE_BYTES = 512 * 1024; // 512 KB
+const MAX_REPORT_FILE_BYTES = 4 * 1024 * 1024; // 4 MB — generous for any real analyze report
 const MAX_REQUIREMENTS = 100;
 
 /** Parse a spec file (text or markdown) into a list of requirements. */
@@ -81,6 +82,11 @@ async function summarizeReportFile(reportPath: string): Promise<string> {
   }
   if (!s.isFile()) {
     throw new Error(`--report must be a regular file: ${abs}`);
+  }
+  // Size cap BEFORE the read — a Zod cap on observed.summary fires too late
+  // (after an unbounded readFile + JSON.parse). Matches the --spec guard.
+  if (s.size > MAX_REPORT_FILE_BYTES) {
+    throw new Error(`--report file exceeds maximum size (${MAX_REPORT_FILE_BYTES} bytes): ${abs}`);
   }
 
   const raw = await readFile(abs, 'utf8');
