@@ -203,3 +203,27 @@ test('formatDecisionsReport: includes count and meanDecisionQuality', () => {
   assert.match(report, /f1/);
   assert.match(report, /senior-correct/);
 });
+
+// Regression: on the CLI the user owns the path they pass, so a forks file
+// OUTSIDE the current working directory must be accepted (the traversal check
+// is rooted at the file's own directory, not cwd). Previously rejected with
+// "forksPath must be within the allowed root directory".
+test('CLI accepts a forks file outside the current working directory', () => {
+  const dir = mkdtempSync(resolve(tmpdir(), 'qulib-cli-forks-'));
+  const fp = resolve(dir, 'my-forks.jsonl');
+  const fork = {
+    fork_id: 'f-out',
+    fork_kind: 'gate_block_vs_pass',
+    options: ['block', 'pass'],
+    choice: 'block',
+    constraint: 'floor violation detected — blocked',
+    settleable: true,
+    source_event_id: 'e-out',
+    ts: '2026-06-27T00:00:00Z',
+  };
+  writeFileSync(fp, JSON.stringify(fork) + '\n', 'utf8');
+  // runCli's cwd is packages/core; fp lives under tmpdir() → outside cwd.
+  const { status, stdout, stderr } = runCli(['score-decisions', '--forks', fp]);
+  assert.equal(status, 0, `expected exit 0 for a user-owned path outside cwd; stderr: ${stderr}`);
+  assert.match(stdout, /meanDecisionQuality/);
+});

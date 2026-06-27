@@ -15,7 +15,7 @@
  * Mirrors the idiom established by confidence-run.ts: one file owns the command end-to-end
  * and is registered from cli/index.ts via registerScoreDecisionsCommand(program).
  */
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import type { Command } from 'commander';
 import { scoreDecisions } from '../tools/scoring/score-decisions.js';
 import type { DecisionScoreResult } from '../schemas/decision-score.schema.js';
@@ -122,7 +122,12 @@ export function registerScoreDecisionsCommand(program: Command): void {
 
         let result: DecisionScoreResult;
         try {
-          result = await scoreDecisions({ forksPath, enableLlmJudge });
+          // On the CLI the user owns the path they pass, so root the traversal
+          // check at the file's own directory rather than the default (cwd) —
+          // otherwise `qulib score-decisions --forks /abs/elsewhere.jsonl` from
+          // any other directory is wrongly rejected. The realpath/symlink-escape
+          // guard inside validateForksPath still applies to that directory.
+          result = await scoreDecisions({ forksPath, enableLlmJudge }, { allowedRoot: dirname(forksPath) });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[qulib] score-decisions failed: ${msg}`);
