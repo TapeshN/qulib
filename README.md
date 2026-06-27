@@ -174,6 +174,25 @@ npm run analyze -w @qulib/core -- --url https://example.com
 npm run smoke
 ```
 
+**Validate spec conformance — does the app do what the spec says?**
+
+```bash
+# Grade whether a deployed app matches a requirements file (offline, from an existing report):
+npx @qulib/core validate --spec requirements.md --report output/report.json
+
+# With live analysis from a URL (and the LLM judge enabled):
+npx @qulib/core validate --spec requirements.md --url https://example.com --enable-llm-judge
+
+# Gate CI — exit 1 when verdict is 'violates' or 'partial':
+npx @qulib/core validate --spec requirements.md --report output/report.json --fail-on-violation
+```
+
+- `--spec <file>`: a text or markdown file; each non-heading, non-empty line becomes a requirement (strips leading `- `, `* `, `N. `).
+- `--report <file>` or `--url <url>`: source for the observed app behavior summary.
+- `--enable-llm-judge`: grade with the pinned LLM judge (requires `ANTHROPIC_API_KEY`). Without this, all requirements return `unknown` (honest — no fabricated verdicts).
+- `--fail-on-violation`: exit 1 on `violates` or `partial` verdicts. `insufficient-evidence` does **not** trigger the gate.
+- `--json`: emit the full `SpecConformanceResult` on stdout (stderr for the gate line).
+
 **Cost doctor** (after a normal analyze that wrote `output/report.json`):
 
 ```bash
@@ -214,6 +233,7 @@ The agent will call **`qulib_score_confidence`** for the fused release verdict, 
 | **`qulib_detect_prompt_leakage`** | Scan a page surface for signals that AI system prompts or agent instructions are inadvertently exposed publicly. |
 | **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report against a planted-bug target — matched verdict, rubric (coverage/severity/repro/evidence), and feedback. Falls back to deterministic scoring without `ANTHROPIC_API_KEY`. |
 | **`qulib_score_decisions`** | Pivotal-decision evaluation — scores senior-correctness at agent decision forks from a JSONL file. Deterministic by default; optional LLM refinement. |
+| **`qulib_validate_spec`** | Spec-grounded conformance — grades whether the observed app behavior conforms to a supplied spec (PRD / requirements). Returns per-requirement verdicts (yes/no/unknown) + a fused verdict (conforms/partial/violates/insufficient-evidence). LLM judge optional; honest unknown without it. |
 | `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
 | `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 
