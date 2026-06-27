@@ -132,6 +132,22 @@ export {
   type BugReportScoreResult,
 } from './bug-report-score.schema.js';
 export {
+  ForkKindSchema,
+  DecisionForkSchema,
+  ScoreDecisionsInputSchema,
+  DecisionScoringPathSchema,
+  ScoredDecisionForkSchema,
+  DecisionScoreAggregateSchema,
+  DecisionScoreResultSchema,
+  type ForkKind,
+  type DecisionFork,
+  type ScoreDecisionsInput,
+  type DecisionScoringPath,
+  type ScoredDecisionFork,
+  type DecisionScoreAggregate,
+  type DecisionScoreResult,
+} from './decision-score.schema.js';
+export {
   DeliveryTrafficPointSchema,
   InboxItemKindSchema,
   InboxItemSchema,

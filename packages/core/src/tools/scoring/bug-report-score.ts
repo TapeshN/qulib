@@ -206,7 +206,7 @@ export function scoreBugReportDeterministic(input: ScoreBugReportInput): BugRepo
   });
 }
 
-function delimitUntrusted(label: string, text: string): string {
+export function delimitUntrusted(label: string, text: string): string {
   return `<<<UNTRUSTED_${label}_START>>>\n${text}\n<<<UNTRUSTED_${label}_END>>>`;
 }
 
