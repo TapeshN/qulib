@@ -867,10 +867,14 @@ async function handleScoreDecisions(
     const msg = err instanceof Error ? err.message : String(err);
     if (
       msg.includes('forksPath must') ||
-      msg.includes('outside the allowed root') ||
+      msg.includes('allowed root') ||
       msg.includes('traversal') ||
-      msg.includes('not valid JSON')
+      msg.includes('not valid JSON') ||
+      msg.includes('exceeds maximum') ||
+      msg.includes('does not exist or is not accessible')
     ) {
+      // Known user-input errors: return the message only, never a stack trace
+      // (a Node stack discloses the server's absolute filesystem paths).
       return toolError('QULIB_INPUT_INVALID', msg, undefined);
     }
     log.error(`qulib_score_decisions failed: ${msg}`);
@@ -887,14 +891,9 @@ mcpServer.registerTool(
   handleScoreDecisions
 );
 
-mcpServer.registerTool(
-  'score_decisions',
-  {
-    description: `${SCORE_DECISIONS_DESCRIPTION} (Alias for new integrations: qulib_score_decisions)`,
-    inputSchema: ScoreDecisionsInputSchema,
-  },
-  handleScoreDecisions
-);
+// No non-prefixed `score_decisions` alias: this is a brand-new tool with no
+// prior integrations to keep compatible, and an unprefixed name is ambiguous
+// and widens the attack surface. The canonical name is qulib_score_decisions.
 
 async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
