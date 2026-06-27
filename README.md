@@ -13,7 +13,7 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
-**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.11.0** are published on npm — now including the LLM-as-judge tools `qulib_score_bug_report` and `qulib_score_decisions`. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
+**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.12.0** are published on npm — the release-confidence verdict now **gates CI** (`--fail-on` / `--min-score` exit codes), alongside the LLM-as-judge tools `qulib_score_bug_report` and `qulib_score_decisions`. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
 
 ---
 
@@ -84,6 +84,18 @@ Add `--repo` to also score test-automation maturity and API coverage:
 ```bash
 npx @qulib/core confidence --url https://example.com --repo .
 ```
+
+**Gate a release in CI** — turn the verdict into a pass/fail exit code:
+
+```bash
+# Block the deploy unless the verdict is better than `hold`, or score is ≥ 70.
+npx @qulib/core confidence --url "$DEPLOY_URL" --repo . --fail-on hold --min-score 70
+# exit 0 → ship;  exit 1 → gate failed (prints "GATE: FAIL — …").
+```
+
+- `--fail-on <verdict>` exits non-zero when the verdict is **at or worse than** the threshold (`caution` | `hold` | `block`).
+- `--min-score <n>` exits non-zero when the 0–100 confidence score is below `n` (a `null` score — nothing evaluable — always fails).
+- Combine with `--json` to capture the full report on stdout while the gate line goes to stderr. This is the "should we ship?" question wired straight into your pipeline.
 
 **Analyze (full gap report):**
 
