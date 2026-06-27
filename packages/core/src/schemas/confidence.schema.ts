@@ -32,6 +32,7 @@ export const EvidenceSourceKindSchema = z.enum([
   'doc-health',
   'human-approval',
   'agent-evidence',
+  'decision-quality',
 ]);
 export type EvidenceSourceKind = z.infer<typeof EvidenceSourceKindSchema>;
 

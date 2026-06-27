@@ -369,6 +369,7 @@ A minimal structural snapshot looks like:
 | `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
 | `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
 | **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report vs planted-bug target | `report` (title, description, steps, severity), `target` (description, type, severity, expectedBehavior) |
+| **`qulib_score_decisions`** | Pivotal-decision evaluation at agent forks | absolute `forksPath` (JSONL), optional `enableLlmJudge` |
 | `qulib_explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |
 | `qulib_detect_auth` | Fast single-pass auth pattern guess | `url`, optional `timeoutMs` |
 | `analyze_app` | Legacy alias for `qulib_analyze_app` — kept for backwards compatibility | same as `qulib_analyze_app` |
