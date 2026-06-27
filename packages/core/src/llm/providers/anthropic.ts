@@ -49,6 +49,7 @@ export class AnthropicProvider implements LlmProvider {
           model: this.model,
           max_tokens: maxOutputTokens,
           ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+          ...(options?.system ? { system: options.system } : {}),
           messages: [{ role: 'user', content: prompt }],
         }),
       });
