@@ -11,6 +11,14 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ---
 
+## [0.10.1] — 2026-06-27
+
+### Fixed
+
+- **Release confidence honesty notes:** Present-but-excluded evidence sources (`not_applicable`, `unknown`, null score) are now narrated before uncollected model sources so `maxListLength` truncation no longer drops notes that name collected sources.
+
+---
+
 ## [0.10.0] — 2026-06-13
 
 ### Added
