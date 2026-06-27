@@ -13,7 +13,7 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
-**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.10.0** are published on npm. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
+**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.11.0** are published on npm — now including the LLM-as-judge tools `qulib_score_bug_report` and `qulib_score_decisions`. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
 
 ---
 
@@ -35,6 +35,14 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 |---------|---------|
 | [`@qulib/core`](./packages/core) | Analyzer engine and CLI (`qulib`) |
 | [`@qulib/mcp`](./packages/mcp) | MCP server exposing Qulib to AI clients |
+
+---
+
+## Open-core — what's MIT, what's hosted
+
+Qulib is **genuinely open**, not a teaser. `@qulib/core` and `@qulib/mcp` are MIT-licensed, run **locally**, and need **no Qulib account** — bring your own `ANTHROPIC_API_KEY` for the optional LLM paths and every tool works. The verdict engine, the schemas, the deterministic collectors, the judge harness, and the MCP server are all here, complete, with **nothing gated behind a paywall and no crippled code paths**.
+
+What is **not** in this repo, by design, is the part you can't meaningfully open-source: the **calibrated benchmark packs** (continuously-tuned weights and rubrics), the **cross-project signal** that sharpens the judges over time, and the **hosted service** (managed runs, history, team, CI-gate-as-a-service). The open tool ships an honest **baseline** rubric — useful standalone and clearly labelled as baseline; the hosted tier is the calibrated, networked upgrade. **We gate on data and service, never on crippled code.**
 
 ---
 

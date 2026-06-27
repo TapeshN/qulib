@@ -11,6 +11,20 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ---
 
+## [0.11.0] — 2026-06-27
+
+### Added
+
+- **`qulib_score_bug_report`** — LLM-as-judge that grades a bug report against a planted-bug target: `matched` verdict, `matchConfidence`, a 4-part rubric (coverage / severity / repro / evidence), and actionable feedback. Falls back to deterministic scoring when no `ANTHROPIC_API_KEY` is set. The learner report is untrusted input and is prompt-injection hardened. Read-only.
+- **`qulib_score_decisions`** — pivotal-decision evaluation: scores whether an autonomous agent made the senior-correct call at decision forks (gate block/pass, stop/continue, escalate/proceed) from a JSONL forks file. Returns per-fork `decisionQuality` (0–1), `seniorCorrect`, rationale, and aggregate means. Deterministic baseline by default; optional LLM refinement. `forksPath` is traversal-validated within `QULIB_FORKS_ALLOWED_ROOT` (default: process cwd).
+- **Open-core boundary** documented in the README: the tool is fully open and local; calibrated benchmarks + cross-project signal + the hosted service are the gated tier.
+
+### Security
+
+- Decision-scoring path hardening (two adversarial review passes): reject a forks allowed-root of `/` and any symlink resolving to it (path-containment / LFI bypass), and neutralize forged untrusted-block delimiter tokens in fork text before the judge prompt (prompt-injection escape).
+
+---
+
 ## [0.10.1] — 2026-06-27
 
 ### Fixed
