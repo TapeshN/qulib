@@ -41,6 +41,18 @@ export type { ApiSurface, DiscoveredEndpoint, DiscoverApiSurfaceOptions } from '
 export { computeAutomationMaturity } from './tools/scoring/automation-maturity.js';
 export { computeApiCoverage } from './tools/scoring/api-coverage.js';
 export { detectPromptLeakage } from './tools/scoring/prompt-leakage.js';
+export {
+  scoreBugReport,
+  scoreBugReportDeterministic,
+  buildBugReportJudgePrompt,
+  parseBugReportJudgeResponse,
+  BUG_REPORT_JUDGE_MODEL,
+  RUBRIC_MAX_PTS,
+  SEVERITY_WEIGHT,
+  hasQualityRepro,
+  hasEvidence,
+} from './tools/scoring/bug-report-score.js';
+export type { ScoreBugReportOptions } from './tools/scoring/bug-report-score.js';
 export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api-coverage.js';
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
@@ -80,6 +92,11 @@ export type {
   DetectedFrameworkPrimary,
   RecipeId,
   RecipeConfig,
+  BugReportScoreResult,
+  BugReportRubric,
+  BugReportInput,
+  BugReportTarget,
+  ScoreBugReportInput,
 } from './schemas/index.js';
 export { RecipeIdSchema } from './schemas/index.js';
 // P3 — Confidence Layer exports

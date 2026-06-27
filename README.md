@@ -146,6 +146,7 @@ The agent will call **`qulib_score_confidence`** for the fused release verdict, 
 | `qulib_scaffold_tests` | Ready-to-run Cypress spec + config, generated from a live crawl. |
 | **`qulib_diff`** | Structured diff between two analyze outputs — added findings, resolved findings, severity changes, and a confidence delta. |
 | **`qulib_detect_prompt_leakage`** | Scan a page surface for signals that AI system prompts or agent instructions are inadvertently exposed publicly. |
+| **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report against a planted-bug target — matched verdict, rubric (coverage/severity/repro/evidence), and feedback. Falls back to deterministic scoring without `ANTHROPIC_API_KEY`. |
 | `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
 | `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 

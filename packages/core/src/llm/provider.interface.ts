@@ -9,8 +9,12 @@ export interface LlmCallResult {
   };
 }
 
+export interface LlmCallOptions {
+  temperature?: number;
+}
+
 export interface LlmProvider {
   readonly name: string;
   readonly model: string;
-  call(prompt: string, maxOutputTokens: number): Promise<LlmCallResult>;
+  call(prompt: string, maxOutputTokens: number, options?: LlmCallOptions): Promise<LlmCallResult>;
 }
