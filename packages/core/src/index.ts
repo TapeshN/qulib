@@ -51,8 +51,19 @@ export {
   SEVERITY_WEIGHT,
   hasQualityRepro,
   hasEvidence,
+  delimitUntrusted,
 } from './tools/scoring/bug-report-score.js';
 export type { ScoreBugReportOptions } from './tools/scoring/bug-report-score.js';
+export {
+  scoreDecisions,
+  scoreForkDeterministic,
+  loadDecisionForks,
+  validateForksPath,
+  resolveAllowedForksRoot,
+  buildDecisionJudgePrompt,
+  parseDecisionJudgeResponse,
+} from './tools/scoring/score-decisions.js';
+export type { ScoreDecisionsOptions } from './tools/scoring/score-decisions.js';
 export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api-coverage.js';
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
@@ -97,6 +108,10 @@ export type {
   BugReportInput,
   BugReportTarget,
   ScoreBugReportInput,
+  DecisionScoreResult,
+  ScoredDecisionFork,
+  DecisionFork,
+  ScoreDecisionsInput,
 } from './schemas/index.js';
 export { RecipeIdSchema } from './schemas/index.js';
 // P3 — Confidence Layer exports

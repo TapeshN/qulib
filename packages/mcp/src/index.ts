@@ -32,6 +32,7 @@ import {
   loadGapAnalysisFile,
   detectPromptLeakage,
   scoreBugReport,
+  scoreDecisions,
 } from '@qulib/core';
 import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -826,6 +827,73 @@ mcpServer.registerTool(
     inputSchema: ScoreBugReportInputSchema,
   },
   handleScoreBugReport
+);
+
+const ScoreDecisionsInputSchema = z.object({
+  forksPath: z
+    .string()
+    .describe('Absolute path to a JSONL file of decision forks on the MCP host filesystem'),
+  enableLlmJudge: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true and ANTHROPIC_API_KEY is set, refine scores with the pinned LLM judge. Default false uses deterministic rubric only.'
+    ),
+});
+
+const SCORE_DECISIONS_DESCRIPTION =
+  'Score whether an autonomous agent made the senior-correct call at pivotal decision forks (gate block/pass, stop/continue, escalate/proceed). Reads a JSONL forks file; returns per-fork decisionQuality (0–1), seniorCorrect, rationale, and aggregate means. Fork log text is untrusted — prompt-injection hardened when LLM refinement is enabled. forksPath is traversal-validated within QULIB_FORKS_ALLOWED_ROOT (default: process cwd). Read-only; no writes.';
+
+async function handleScoreDecisions(
+  input: z.infer<typeof ScoreDecisionsInputSchema>
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    const norm = normalize(input.forksPath.trim());
+    if (!isAbsolute(norm)) {
+      throw new Error('forksPath must be an absolute path on the MCP host');
+    }
+    log.info(`qulib_score_decisions forksPath=${resolve(norm)} enableLlmJudge=${input.enableLlmJudge ?? false}`);
+    const result = await scoreDecisions({
+      forksPath: resolve(norm),
+      enableLlmJudge: input.enableLlmJudge,
+    });
+    log.info(
+      `qulib_score_decisions done count=${result.aggregate.count} mean=${result.aggregate.meanDecisionQuality}`
+    );
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes('forksPath must') ||
+      msg.includes('outside the allowed root') ||
+      msg.includes('traversal') ||
+      msg.includes('not valid JSON')
+    ) {
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+    log.error(`qulib_score_decisions failed: ${msg}`);
+    return toolError('QULIB_DECISION_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+mcpServer.registerTool(
+  'qulib_score_decisions',
+  {
+    description: SCORE_DECISIONS_DESCRIPTION,
+    inputSchema: ScoreDecisionsInputSchema,
+  },
+  handleScoreDecisions
+);
+
+mcpServer.registerTool(
+  'score_decisions',
+  {
+    description: `${SCORE_DECISIONS_DESCRIPTION} (Alias for new integrations: qulib_score_decisions)`,
+    inputSchema: ScoreDecisionsInputSchema,
+  },
+  handleScoreDecisions
 );
 
 async function startMcpServer(): Promise<void> {
