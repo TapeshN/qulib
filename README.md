@@ -13,7 +13,7 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
-**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.12.0** are published on npm — the release-confidence verdict now **gates CI** (`--fail-on` / `--min-score` exit codes), alongside the LLM-as-judge tools `qulib_score_bug_report` and `qulib_score_decisions`. See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
+**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.13.0** are published on npm — the release-confidence verdict **gates CI** (`--fail-on` / `--min-score`), the judge tools are now on the CLI (`qulib score-decisions` / `qulib score-bug-report`), and **`qulib validate`** grades a deployed app against a supplied spec (PRD / requirements) — *does it do what it was supposed to do?* See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
 
 ---
 
