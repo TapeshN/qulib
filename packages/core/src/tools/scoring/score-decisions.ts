@@ -73,9 +73,19 @@ export async function validateForksPath(
     throw new Error('forksPath must not contain path traversal segments');
   }
   const abs = resolve(norm);
-  const root = resolve(allowedRoot ?? resolveAllowedForksRoot());
-  if (!pathWithinRoot(abs, root)) {
+  const rawRoot = resolve(allowedRoot ?? resolveAllowedForksRoot());
+  if (!pathWithinRoot(abs, rawRoot)) {
     throw new Error('forksPath must be within the allowed root directory');
+  }
+  // Realpath the root too, so a symlinked allowed root (e.g. macOS /tmp -> /private/tmp,
+  // /var -> /private/var, or a symlinked CI mount) compares consistently against the
+  // realpath'd file below. A symlink *inside* the root that escapes still resolves
+  // outside rootReal and is rejected — the traversal-escape defense is preserved.
+  let rootReal: string;
+  try {
+    rootReal = await realpath(rawRoot);
+  } catch {
+    rootReal = rawRoot;
   }
 
   let real: string;
@@ -84,7 +94,7 @@ export async function validateForksPath(
   } catch {
     throw new Error('forksPath does not exist or is not accessible');
   }
-  if (!pathWithinRoot(real, root)) {
+  if (!pathWithinRoot(real, rootReal)) {
     throw new Error('forksPath resolves outside the allowed root directory');
   }
 
