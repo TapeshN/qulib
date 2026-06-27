@@ -9,6 +9,11 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+### Added
+
+- **`qulib score-decisions`** — exposes the existing `scoreDecisions()` LLM-judge tool in the CLI. Reads a JSONL forks file (one `DecisionFork` per line) and emits per-fork `decisionQuality` (0..1), `seniorCorrect`, rationale, and aggregate means. Options: `--forks <file.jsonl>` (required), `--json`, `--enable-llm-judge`, `--min-quality <n>` (CI gate: exits non-zero when `aggregate.meanDecisionQuality < n`, prints `GATE: PASS|FAIL — <reason>`; gate line goes to stderr in `--json` mode).
+- **`qulib score-bug-report`** — exposes the existing `scoreBugReport()` LLM-judge tool in the CLI. Reads a JSON file (`{ "report": {...}, "target": {...} }`) and emits `matched`, `matchConfidence`, a 4-part rubric (coverage/severity/repro/evidence, each 0–25), and feedback. Options: `--input <file.json>` (required), `--json`. Path is validated (regular file, ≤1 MiB); bad input prints a friendly one-line error with no raw ZodError stack. Falls back to deterministic scoring when `ANTHROPIC_API_KEY` is not set.
+
 ---
 
 ## [0.12.0] — 2026-06-27

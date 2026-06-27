@@ -1,0 +1,14 @@
+{
+  "report": {
+    "title": "Login form submits with empty password field",
+    "description": "When a user leaves the password field blank and clicks the submit button, the form submits without any validation error. The server returns a 200 response instead of rejecting the empty credential.",
+    "steps": "1. Navigate to /login\n2. Enter a valid username in the username field\n3. Leave the password field empty\n4. Click the Submit button\n5. Observe: the form submits and no validation error is shown",
+    "severity": "high"
+  },
+  "target": {
+    "description": "Missing client-side validation allows form submission with empty password field",
+    "type": "validation",
+    "severity": "high",
+    "expectedBehavior": "An error message should appear when the password field is empty, preventing form submission"
+  }
+}

@@ -116,6 +116,52 @@ npx @qulib/core score-automation --repo /path/to/repo
 # or equivalently: npx @qulib/core automation-score --repo /path/to/repo
 ```
 
+**Score pivotal-decision forks (LLM-judge tool — now in the CLI):**
+
+```bash
+npx @qulib/core score-decisions --forks agent-decisions.jsonl
+# with a CI gate (exit non-zero when mean decision quality < 0.7):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --min-quality 0.7
+# enable LLM refinement (requires ANTHROPIC_API_KEY):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --enable-llm-judge
+# emit full JSON result to stdout (gate line goes to stderr):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --json
+```
+
+The `--forks` file is a JSONL file, one `DecisionFork` object per line. Each fork requires:
+`fork_id`, `fork_kind` (`gate_block_vs_pass` | `stop_vs_continue` | `escalate_vs_proceed`), `options`, `choice`, `constraint`, `settleable`, `source_event_id`, `ts`.
+
+The `--min-quality <n>` gate (0..1) exits non-zero when `aggregate.meanDecisionQuality < n` and prints `[qulib] GATE: PASS|FAIL — <reason>`. In `--json` mode the gate line goes to stderr so stdout stays pure JSON.
+
+**Score a learner bug report (LLM-judge tool — now in the CLI):**
+
+```bash
+npx @qulib/core score-bug-report --input bug-report.json
+# emit full JSON result:
+npx @qulib/core score-bug-report --input bug-report.json --json
+```
+
+The `--input` file is a JSON file with shape:
+
+```json
+{
+  "report": {
+    "title": "...",
+    "description": "...",
+    "steps": "...",
+    "severity": "high"
+  },
+  "target": {
+    "description": "...",
+    "type": "validation",
+    "severity": "high",
+    "expectedBehavior": "..."
+  }
+}
+```
+
+`severity` must be one of `critical | high | medium | low`. Returns `matched`, `matchConfidence`, a 4-part rubric (`coverage / severity / repro / evidence`, each 0–25), and `feedback`. Falls back to deterministic scoring when `ANTHROPIC_API_KEY` is not set. Bad input prints a friendly one-line error — no raw stack.
+
 From a clone (repo root):
 
 ```bash
