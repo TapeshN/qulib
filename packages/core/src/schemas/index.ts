@@ -161,3 +161,13 @@ export {
   type ReplayTrace,
   type AuditEntry,
 } from './views.schema.js';
+export {
+  SpecRequirementSchema,
+  SpecValidationInputSchema,
+  RequirementVerdictSchema,
+  SpecConformanceResultSchema,
+  type SpecRequirement,
+  type SpecValidationInput,
+  type RequirementVerdict,
+  type SpecConformanceResult,
+} from './spec-conformance.schema.js';

@@ -64,6 +64,8 @@ export {
   parseDecisionJudgeResponse,
 } from './tools/scoring/score-decisions.js';
 export type { ScoreDecisionsOptions } from './tools/scoring/score-decisions.js';
+export { validateSpecConformance } from './tools/scoring/spec-conformance.js';
+export type { ValidateSpecConformanceOptions } from './tools/scoring/spec-conformance.js';
 export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api-coverage.js';
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';

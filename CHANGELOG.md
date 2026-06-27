@@ -9,6 +9,10 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+### Added
+
+- **`qulib validate` CLI + `qulib_validate_spec` MCP tool — spec-grounded validation:** Grade whether a deployed app's OBSERVED behavior conforms to a SUPPLIED spec (PRD / requirements file). Not "does it crash" — "does it match intent." `--spec <file>` parses a text/markdown requirements file; `--report <file>` or `--url` supplies the observed evidence. Without `--enable-llm-judge` (or no `ANTHROPIC_API_KEY`), all requirements return `conforms=unknown` and `verdict=insufficient-evidence` — honest, never fabricating verdicts. With the LLM judge enabled, each requirement is graded individually by the pinned haiku judge; both requirement text and observed summary are treated as untrusted input: wrapped with `delimitUntrusted()` and run through the delimiter-neutralizer (collapse `<<<` / `>>>` runs to `‹‹‹` / `›››`) before entering the prompt, preventing prompt-injection escape from the untrusted block. `--fail-on-violation` exits 1 on `violates` or `partial`; `insufficient-evidence` is not a violation. `--json` keeps stdout pure JSON (gate line to stderr). The MCP tool (`qulib_validate_spec`) follows the same security posture — input errors return a clean tool error without leaking a stack trace.
+
 ---
 
 ## [0.12.0] — 2026-06-27

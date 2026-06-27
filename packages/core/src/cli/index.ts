@@ -49,6 +49,7 @@ import { registerScoreAutomationCommand } from './score-automation-run.js';
 import { registerConfidenceCommand } from './confidence-run.js';
 import { registerBaselineCommand } from './baseline-run.js';
 import { registerAnalyzeDiffCommand } from './analyze-diff-run.js';
+import { registerSpecValidateCommand } from './spec-validate-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -270,6 +271,7 @@ registerScoreAutomationCommand(program);
 registerConfidenceCommand(program);
 registerBaselineCommand(program);
 registerAnalyzeDiffCommand(program);
+registerSpecValidateCommand(program);
 
 program
   .command('clean')
