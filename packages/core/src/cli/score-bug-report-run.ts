@@ -18,6 +18,7 @@ import { resolve } from 'node:path';
 import { stat, readFile } from 'node:fs/promises';
 import type { Command } from 'commander';
 import { scoreBugReport } from '../tools/scoring/bug-report-score.js';
+import { anthropicKeyPresent, noteLlmFallback } from './llm-fallback-note.js';
 import type { BugReportScoreResult } from '../schemas/bug-report-score.schema.js';
 
 /** Maximum file size accepted for the --input JSON (1 MiB). */
@@ -128,6 +129,10 @@ export function registerScoreBugReportCommand(program: Command): void {
           process.exitCode = 1;
           return;
         }
+
+        // Honest fallback note: the bug-report judge uses the LLM whenever a key is
+        // present; if it still returned a deterministic fallback, the call failed.
+        noteLlmFallback(anthropicKeyPresent(), result.scoringPath === 'deterministic-fallback');
 
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));

@@ -18,6 +18,7 @@
 import { resolve, dirname } from 'node:path';
 import type { Command } from 'commander';
 import { scoreDecisions } from '../tools/scoring/score-decisions.js';
+import { anthropicKeyPresent, noteLlmFallback } from './llm-fallback-note.js';
 import type { DecisionScoreResult } from '../schemas/decision-score.schema.js';
 
 export interface ScoreDecisionsOptions {
@@ -134,6 +135,13 @@ export function registerScoreDecisionsCommand(program: Command): void {
           process.exitCode = 1;
           return;
         }
+
+        // Honest fallback note: warn (stderr → JSON-safe) iff the LLM judge was
+        // requested with a key present but every fork came back deterministic —
+        // i.e. the LLM call failed (out of credits / network / model).
+        const llmFellBack =
+          result.scored.length > 0 && result.scored.every((s) => s.scoringPath === 'deterministic');
+        noteLlmFallback(enableLlmJudge && anthropicKeyPresent(), llmFellBack);
 
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));

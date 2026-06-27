@@ -25,6 +25,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Command } from 'commander';
 import { validateSpecConformance } from '../tools/scoring/spec-conformance.js';
+import { anthropicKeyPresent, noteLlmFallback } from './llm-fallback-note.js';
 import type {
   SpecRequirement,
   SpecConformanceResult,
@@ -234,6 +235,13 @@ export function registerSpecValidateCommand(program: Command): void {
           },
           {}
         );
+
+        // Honest fallback note: warn (stderr → JSON-safe) iff the LLM judge was
+        // requested with a key present but every requirement came back deterministic.
+        const llmFellBack =
+          result.requirements.length > 0 &&
+          result.requirements.every((r) => r.scoringPath === 'deterministic-fallback');
+        noteLlmFallback(Boolean(options.enableLlmJudge) && anthropicKeyPresent(), llmFellBack);
 
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
