@@ -13,6 +13,10 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 - **LLM-as-judge prompt hardening (defense-in-depth):** the fixed rubric / security instructions for `qulib_score_bug_report` and `qulib_score_decisions` now live in the Anthropic `system:` role, so untrusted learner-report / fork-log text (which stays in the `user:` turn) cannot override the rubric, scoring scale, or output format. Adds an optional `system` field to the LLM provider interface; the bug-report judge also gains the delimiter-token neutralizer for parity with the decision and spec-conformance judges.
 
+### Changed
+
+- **Honest LLM fallback note:** `qulib score-decisions`, `qulib score-bug-report`, and `qulib validate` now print a one-line note to **stderr** when the LLM judge was requested (a key is present, and where applicable `--enable-llm-judge` was passed) but every result came back deterministic — i.e. the LLM call failed (out of API credits, network, or model). The legitimate "no `ANTHROPIC_API_KEY` → deterministic" case is unchanged and is **not** warned about. `--json` stdout stays pure (the note goes to stderr).
+
 ---
 
 ## [0.13.0] — 2026-06-27
