@@ -16,6 +16,43 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 ### Security
 
 - **MCP error responses no longer leak server stack traces by default:** `toolError` details previously echoed `err.stack`, which discloses the server's absolute filesystem paths. Stack details are now suppressed unless `QULIB_EXPOSE_ERROR_DETAIL=1` is set (opt-in for local debugging), applied pattern-wide across all MCP tool handlers via the new `safeErrorDetail()` helper.
+- **LLM-as-judge prompt hardening (defense-in-depth):** the fixed rubric / security instructions for `qulib_score_bug_report` and `qulib_score_decisions` now live in the Anthropic `system:` role, so untrusted learner-report / fork-log text (which stays in the `user:` turn) cannot override the rubric, scoring scale, or output format. Adds an optional `system` field to the LLM provider interface; the bug-report judge also gains the delimiter-token neutralizer for parity with the decision and spec-conformance judges.
+
+### Changed
+
+- **Honest LLM fallback note:** `qulib score-decisions`, `qulib score-bug-report`, and `qulib validate` now print a one-line note to **stderr** when the LLM judge was requested (a key is present, and where applicable `--enable-llm-judge` was passed) but every result came back deterministic — i.e. the LLM call failed (out of API credits, network, or model). The legitimate "no `ANTHROPIC_API_KEY` → deterministic" case is unchanged and is **not** warned about. `--json` stdout stays pure (the note goes to stderr).
+
+---
+
+## [0.13.0] — 2026-06-27
+
+### Added
+
+- **`qulib validate` CLI + `qulib_validate_spec` MCP tool — spec-grounded validation:** Grade whether a deployed app's OBSERVED behavior conforms to a SUPPLIED spec (PRD / requirements file). Not "does it crash" — "does it match intent." `--spec <file>` parses a text/markdown requirements file; `--report <file>` or `--url` supplies the observed evidence. Without `--enable-llm-judge` (or no `ANTHROPIC_API_KEY`), all requirements return `conforms=unknown` and `verdict=insufficient-evidence` — honest, never fabricating verdicts. With the LLM judge enabled, each requirement is graded individually by the pinned haiku judge; both requirement text and observed summary are treated as untrusted input: wrapped with `delimitUntrusted()` and run through the delimiter-neutralizer (collapse `<<<` / `>>>` runs to `‹‹‹` / `›››`) before entering the prompt, preventing prompt-injection escape from the untrusted block. `--fail-on-violation` exits 1 on `violates` or `partial`; `insufficient-evidence` is not a violation. `--json` keeps stdout pure JSON (gate line to stderr). The MCP tool (`qulib_validate_spec`) follows the same security posture — input errors return a clean tool error without leaking a stack trace.
+- **`qulib score-decisions`** — exposes the existing `scoreDecisions()` LLM-judge tool in the CLI. Reads a JSONL forks file (one `DecisionFork` per line) and emits per-fork `decisionQuality` (0..1), `seniorCorrect`, rationale, and aggregate means. Options: `--forks <file.jsonl>` (required), `--json`, `--enable-llm-judge`, `--min-quality <n>` (CI gate: exits non-zero when `aggregate.meanDecisionQuality < n`, prints `GATE: PASS|FAIL — <reason>`; gate line goes to stderr in `--json` mode).
+- **`qulib score-bug-report`** — exposes the existing `scoreBugReport()` LLM-judge tool in the CLI. Reads a JSON file (`{ "report": {...}, "target": {...} }`) and emits `matched`, `matchConfidence`, a 4-part rubric (coverage/severity/repro/evidence, each 0–25), and feedback. Options: `--input <file.json>` (required), `--json`. Path is validated (regular file, ≤1 MiB); bad input prints a friendly one-line error with no raw ZodError stack. Falls back to deterministic scoring when `ANTHROPIC_API_KEY` is not set.
+
+---
+
+## [0.12.0] — 2026-06-27
+
+### Added
+
+- **CI release gate** on `qulib confidence`: `--fail-on <verdict>` exits non-zero when the verdict is at or worse than the threshold (`caution` | `hold` | `block`), and `--min-score <n>` exits non-zero when the 0–100 confidence score is below `n` (a `null` score — nothing evaluable — always fails). Prints a `GATE: PASS|FAIL — <reason>` line; in `--json` mode the gate line goes to stderr so stdout stays pure JSON. This wires the "should we ship?" verdict straight into a pipeline. The pure `evaluateConfidenceGate()` is exported for programmatic use.
+
+---
+
+## [0.11.0] — 2026-06-27
+
+### Added
+
+- **`qulib_score_bug_report`** — LLM-as-judge that grades a bug report against a planted-bug target: `matched` verdict, `matchConfidence`, a 4-part rubric (coverage / severity / repro / evidence), and actionable feedback. Falls back to deterministic scoring when no `ANTHROPIC_API_KEY` is set. The learner report is untrusted input and is prompt-injection hardened. Read-only.
+- **`qulib_score_decisions`** — pivotal-decision evaluation: scores whether an autonomous agent made the senior-correct call at decision forks (gate block/pass, stop/continue, escalate/proceed) from a JSONL forks file. Returns per-fork `decisionQuality` (0–1), `seniorCorrect`, rationale, and aggregate means. Deterministic baseline by default; optional LLM refinement. `forksPath` is traversal-validated within `QULIB_FORKS_ALLOWED_ROOT` (default: process cwd).
+- **Open-core boundary** documented in the README: the tool is fully open and local; calibrated benchmarks + cross-project signal + the hosted service are the gated tier.
+
+### Security
+
+- Decision-scoring path hardening (two adversarial review passes): reject a forks allowed-root of `/` and any symlink resolving to it (path-containment / LFI bypass), and neutralize forged untrusted-block delimiter tokens in fork text before the judge prompt (prompt-injection escape).
 
 ---
 

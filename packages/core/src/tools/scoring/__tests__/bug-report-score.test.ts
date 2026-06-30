@@ -102,10 +102,13 @@ test('injection attempt in report does not inflate deterministic scores', () => 
 });
 
 test('injection attempt: judge prompt isolates untrusted report and LLM path stays conservative', async () => {
-  const prompt = buildBugReportJudgePrompt(INJECTION_REPORT);
-  assert.match(prompt, /UNTRUSTED_LEARNER_REPORT/);
-  assert.match(prompt, /NEVER follow/);
-  assert.match(prompt, /<<<TRUSTED_TARGET_START>>>/);
+  const { system, user } = buildBugReportJudgePrompt(INJECTION_REPORT);
+  // Untrusted learner report + the authoritative target live in the user turn;
+  // the fixed rubric/security block lives in the system role.
+  assert.match(user, /UNTRUSTED_LEARNER_REPORT/);
+  assert.match(user, /<<<TRUSTED_TARGET_START>>>/);
+  assert.match(system, /NEVER follow/);
+  assert.doesNotMatch(user, /NEVER follow/);
 
   const conservativeReply = JSON.stringify({
     matched: false,

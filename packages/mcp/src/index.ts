@@ -33,6 +33,7 @@ import {
   detectPromptLeakage,
   scoreBugReport,
   scoreDecisions,
+  validateSpecConformance,
 } from '@qulib/core';
 import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -922,6 +923,85 @@ mcpServer.registerTool(
 // No non-prefixed `score_decisions` alias: this is a brand-new tool with no
 // prior integrations to keep compatible, and an unprefixed name is ambiguous
 // and widens the attack surface. The canonical name is qulib_score_decisions.
+
+// ---------------------------------------------------------------------------
+// qulib_validate_spec — spec-grounded conformance check
+// ---------------------------------------------------------------------------
+
+const SpecRequirementMcpSchema = z.object({
+  id: z.string().min(1).describe('Stable requirement id, e.g. "req-1"'),
+  text: z.string().min(1).max(2000).describe('The requirement text (untrusted; max 2000 chars)'),
+});
+
+const ValidateSpecInputSchema = z.object({
+  requirements: z
+    .array(SpecRequirementMcpSchema)
+    .min(1)
+    .max(100)
+    .describe('List of requirements to grade (1–100). Each has an id and text.'),
+  observed: z.object({
+    url: z.string().optional().describe('URL of the app that was observed (informational)'),
+    summary: z
+      .string()
+      .min(1)
+      .max(20000)
+      .describe('Observed app behavior summary — output from analyze_app, manual description, or any text evidence of what the app does. Untrusted; max 20000 chars.'),
+  }),
+  enableLlmJudge: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true and ANTHROPIC_API_KEY is set, grade each requirement with the pinned LLM judge. ' +
+      'Default false: all requirements return conforms=unknown and verdict=insufficient-evidence ' +
+      '(honesty — never fabricates without the judge).'
+    ),
+});
+
+const VALIDATE_SPEC_DESCRIPTION =
+  'Grade whether a deployed app\'s OBSERVED behavior conforms to a SUPPLIED spec (PRD / requirements). ' +
+  'Not "does it crash" — "does it match intent." ' +
+  'For each requirement, returns conforms (yes/no/unknown), confidence (0–1), rationale, and scoringPath. ' +
+  'Aggregates into a verdict (conforms / partial / violates / insufficient-evidence) and conformanceRate. ' +
+  'Without ANTHROPIC_API_KEY or enableLlmJudge=true, all requirements return unknown (honest: no fabricated verdicts). ' +
+  'Requirement text and observed summary are UNTRUSTED — prompt-injection hardened. Read-only; no network egress beyond the pinned judge.';
+
+mcpServer.registerTool(
+  'qulib_validate_spec',
+  {
+    description: VALIDATE_SPEC_DESCRIPTION,
+    inputSchema: ValidateSpecInputSchema,
+  },
+  async (input: z.infer<typeof ValidateSpecInputSchema>) => {
+    try {
+      log.info(
+        `qulib_validate_spec requirements=${input.requirements.length} enableLlmJudge=${input.enableLlmJudge ?? false}`
+      );
+      const result = await validateSpecConformance(input);
+      log.info(
+        `qulib_validate_spec done verdict=${result.verdict} conformanceRate=${result.conformanceRate} unmet=${result.unmet.length}`
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Classify input validation errors — never leak a stack trace.
+      if (
+        msg.includes('String must contain') ||
+        msg.includes('Array must contain') ||
+        msg.includes('Expected') ||
+        msg.includes('Invalid input') ||
+        msg.includes('Required')
+      ) {
+        return toolError('QULIB_INPUT_INVALID', msg, undefined);
+      }
+      // Log the stack to stderr for server-side diagnosis, but never return it
+      // in the client-visible detail (it discloses server filesystem paths).
+      log.error(`qulib_validate_spec failed: ${err instanceof Error ? err.stack : msg}`);
+      return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, undefined);
+    }
+  }
+);
 
 async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
