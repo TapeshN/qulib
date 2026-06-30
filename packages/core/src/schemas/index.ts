@@ -140,6 +140,38 @@ export {
   type ProvenanceScore,
 } from './provenance.schema.js';
 export {
+  BugReportSeveritySchema,
+  BugReportInputSchema,
+  BugReportTargetSchema,
+  ScoreBugReportInputSchema,
+  BugReportRubricSchema,
+  BugReportScoringPathSchema,
+  BugReportScoreResultSchema,
+  type BugReportSeverity,
+  type BugReportInput,
+  type BugReportTarget,
+  type ScoreBugReportInput,
+  type BugReportRubric,
+  type BugReportScoringPath,
+  type BugReportScoreResult,
+} from './bug-report-score.schema.js';
+export {
+  ForkKindSchema,
+  DecisionForkSchema,
+  ScoreDecisionsInputSchema,
+  DecisionScoringPathSchema,
+  ScoredDecisionForkSchema,
+  DecisionScoreAggregateSchema,
+  DecisionScoreResultSchema,
+  type ForkKind,
+  type DecisionFork,
+  type ScoreDecisionsInput,
+  type DecisionScoringPath,
+  type ScoredDecisionFork,
+  type DecisionScoreAggregate,
+  type DecisionScoreResult,
+} from './decision-score.schema.js';
+export {
   DeliveryTrafficPointSchema,
   InboxItemKindSchema,
   InboxItemSchema,
@@ -153,3 +185,13 @@ export {
   type ReplayTrace,
   type AuditEntry,
 } from './views.schema.js';
+export {
+  SpecRequirementSchema,
+  SpecValidationInputSchema,
+  RequirementVerdictSchema,
+  SpecConformanceResultSchema,
+  type SpecRequirement,
+  type SpecValidationInput,
+  type RequirementVerdict,
+  type SpecConformanceResult,
+} from './spec-conformance.schema.js';

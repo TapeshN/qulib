@@ -13,6 +13,8 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/TapeshN/qulib/actions/workflows/ci.yml/badge.svg)](https://github.com/TapeshN/qulib/actions/workflows/ci.yml)
 
+**Status:** [`@qulib/core`](https://www.npmjs.com/package/@qulib/core) and [`@qulib/mcp`](https://www.npmjs.com/package/@qulib/mcp) **v0.13.0** are published on npm — the release-confidence verdict **gates CI** (`--fail-on` / `--min-score`), the judge tools are now on the CLI (`qulib score-decisions` / `qulib score-bug-report`), and **`qulib validate`** grades a deployed app against a supplied spec (PRD / requirements) — *does it do what it was supposed to do?* See [`roadmap.json`](./roadmap.json) for shipped capabilities and the trust / release-confidence path to v1.0.0.
+
 ---
 
 ## What Qulib does
@@ -33,6 +35,14 @@ On npm: **`@qulib/core`** (engine + CLI `qulib`) and **`@qulib/mcp`** (MCP serve
 |---------|---------|
 | [`@qulib/core`](./packages/core) | Analyzer engine and CLI (`qulib`) |
 | [`@qulib/mcp`](./packages/mcp) | MCP server exposing Qulib to AI clients |
+
+---
+
+## Open-core — what's MIT, what's hosted
+
+Qulib is **genuinely open**, not a teaser. `@qulib/core` and `@qulib/mcp` are MIT-licensed, run **locally**, and need **no Qulib account** — bring your own `ANTHROPIC_API_KEY` for the optional LLM paths and every tool works. The verdict engine, the schemas, the deterministic collectors, the judge harness, and the MCP server are all here, complete, with **nothing gated behind a paywall and no crippled code paths**.
+
+What is **not** in this repo, by design, is the part you can't meaningfully open-source: the **calibrated benchmark packs** (continuously-tuned weights and rubrics), the **cross-project signal** that sharpens the judges over time, and the **hosted service** (managed runs, history, team, CI-gate-as-a-service). The open tool ships an honest **baseline** rubric — useful standalone and clearly labelled as baseline; the hosted tier is the calibrated, networked upgrade. **We gate on data and service, never on crippled code.**
 
 ---
 
@@ -75,6 +85,18 @@ Add `--repo` to also score test-automation maturity and API coverage:
 npx @qulib/core confidence --url https://example.com --repo .
 ```
 
+**Gate a release in CI** — turn the verdict into a pass/fail exit code:
+
+```bash
+# Block the deploy unless the verdict is better than `hold`, or score is ≥ 70.
+npx @qulib/core confidence --url "$DEPLOY_URL" --repo . --fail-on hold --min-score 70
+# exit 0 → ship;  exit 1 → gate failed (prints "GATE: FAIL — …").
+```
+
+- `--fail-on <verdict>` exits non-zero when the verdict is **at or worse than** the threshold (`caution` | `hold` | `block`).
+- `--min-score <n>` exits non-zero when the 0–100 confidence score is below `n` (a `null` score — nothing evaluable — always fails).
+- Combine with `--json` to capture the full report on stdout while the gate line goes to stderr. This is the "should we ship?" question wired straight into your pipeline.
+
 **Analyze (full gap report):**
 
 ```bash
@@ -94,6 +116,52 @@ npx @qulib/core score-automation --repo /path/to/repo
 # or equivalently: npx @qulib/core automation-score --repo /path/to/repo
 ```
 
+**Score pivotal-decision forks (LLM-judge tool — now in the CLI):**
+
+```bash
+npx @qulib/core score-decisions --forks agent-decisions.jsonl
+# with a CI gate (exit non-zero when mean decision quality < 0.7):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --min-quality 0.7
+# enable LLM refinement (requires ANTHROPIC_API_KEY):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --enable-llm-judge
+# emit full JSON result to stdout (gate line goes to stderr):
+npx @qulib/core score-decisions --forks agent-decisions.jsonl --json
+```
+
+The `--forks` file is a JSONL file, one `DecisionFork` object per line. Each fork requires:
+`fork_id`, `fork_kind` (`gate_block_vs_pass` | `stop_vs_continue` | `escalate_vs_proceed`), `options`, `choice`, `constraint`, `settleable`, `source_event_id`, `ts`.
+
+The `--min-quality <n>` gate (0..1) exits non-zero when `aggregate.meanDecisionQuality < n` and prints `[qulib] GATE: PASS|FAIL — <reason>`. In `--json` mode the gate line goes to stderr so stdout stays pure JSON.
+
+**Score a learner bug report (LLM-judge tool — now in the CLI):**
+
+```bash
+npx @qulib/core score-bug-report --input bug-report.json
+# emit full JSON result:
+npx @qulib/core score-bug-report --input bug-report.json --json
+```
+
+The `--input` file is a JSON file with shape:
+
+```json
+{
+  "report": {
+    "title": "...",
+    "description": "...",
+    "steps": "...",
+    "severity": "high"
+  },
+  "target": {
+    "description": "...",
+    "type": "validation",
+    "severity": "high",
+    "expectedBehavior": "..."
+  }
+}
+```
+
+`severity` must be one of `critical | high | medium | low`. Returns `matched`, `matchConfidence`, a 4-part rubric (`coverage / severity / repro / evidence`, each 0–25), and `feedback`. Falls back to deterministic scoring when `ANTHROPIC_API_KEY` is not set. Bad input prints a friendly one-line error — no raw stack.
+
 From a clone (repo root):
 
 ```bash
@@ -105,6 +173,25 @@ npm run analyze -w @qulib/core -- --url https://example.com
 ```bash
 npm run smoke
 ```
+
+**Validate spec conformance — does the app do what the spec says?**
+
+```bash
+# Grade whether a deployed app matches a requirements file (offline, from an existing report):
+npx @qulib/core validate --spec requirements.md --report output/report.json
+
+# With live analysis from a URL (and the LLM judge enabled):
+npx @qulib/core validate --spec requirements.md --url https://example.com --enable-llm-judge
+
+# Gate CI — exit 1 when verdict is 'violates' or 'partial':
+npx @qulib/core validate --spec requirements.md --report output/report.json --fail-on-violation
+```
+
+- `--spec <file>`: a text or markdown file; each non-heading, non-empty line becomes a requirement (strips leading `- `, `* `, `N. `).
+- `--report <file>` or `--url <url>`: source for the observed app behavior summary.
+- `--enable-llm-judge`: grade with the pinned LLM judge (requires `ANTHROPIC_API_KEY`). Without this, all requirements return `unknown` (honest — no fabricated verdicts).
+- `--fail-on-violation`: exit 1 on `violates` or `partial` verdicts. `insufficient-evidence` does **not** trigger the gate.
+- `--json`: emit the full `SpecConformanceResult` on stdout (stderr for the gate line).
 
 **Cost doctor** (after a normal analyze that wrote `output/report.json`):
 
@@ -143,6 +230,10 @@ The agent will call **`qulib_score_confidence`** for the fused release verdict, 
 | `qulib_score_api` | API endpoint discovery + test coverage: are your routes exercised? |
 | `qulib_scaffold_tests` | Ready-to-run Cypress spec + config, generated from a live crawl. |
 | **`qulib_diff`** | Structured diff between two analyze outputs — added findings, resolved findings, severity changes, and a confidence delta. |
+| **`qulib_detect_prompt_leakage`** | Scan a page surface for signals that AI system prompts or agent instructions are inadvertently exposed publicly. |
+| **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report against a planted-bug target — matched verdict, rubric (coverage/severity/repro/evidence), and feedback. Falls back to deterministic scoring without `ANTHROPIC_API_KEY`. |
+| **`qulib_score_decisions`** | Pivotal-decision evaluation — scores senior-correctness at agent decision forks from a JSONL file. Deterministic by default; optional LLM refinement. |
+| **`qulib_validate_spec`** | Spec-grounded conformance — grades whether the observed app behavior conforms to a supplied spec (PRD / requirements). Returns per-requirement verdicts (yes/no/unknown) + a fused verdict (conforms/partial/violates/insufficient-evidence). LLM judge optional; honest unknown without it. |
 | `qulib_explore_auth` | All sign-in paths (OAuth, SSO, forms, magic link) and what to collect before scanning. |
 | `qulib_detect_auth` | Single-pass auth pattern guess with a recommendation. Lighter than `explore_auth`. |
 
@@ -259,11 +350,15 @@ qulib confidence --url https://example.com [--repo /path/to/repo] [--json]
 
 ### The 5 views (data model)
 
-1. **Release Confidence** — the fused score + verdict (available now; the `computeReleaseConfidence` output)
-2. **Delivery Traffic** — time-series of verdicts per subject (schema + `diffConfidence` helper; persistence P4)
-3. **Inbox** — human-judgment items: blockers, unknown signals, approvals needed (schema + `deriveInbox`; queue P4)
-4. **Replay** — provenance trace: how each score was computed and by which tool (`buildReplay`)
-5. **Audit Trail** — tamper-evident append-only ledger entry per verdict (`toAuditEntry`; sink P4)
+| View | Status | Notes |
+|---|---|---|
+| **Release Confidence** | **Shipped** | Fused score + verdict via `computeReleaseConfidence` / `qulib_score_confidence` |
+| **Replay** | **Shipped** | Provenance trace — how each score was computed and by which tool (`buildReplay`) |
+| **Delivery Traffic** | Planned | Time-series of verdicts per subject (`diffConfidence` helper exists; persistence planned for 1.0) |
+| **Inbox** | Planned | Human-judgment queue for blockers and approvals (`deriveInbox` helper exists; workflow planned for 1.0) |
+| **Audit Trail** | Planned | Tamper-evident ledger entry per verdict (`toAuditEntry` helper exists; sink planned for 1.0) |
+
+The forward roadmap centers on **trust**: witnessed delivery state, durable provenance, and later **agent-action / skill gating** so orchestrators can safely act on ship verdicts. Details: [`roadmap.json`](./roadmap.json).
 
 **Honesty over fake confidence:** sources that are `not_applicable`, `unknown`, or `null` are excluded from the denominator but reported in `contributions` and `honestyNotes`. An auth wall or empty corpus forces `verdict=block` — qulib never silently passes an unevaluated surface.
 
@@ -349,6 +444,7 @@ A more complete dogfood example using real notquality.com signals is at [`packag
 
 - [Core (CLI, API, Cost Intelligence)](./packages/core/README.md)
 - [MCP server](./packages/mcp/README.md)
+- [Public roadmap](./roadmap.json) — shipped tools and planned trust / release-confidence milestones
 - [Source map](./docs/source-map.md) — new contributors: start here to navigate the codebase
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)

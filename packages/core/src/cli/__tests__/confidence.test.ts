@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { ReleaseConfidenceSchema } from '../../schemas/confidence.schema.js';
-import { runConfidence, formatConfidenceReport } from '../confidence-run.js';
+import { runConfidence, formatConfidenceReport, evaluateConfidenceGate } from '../confidence-run.js';
 import type { ReleaseConfidence } from '../../schemas/confidence.schema.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -184,4 +184,64 @@ test('formatConfidenceReport includes subject ref and verdict line', () => {
 test('qulib confidence with no args exits non-zero', () => {
   const { status, stderr } = runCli(['confidence']);
   assert.notEqual(status, 0, `expected non-zero exit, got 0. stderr: ${stderr}`);
+});
+
+// ---------------------------------------------------------------------------
+// CI gate — evaluateConfidenceGate (pure) + end-to-end exit codes
+// ---------------------------------------------------------------------------
+
+function rcWith(verdict: ReleaseConfidence['verdict'], confidenceScore: number | null): ReleaseConfidence {
+  // evaluateConfidenceGate only reads verdict + confidenceScore.
+  return { verdict, confidenceScore } as ReleaseConfidence;
+}
+
+test('gate: no flags → not requested, passes', () => {
+  const g = evaluateConfidenceGate(rcWith('block', 10));
+  assert.equal(g.requested, false);
+  assert.equal(g.passed, true);
+});
+
+test('gate: --fail-on block fails only on block', () => {
+  assert.equal(evaluateConfidenceGate(rcWith('block', 10), 'block').passed, false);
+  assert.equal(evaluateConfidenceGate(rcWith('hold', 40), 'block').passed, true);
+  assert.equal(evaluateConfidenceGate(rcWith('ship', 90), 'block').passed, true);
+});
+
+test('gate: --fail-on hold fails on hold and block (at or worse)', () => {
+  assert.equal(evaluateConfidenceGate(rcWith('hold', 40), 'hold').passed, false);
+  assert.equal(evaluateConfidenceGate(rcWith('block', 10), 'hold').passed, false);
+  assert.equal(evaluateConfidenceGate(rcWith('caution', 60), 'hold').passed, true);
+  assert.equal(evaluateConfidenceGate(rcWith('ship', 90), 'hold').passed, true);
+});
+
+test('gate: --min-score fails below threshold; null score always fails', () => {
+  assert.equal(evaluateConfidenceGate(rcWith('ship', 80), undefined, 90).passed, false);
+  assert.equal(evaluateConfidenceGate(rcWith('ship', 95), undefined, 90).passed, true);
+  assert.equal(evaluateConfidenceGate(rcWith('block', null), undefined, 1).passed, false);
+});
+
+test('gate: --fail-on is case-insensitive', () => {
+  assert.equal(evaluateConfidenceGate(rcWith('block', 10), 'BLOCK').passed, false);
+});
+
+test('gate: invalid --fail-on throws a clear error', () => {
+  assert.throws(() => evaluateConfidenceGate(rcWith('ship', 90), 'banana'), /fail-on must be one of/);
+});
+
+test('CLI gate end-to-end: --min-score above the score exits non-zero', () => {
+  const { status, stdout, stderr } = runCli(['confidence', '--repo', MATURITY_REPO, '--min-score', '101']);
+  assert.equal(status, 1, `expected exit 1; stderr: ${stderr}`);
+  assert.match(stdout + stderr, /GATE: FAIL/);
+});
+
+test('CLI gate end-to-end: passing gate exits zero', () => {
+  const { status, stdout } = runCli(['confidence', '--repo', MATURITY_REPO, '--fail-on', 'block']);
+  assert.equal(status, 0);
+  assert.match(stdout, /GATE: PASS/);
+});
+
+test('CLI gate end-to-end: invalid --fail-on exits non-zero', () => {
+  const { status, stderr } = runCli(['confidence', '--repo', MATURITY_REPO, '--fail-on', 'banana']);
+  assert.equal(status, 1);
+  assert.match(stderr, /fail-on must be one of/);
 });

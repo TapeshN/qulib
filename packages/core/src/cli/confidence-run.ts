@@ -31,6 +31,72 @@ export interface ConfidenceOptions {
   json?: boolean;
 }
 
+/** Verdict severity, best (0) → worst (3). Used by the CI gate. */
+const VERDICT_RANK: Record<string, number> = { ship: 0, caution: 1, hold: 2, block: 3 };
+
+export interface ConfidenceGateResult {
+  /** Whether any gate (--fail-on / --min-score) was requested. */
+  requested: boolean;
+  /** True when the release passes the requested gate (or none was requested). */
+  passed: boolean;
+  /** Human-readable explanation of the gate outcome. */
+  reason: string;
+}
+
+/**
+ * Evaluate a CI gate against a release-confidence result. Pure + side-effect-free
+ * so it is unit-testable; the CLI action turns a failed gate into a non-zero exit.
+ *
+ * - `failOn`: fail when the verdict is at or worse than this threshold
+ *   (e.g. `--fail-on hold` fails on `hold` or `block`).
+ * - `minScore`: fail when the confidence score is below this (a `null` score —
+ *   nothing evaluable — always fails a min-score gate).
+ */
+export function evaluateConfidenceGate(
+  rc: ReleaseConfidence,
+  failOn?: string,
+  minScore?: number
+): ConfidenceGateResult {
+  const failOnNorm = failOn?.trim().toLowerCase();
+  const hasFailOn = Boolean(failOnNorm);
+  const hasMinScore = typeof minScore === 'number' && !Number.isNaN(minScore);
+
+  if (!hasFailOn && !hasMinScore) {
+    return { requested: false, passed: true, reason: 'no gate requested' };
+  }
+
+  const reasons: string[] = [];
+  let passed = true;
+
+  if (hasFailOn) {
+    if (!(failOnNorm! in VERDICT_RANK)) {
+      throw new Error(`--fail-on must be one of: ship, caution, hold, block (got "${failOn}")`);
+    }
+    const verdictRank = VERDICT_RANK[rc.verdict] ?? 99;
+    if (verdictRank >= VERDICT_RANK[failOnNorm!]) {
+      passed = false;
+      reasons.push(`verdict '${rc.verdict}' is at or worse than --fail-on '${failOnNorm}'`);
+    }
+  }
+
+  if (hasMinScore) {
+    const score = rc.confidenceScore;
+    if (score === null || score < minScore!) {
+      passed = false;
+      reasons.push(
+        `confidence score ${score === null ? 'null (nothing evaluable)' : score} is below --min-score ${minScore}`
+      );
+    }
+  }
+
+  const scoreSuffix = rc.confidenceScore !== null ? `, score ${rc.confidenceScore}` : '';
+  return {
+    requested: true,
+    passed,
+    reason: passed ? `verdict '${rc.verdict}'${scoreSuffix} meets the gate` : reasons.join('; '),
+  };
+}
+
 /**
  * Resolve and validate an optional --repo path. Returns null if none was provided.
  */
@@ -180,11 +246,31 @@ export function registerConfidenceCommand(program: Command): void {
     .option('--url <url>', 'URL of the deployed app to analyze')
     .option('--repo <path>', 'Path to the local repository to score')
     .option('--json', 'Emit the full ReleaseConfidence object as JSON to stdout', false)
-    .action(async (options: { url?: string; repo?: string; json?: boolean }) => {
-      await runConfidence({
-        url: options.url,
-        repo: options.repo,
-        json: Boolean(options.json),
-      });
-    });
+    .option(
+      '--fail-on <verdict>',
+      'CI gate: exit non-zero when the verdict is at or worse than this (caution | hold | block)'
+    )
+    .option(
+      '--min-score <n>',
+      'CI gate: exit non-zero when the confidence score is below this (0–100)',
+      (v) => parseInt(v, 10)
+    )
+    .action(
+      async (options: { url?: string; repo?: string; json?: boolean; failOn?: string; minScore?: number }) => {
+        const rc = await runConfidence({
+          url: options.url,
+          repo: options.repo,
+          json: Boolean(options.json),
+        });
+
+        const gate = evaluateConfidenceGate(rc, options.failOn, options.minScore);
+        if (gate.requested) {
+          const line = `[qulib] GATE: ${gate.passed ? 'PASS' : 'FAIL'} — ${gate.reason}`;
+          // Keep stdout pure JSON in --json mode; the gate line goes to stderr there.
+          if (options.json) console.error(line);
+          else console.log(line);
+          if (!gate.passed) process.exitCode = 1;
+        }
+      }
+    );
 }

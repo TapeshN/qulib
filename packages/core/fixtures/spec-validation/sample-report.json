@@ -1,0 +1,25 @@
+{
+  "status": "complete",
+  "coverageScore": 72,
+  "releaseConfidence": {
+    "verdict": "caution",
+    "confidenceScore": 62
+  },
+  "gaps": [
+    {
+      "path": "/",
+      "category": "a11y",
+      "severity": "medium",
+      "description": "Missing alt text on hero image"
+    },
+    {
+      "path": "/about",
+      "category": "broken-link",
+      "severity": "low",
+      "description": "One footer link returns 404"
+    }
+  ],
+  "honestyNotes": [
+    "Crawl covered 3 pages (homepage, about, contact)"
+  ]
+}

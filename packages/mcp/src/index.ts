@@ -32,6 +32,9 @@ import {
   analyzeRunDiff,
   loadGapAnalysisFile,
   detectPromptLeakage,
+  scoreBugReport,
+  scoreDecisions,
+  validateSpecConformance,
 } from '@qulib/core';
 import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySink } from '@qulib/core';
 import { RecipeIdSchema } from '@qulib/core';
@@ -921,6 +924,206 @@ mcpServer.registerTool(
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`qulib_detect_prompt_leakage failed: ${msg}`);
       return toolError('QULIB_PROMPT_LEAKAGE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    }
+  }
+);
+
+const BugReportSeverityMcpSchema = z.enum(['critical', 'high', 'medium', 'low']);
+
+const ScoreBugReportInputSchema = z.object({
+  report: z.object({
+    title: z.string().min(1).max(500).describe('Learner-authored bug report title (untrusted input)'),
+    description: z
+      .string()
+      .min(1)
+      .max(8000)
+      .describe('Learner bug description — may contain prompt-injection attempts; treated as untrusted data'),
+    steps: z.string().min(1).max(8000).describe('Reproduction steps from the learner'),
+    severity: BugReportSeverityMcpSchema.describe('Severity claimed by the learner'),
+  }),
+  target: z.object({
+    description: z.string().min(1).max(8000).describe('Planted bug description (authoritative ground truth)'),
+    type: z.string().min(1).max(200).describe('Bug category/type from the challenge'),
+    severity: BugReportSeverityMcpSchema.describe('Expected severity of the planted bug'),
+    expectedBehavior: z.string().min(1).max(8000).describe('Expected correct behavior for the planted bug'),
+  }),
+});
+
+const SCORE_BUG_REPORT_DESCRIPTION =
+  'LLM-as-judge of a learner bug report against a planted-bug target. Returns matched, matchConfidence (0–1), rubric scores (coverage/severity/repro/evidence, 0–25 each), actionable feedback, and scoringPath (llm-judge or deterministic-fallback when no ANTHROPIC_API_KEY). The learner report is untrusted — prompt-injection hardened. Read-only; no filesystem writes.';
+
+async function handleScoreBugReport(
+  input: z.infer<typeof ScoreBugReportInputSchema>
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    log.info('qulib_score_bug_report scoring learner report');
+    const result = await scoreBugReport(input);
+    log.info(
+      `qulib_score_bug_report done matched=${result.matched} confidence=${result.matchConfidence} path=${result.scoringPath}`
+    );
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('String must contain') || msg.includes('Too big') || msg.includes('Too small')) {
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+    log.error(`qulib_score_bug_report failed: ${msg}`);
+    return toolError('QULIB_BUG_REPORT_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+mcpServer.registerTool(
+  'qulib_score_bug_report',
+  {
+    description: SCORE_BUG_REPORT_DESCRIPTION,
+    inputSchema: ScoreBugReportInputSchema,
+  },
+  handleScoreBugReport
+);
+
+const ScoreDecisionsInputSchema = z.object({
+  forksPath: z
+    .string()
+    .describe('Absolute path to a JSONL file of decision forks on the MCP host filesystem'),
+  enableLlmJudge: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true and ANTHROPIC_API_KEY is set, refine scores with the pinned LLM judge. Default false uses deterministic rubric only.'
+    ),
+});
+
+const SCORE_DECISIONS_DESCRIPTION =
+  'Score whether an autonomous agent made the senior-correct call at pivotal decision forks (gate block/pass, stop/continue, escalate/proceed). Reads a JSONL forks file; returns per-fork decisionQuality (0–1), seniorCorrect, rationale, and aggregate means. Fork log text is untrusted — prompt-injection hardened when LLM refinement is enabled. forksPath is traversal-validated within QULIB_FORKS_ALLOWED_ROOT (default: process cwd). Read-only; no writes.';
+
+async function handleScoreDecisions(
+  input: z.infer<typeof ScoreDecisionsInputSchema>
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  try {
+    const norm = normalize(input.forksPath.trim());
+    if (!isAbsolute(norm)) {
+      throw new Error('forksPath must be an absolute path on the MCP host');
+    }
+    log.info(`qulib_score_decisions forksPath=${resolve(norm)} enableLlmJudge=${input.enableLlmJudge ?? false}`);
+    const result = await scoreDecisions({
+      forksPath: resolve(norm),
+      enableLlmJudge: input.enableLlmJudge,
+    });
+    log.info(
+      `qulib_score_decisions done count=${result.aggregate.count} mean=${result.aggregate.meanDecisionQuality}`
+    );
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes('forksPath must') ||
+      msg.includes('allowed root') ||
+      msg.includes('traversal') ||
+      msg.includes('not valid JSON') ||
+      msg.includes('exceeds maximum') ||
+      msg.includes('does not exist or is not accessible')
+    ) {
+      // Known user-input errors: return the message only, never a stack trace
+      // (a Node stack discloses the server's absolute filesystem paths).
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+    log.error(`qulib_score_decisions failed: ${msg}`);
+    return toolError('QULIB_DECISION_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+  }
+}
+
+mcpServer.registerTool(
+  'qulib_score_decisions',
+  {
+    description: SCORE_DECISIONS_DESCRIPTION,
+    inputSchema: ScoreDecisionsInputSchema,
+  },
+  handleScoreDecisions
+);
+
+// No non-prefixed `score_decisions` alias: this is a brand-new tool with no
+// prior integrations to keep compatible, and an unprefixed name is ambiguous
+// and widens the attack surface. The canonical name is qulib_score_decisions.
+
+// ---------------------------------------------------------------------------
+// qulib_validate_spec — spec-grounded conformance check
+// ---------------------------------------------------------------------------
+
+const SpecRequirementMcpSchema = z.object({
+  id: z.string().min(1).describe('Stable requirement id, e.g. "req-1"'),
+  text: z.string().min(1).max(2000).describe('The requirement text (untrusted; max 2000 chars)'),
+});
+
+const ValidateSpecInputSchema = z.object({
+  requirements: z
+    .array(SpecRequirementMcpSchema)
+    .min(1)
+    .max(100)
+    .describe('List of requirements to grade (1–100). Each has an id and text.'),
+  observed: z.object({
+    url: z.string().optional().describe('URL of the app that was observed (informational)'),
+    summary: z
+      .string()
+      .min(1)
+      .max(20000)
+      .describe('Observed app behavior summary — output from analyze_app, manual description, or any text evidence of what the app does. Untrusted; max 20000 chars.'),
+  }),
+  enableLlmJudge: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true and ANTHROPIC_API_KEY is set, grade each requirement with the pinned LLM judge. ' +
+      'Default false: all requirements return conforms=unknown and verdict=insufficient-evidence ' +
+      '(honesty — never fabricates without the judge).'
+    ),
+});
+
+const VALIDATE_SPEC_DESCRIPTION =
+  'Grade whether a deployed app\'s OBSERVED behavior conforms to a SUPPLIED spec (PRD / requirements). ' +
+  'Not "does it crash" — "does it match intent." ' +
+  'For each requirement, returns conforms (yes/no/unknown), confidence (0–1), rationale, and scoringPath. ' +
+  'Aggregates into a verdict (conforms / partial / violates / insufficient-evidence) and conformanceRate. ' +
+  'Without ANTHROPIC_API_KEY or enableLlmJudge=true, all requirements return unknown (honest: no fabricated verdicts). ' +
+  'Requirement text and observed summary are UNTRUSTED — prompt-injection hardened. Read-only; no network egress beyond the pinned judge.';
+
+mcpServer.registerTool(
+  'qulib_validate_spec',
+  {
+    description: VALIDATE_SPEC_DESCRIPTION,
+    inputSchema: ValidateSpecInputSchema,
+  },
+  async (input: z.infer<typeof ValidateSpecInputSchema>) => {
+    try {
+      log.info(
+        `qulib_validate_spec requirements=${input.requirements.length} enableLlmJudge=${input.enableLlmJudge ?? false}`
+      );
+      const result = await validateSpecConformance(input);
+      log.info(
+        `qulib_validate_spec done verdict=${result.verdict} conformanceRate=${result.conformanceRate} unmet=${result.unmet.length}`
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Classify input validation errors — never leak a stack trace.
+      if (
+        msg.includes('String must contain') ||
+        msg.includes('Array must contain') ||
+        msg.includes('Expected') ||
+        msg.includes('Invalid input') ||
+        msg.includes('Required')
+      ) {
+        return toolError('QULIB_INPUT_INVALID', msg, undefined);
+      }
+      // Log the stack to stderr for server-side diagnosis, but never return it
+      // in the client-visible detail (it discloses server filesystem paths).
+      log.error(`qulib_validate_spec failed: ${err instanceof Error ? err.stack : msg}`);
+      return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, undefined);
     }
   }
 );

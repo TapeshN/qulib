@@ -1,4 +1,4 @@
-import type { LlmCallResult, LlmProvider } from '../provider.interface.js';
+import type { LlmCallOptions, LlmCallResult, LlmProvider } from '../provider.interface.js';
 import type { TelemetrySink } from '../../telemetry/telemetry.interface.js';
 import { emitTelemetry } from '../../telemetry/emit.js';
 
@@ -26,7 +26,7 @@ export class AnthropicProvider implements LlmProvider {
     this.sessionId = options?.sessionId ?? 'anonymous';
   }
 
-  async call(prompt: string, maxOutputTokens: number): Promise<LlmCallResult> {
+  async call(prompt: string, maxOutputTokens: number, options?: LlmCallOptions): Promise<LlmCallResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
 
@@ -48,6 +48,8 @@ export class AnthropicProvider implements LlmProvider {
         body: JSON.stringify({
           model: this.model,
           max_tokens: maxOutputTokens,
+          ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+          ...(options?.system ? { system: options.system } : {}),
           messages: [{ role: 'user', content: prompt }],
         }),
       });
