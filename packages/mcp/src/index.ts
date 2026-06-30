@@ -43,6 +43,12 @@ import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
 import { log } from './logger.js';
 import { safeErrorDetail, toolError } from './tool-error.js';
 import { getJudgeRateLimiter, sessionKey } from './rate-limit.js';
+import {
+  buildEntitlementNotice,
+  entitlementBlockedPayload,
+  resolveEntitlementContext,
+  tierAllows,
+} from './entitlements.js';
 
 function stderrTelemetrySink(): TelemetrySink {
   return {
@@ -434,6 +440,56 @@ const ScaffoldTestsInputSchema = z.object({
     ),
 });
 
+export async function handleScaffoldTests({
+  url,
+  framework,
+  maxPagesToScan,
+  recipes,
+}: z.infer<typeof ScaffoldTestsInputSchema>): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const entitlementCtx = resolveEntitlementContext();
+  if (!tierAllows(entitlementCtx.tier, 'scaffold_tests')) {
+    const notice = buildEntitlementNotice(entitlementCtx, 'scaffold_tests');
+    log.warn(`qulib_scaffold_tests entitlement-blocked tier=${entitlementCtx.tier}`);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(entitlementBlockedPayload(notice), null, 2) }],
+    };
+  }
+  try {
+    const recipesLog = recipes && recipes.length > 0 ? ` recipes=[${recipes.join(',')}]` : '';
+    log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}${recipesLog}`);
+    const result = await scaffoldTests(url, {
+      framework: framework ?? 'cypress-e2e',
+      maxPagesToScan: maxPagesToScan ?? 10,
+      progressLog: mcpProgressLog,
+      telemetry: telemetrySink,
+      ...(recipes && recipes.length > 0 && { recipes }),
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              url: result.url,
+              framework: result.framework,
+              scenarioCount: result.scenarios.length,
+              testCount: result.generatedTests.length,
+              generatedTests: result.generatedTests,
+              projectConfig: result.projectConfig,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`qulib_scaffold_tests failed: ${msg}`);
+    return toolError('QULIB_SCAFFOLD_FAILED', msg, safeErrorDetail(err));
+  }
+}
+
 mcpServer.registerTool(
   'qulib_scaffold_tests',
   {
@@ -441,42 +497,7 @@ mcpServer.registerTool(
       'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported framework: cypress-e2e (default). playwright scaffold is experimental and not yet implemented. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers.',
     inputSchema: ScaffoldTestsInputSchema,
   },
-  async ({ url, framework, maxPagesToScan, recipes }) => {
-    try {
-      const recipesLog = recipes && recipes.length > 0 ? ` recipes=[${recipes.join(',')}]` : '';
-      log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}${recipesLog}`);
-      const result = await scaffoldTests(url, {
-        framework: framework ?? 'cypress-e2e',
-        maxPagesToScan: maxPagesToScan ?? 10,
-        progressLog: mcpProgressLog,
-        telemetry: telemetrySink,
-        ...(recipes && recipes.length > 0 && { recipes }),
-      });
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(
-              {
-                url: result.url,
-                framework: result.framework,
-                scenarioCount: result.scenarios.length,
-                testCount: result.generatedTests.length,
-                generatedTests: result.generatedTests,
-                projectConfig: result.projectConfig,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.error(`qulib_scaffold_tests failed: ${msg}`);
-      return toolError('QULIB_SCAFFOLD_FAILED', msg, safeErrorDetail(err));
-    }
-  }
+  handleScaffoldTests
 );
 
 const ScoreApiInputSchema = z.object({
@@ -1029,21 +1050,32 @@ export async function handleScoreDecisions(
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const limited = enforceJudgeRateLimit('qulib_score_decisions', extra);
   if (limited) return limited;
+
+  const entitlementCtx = resolveEntitlementContext();
+  let entitlementNotice: ReturnType<typeof buildEntitlementNotice> | undefined;
+  let enableLlmJudge = input.enableLlmJudge;
+  if (enableLlmJudge === true && !tierAllows(entitlementCtx.tier, 'score_decisions_deep')) {
+    entitlementNotice = buildEntitlementNotice(entitlementCtx, 'score_decisions_deep');
+    enableLlmJudge = false;
+    log.warn(`qulib_score_decisions entitlement-shallow tier=${entitlementCtx.tier}`);
+  }
+
   try {
     const norm = normalize(input.forksPath.trim());
     if (!isAbsolute(norm)) {
       throw new Error('forksPath must be an absolute path on the MCP host');
     }
-    log.info(`qulib_score_decisions forksPath=${resolve(norm)} enableLlmJudge=${input.enableLlmJudge ?? false}`);
+    log.info(`qulib_score_decisions forksPath=${resolve(norm)} enableLlmJudge=${enableLlmJudge ?? false}`);
     const result = await scoreDecisions({
       forksPath: resolve(norm),
-      enableLlmJudge: input.enableLlmJudge,
+      enableLlmJudge,
     });
     log.info(
       `qulib_score_decisions done count=${result.aggregate.count} mean=${result.aggregate.meanDecisionQuality}`
     );
+    const payload = entitlementNotice ? { entitlement: entitlementNotice, ...result } : result;
     return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1118,42 +1150,56 @@ const VALIDATE_SPEC_DESCRIPTION =
   'Without ANTHROPIC_API_KEY or enableLlmJudge=true, all requirements return unknown (honest: no fabricated verdicts). ' +
   'Requirement text and observed summary are UNTRUSTED — prompt-injection hardened. Read-only; no network egress beyond the pinned judge.';
 
+export async function handleValidateSpec(
+  input: z.infer<typeof ValidateSpecInputSchema>
+): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const entitlementCtx = resolveEntitlementContext();
+  let entitlementNotice: ReturnType<typeof buildEntitlementNotice> | undefined;
+  let effectiveInput = input;
+  if (input.enableLlmJudge === true && !tierAllows(entitlementCtx.tier, 'validate_spec_deep')) {
+    entitlementNotice = buildEntitlementNotice(entitlementCtx, 'validate_spec_deep');
+    effectiveInput = { ...input, enableLlmJudge: false };
+    log.warn(`qulib_validate_spec entitlement-shallow tier=${entitlementCtx.tier}`);
+  }
+
+  try {
+    log.info(
+      `qulib_validate_spec requirements=${effectiveInput.requirements.length} enableLlmJudge=${effectiveInput.enableLlmJudge ?? false}`
+    );
+    const result = await validateSpecConformance(effectiveInput);
+    log.info(
+      `qulib_validate_spec done verdict=${result.verdict} conformanceRate=${result.conformanceRate} unmet=${result.unmet.length}`
+    );
+    const payload = entitlementNotice ? { entitlement: entitlementNotice, ...result } : result;
+    return {
+      content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Classify input validation errors — never leak a stack trace.
+    if (
+      msg.includes('String must contain') ||
+      msg.includes('Array must contain') ||
+      msg.includes('Expected') ||
+      msg.includes('Invalid input') ||
+      msg.includes('Required')
+    ) {
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+    // Log the stack to stderr for server-side diagnosis, but never return it
+    // in the client-visible detail (it discloses server filesystem paths).
+    log.error(`qulib_validate_spec failed: ${err instanceof Error ? err.stack : msg}`);
+    return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, undefined);
+  }
+}
+
 mcpServer.registerTool(
   'qulib_validate_spec',
   {
     description: VALIDATE_SPEC_DESCRIPTION,
     inputSchema: ValidateSpecInputSchema,
   },
-  async (input: z.infer<typeof ValidateSpecInputSchema>) => {
-    try {
-      log.info(
-        `qulib_validate_spec requirements=${input.requirements.length} enableLlmJudge=${input.enableLlmJudge ?? false}`
-      );
-      const result = await validateSpecConformance(input);
-      log.info(
-        `qulib_validate_spec done verdict=${result.verdict} conformanceRate=${result.conformanceRate} unmet=${result.unmet.length}`
-      );
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Classify input validation errors — never leak a stack trace.
-      if (
-        msg.includes('String must contain') ||
-        msg.includes('Array must contain') ||
-        msg.includes('Expected') ||
-        msg.includes('Invalid input') ||
-        msg.includes('Required')
-      ) {
-        return toolError('QULIB_INPUT_INVALID', msg, undefined);
-      }
-      // Log the stack to stderr for server-side diagnosis, but never return it
-      // in the client-visible detail (it discloses server filesystem paths).
-      log.error(`qulib_validate_spec failed: ${err instanceof Error ? err.stack : msg}`);
-      return toolError('QULIB_VALIDATE_SPEC_FAILED', msg, undefined);
-    }
-  }
+  handleValidateSpec
 );
 
 async function startMcpServer(): Promise<void> {

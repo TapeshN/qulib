@@ -28,7 +28,7 @@ packages/mcp/src/    — MCP tool wrappers over core
 
 ## Roadmap
 
-**Current:** v0.9.0 on main and npm registry.
+**Current:** v0.13.0 on main and npm registry.
 
 **Target:** v1.0.0 — full auth intelligence, composable audit tools, CI integration.
 
@@ -202,7 +202,7 @@ When spawning subagents, include:
 When shipping multiple dependent changes:
 
 ```
-main (v0.9.0)
+main (v0.13.0)
   └── fix/thing           → PR, CI green, merge
         └── chore/release-X.Y.Z  → PR, CI green, merge, PUBLISH
               └── feature/next   → PR, CI green, merge
