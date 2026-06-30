@@ -6,14 +6,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { EvidenceItem } from '../../schemas/confidence.schema.js';
+import type { EvidenceItem } from '../../../schemas/confidence.schema.js';
 import {
   computeProvenanceScore,
   gradeEvidenceItem,
   GRADE_WEIGHTS,
   WITNESS_TAXONOMY,
 } from '../provenance.js';
-import { ProvenanceScoreSchema } from '../../schemas/provenance.schema.js';
+import { ProvenanceScoreSchema } from '../../../schemas/provenance.schema.js';
 
 const REF_TIME = '2026-06-25T12:00:00.000Z';
 
