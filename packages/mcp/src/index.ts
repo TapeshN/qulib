@@ -41,7 +41,8 @@ import { RecipeIdSchema } from '@qulib/core';
 import { z } from 'zod';
 import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
 import { log } from './logger.js';
-import { toolError } from './tool-error.js';
+import { safeErrorDetail, toolError } from './tool-error.js';
+import { getJudgeRateLimiter, sessionKey } from './rate-limit.js';
 
 function stderrTelemetrySink(): TelemetrySink {
   return {
@@ -183,7 +184,7 @@ async function handleExploreAuth({
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`explore_auth failed: ${msg}`);
-    return toolError('QULIB_AUTH_EXPLORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_AUTH_EXPLORE_FAILED', msg, safeErrorDetail(err));
   }
 }
 
@@ -231,7 +232,7 @@ async function handleDetectAuth({
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`detect_auth failed: ${msg}`);
-    return toolError('QULIB_AUTH_DETECT_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_AUTH_DETECT_FAILED', msg, safeErrorDetail(err));
   }
 }
 
@@ -338,7 +339,7 @@ async function handleAnalyzeApp(input: AnalyzeInput): Promise<{ content: [{ type
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log.error(`analyze_app failed: ${msg}`);
-    return toolError('QULIB_SCAN_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_SCAN_FAILED', msg, safeErrorDetail(err));
   }
 }
 
@@ -400,7 +401,7 @@ mcpServer.registerTool(
         return toolError('QULIB_INPUT_INVALID', msg, undefined);
       }
       log.error(`qulib_score_automation failed: ${msg}`);
-      return toolError('QULIB_REPO_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      return toolError('QULIB_REPO_SCORE_FAILED', msg, safeErrorDetail(err));
     }
   }
 );
@@ -473,7 +474,7 @@ mcpServer.registerTool(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`qulib_scaffold_tests failed: ${msg}`);
-      return toolError('QULIB_SCAFFOLD_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      return toolError('QULIB_SCAFFOLD_FAILED', msg, safeErrorDetail(err));
     }
   }
 );
@@ -539,7 +540,7 @@ mcpServer.registerTool(
         return toolError('QULIB_INPUT_INVALID', msg, undefined);
       }
       log.error(`qulib_score_api failed: ${msg}`);
-      return toolError('QULIB_API_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      return toolError('QULIB_API_SCORE_FAILED', msg, safeErrorDetail(err));
     }
   }
 );
@@ -700,7 +701,7 @@ mcpServer.registerTool(
         return toolError('QULIB_INPUT_INVALID', msg, undefined);
       }
       log.error(`qulib_score_confidence failed: ${msg}`);
-      return toolError('QULIB_CONFIDENCE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      return toolError('QULIB_CONFIDENCE_FAILED', msg, safeErrorDetail(err));
     }
   }
 );
@@ -855,7 +856,7 @@ export async function handleQulibDiff(input: {
       return toolError('QULIB_DIFF_INVALID_INPUT', 'from and to must be absolute paths');
     }
     log.error(`qulib_diff failed: ${msg}`);
-    return toolError('QULIB_DIFF_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_DIFF_FAILED', msg, safeErrorDetail(err));
   }
 }
 
@@ -923,7 +924,7 @@ mcpServer.registerTool(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log.error(`qulib_detect_prompt_leakage failed: ${msg}`);
-      return toolError('QULIB_PROMPT_LEAKAGE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+      return toolError('QULIB_PROMPT_LEAKAGE_FAILED', msg, safeErrorDetail(err));
     }
   }
 );
@@ -952,9 +953,33 @@ const ScoreBugReportInputSchema = z.object({
 const SCORE_BUG_REPORT_DESCRIPTION =
   'LLM-as-judge of a learner bug report against a planted-bug target. Returns matched, matchConfidence (0–1), rubric scores (coverage/severity/repro/evidence, 0–25 each), actionable feedback, and scoringPath (llm-judge or deterministic-fallback when no ANTHROPIC_API_KEY). The learner report is untrusted — prompt-injection hardened. Read-only; no filesystem writes.';
 
-async function handleScoreBugReport(
-  input: z.infer<typeof ScoreBugReportInputSchema>
+/**
+ * Per-session rate-limit gate for the LLM-as-judge tools. Returns a
+ * QULIB_RATE_LIMITED tool error (no stack trace) when the caller has exceeded
+ * QULIB_JUDGE_MAX_CALLS_PER_MIN judge calls in the current 60s window; returns
+ * null to proceed. Runs first in each judge handler so a tight loop is throttled
+ * before any path I/O or LLM call, capping Anthropic-quota drain (cost/DoS).
+ */
+function enforceJudgeRateLimit(
+  toolName: string,
+  extra?: { sessionId?: string }
+): { content: [{ type: 'text'; text: string }] } | null {
+  const decision = getJudgeRateLimiter().tryConsume(sessionKey(extra));
+  if (decision.allowed) return null;
+  const retryAfterSec = Math.ceil(decision.retryAfterMs / 1000);
+  log.warn(`${toolName} rate-limited: limit=${decision.limit}/min retryAfterMs=${decision.retryAfterMs}`);
+  return toolError(
+    'QULIB_RATE_LIMITED',
+    `Judge call rate limit exceeded (${decision.limit}/min). Retry in ${retryAfterSec}s.`
+  );
+}
+
+export async function handleScoreBugReport(
+  input: z.infer<typeof ScoreBugReportInputSchema>,
+  extra?: { sessionId?: string }
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const limited = enforceJudgeRateLimit('qulib_score_bug_report', extra);
+  if (limited) return limited;
   try {
     log.info('qulib_score_bug_report scoring learner report');
     const result = await scoreBugReport(input);
@@ -970,7 +995,7 @@ async function handleScoreBugReport(
       return toolError('QULIB_INPUT_INVALID', msg, undefined);
     }
     log.error(`qulib_score_bug_report failed: ${msg}`);
-    return toolError('QULIB_BUG_REPORT_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_BUG_REPORT_SCORE_FAILED', msg, safeErrorDetail(err));
   }
 }
 
@@ -998,9 +1023,12 @@ const ScoreDecisionsInputSchema = z.object({
 const SCORE_DECISIONS_DESCRIPTION =
   'Score whether an autonomous agent made the senior-correct call at pivotal decision forks (gate block/pass, stop/continue, escalate/proceed). Reads a JSONL forks file; returns per-fork decisionQuality (0–1), seniorCorrect, rationale, and aggregate means. Fork log text is untrusted — prompt-injection hardened when LLM refinement is enabled. forksPath is traversal-validated within QULIB_FORKS_ALLOWED_ROOT (default: process cwd). Read-only; no writes.';
 
-async function handleScoreDecisions(
-  input: z.infer<typeof ScoreDecisionsInputSchema>
+export async function handleScoreDecisions(
+  input: z.infer<typeof ScoreDecisionsInputSchema>,
+  extra?: { sessionId?: string }
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
+  const limited = enforceJudgeRateLimit('qulib_score_decisions', extra);
+  if (limited) return limited;
   try {
     const norm = normalize(input.forksPath.trim());
     if (!isAbsolute(norm)) {
@@ -1032,7 +1060,7 @@ async function handleScoreDecisions(
       return toolError('QULIB_INPUT_INVALID', msg, undefined);
     }
     log.error(`qulib_score_decisions failed: ${msg}`);
-    return toolError('QULIB_DECISION_SCORE_FAILED', msg, err instanceof Error ? err.stack : undefined);
+    return toolError('QULIB_DECISION_SCORE_FAILED', msg, safeErrorDetail(err));
   }
 }
 
