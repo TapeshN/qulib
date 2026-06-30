@@ -28,6 +28,7 @@ import { runConfidenceCase } from './run-confidence.js';
 import { runEvidenceCase } from './run-evidence.js';
 import { runAnalyzeDiffCase } from './run-analyze-diff.js';
 import { runPromptLeakageCase } from './run-prompt-leakage.js';
+import { runProvenanceCase } from './run-provenance.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
 import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
 
@@ -66,6 +67,7 @@ export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise
     else if (suite === 'evidence') results.push(await runEvidenceCase(c, opts.judge));
     else if (suite === 'analyze-diff') results.push(await runAnalyzeDiffCase(c));
     else if (suite === 'prompt-leakage') results.push(await runPromptLeakageCase(c));
+    else if (suite === 'provenance') results.push(await runProvenanceCase(c));
     else results.push(await runConfidenceCase(c, opts.judge));
   }
   const finishedAt = new Date().toISOString();
@@ -112,7 +114,8 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
         next === 'confidence' ||
         next === 'evidence' ||
         next === 'analyze-diff' ||
-        next === 'prompt-leakage'
+        next === 'prompt-leakage' ||
+        next === 'provenance'
       ) {
         suites.push(next);
         i += 1;

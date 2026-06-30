@@ -118,6 +118,12 @@ export type {
 export { RecipeIdSchema } from './schemas/index.js';
 // P3 — Confidence Layer exports
 export { computeReleaseConfidence } from './tools/scoring/confidence.js';
+export {
+  computeProvenanceScore,
+  gradeEvidenceItem,
+  GRADE_WEIGHTS,
+  WITNESS_TAXONOMY,
+} from './tools/scoring/provenance.js';
 // analyze-diff — structured diff between two analyze_app outputs
 export { analyzeRunDiff, formatAnalyzeDiffMarkdown, loadGapAnalysisFile } from './cli/analyze-diff-run.js';
 // per-page coverage heatmap
@@ -146,6 +152,11 @@ export type {
   ReplayStep,
   ReplayTrace,
   AuditEntry,
+  ProvenanceScore,
+  ProvenanceInput,
+  ProvenanceGrade,
+  ShipGate,
+  ChangeType,
 } from './schemas/index.js';
 export {
   EvidenceSourceKindSchema,
@@ -155,4 +166,7 @@ export {
   ConfidencePolicySchema,
   ConfidenceVerdictSchema,
   ReleaseConfidenceSchema,
+  ProvenanceScoreSchema,
+  ProvenanceInputSchema,
+  PROVENANCE_RUBRIC_VERSION,
 } from './schemas/index.js';

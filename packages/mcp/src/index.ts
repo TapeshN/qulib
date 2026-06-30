@@ -28,6 +28,7 @@ import {
   computeApiCoverage,
   computeReleaseConfidence,
   buildConfidenceInputFromQulib,
+  computeProvenanceScore,
   analyzeRunDiff,
   loadGapAnalysisFile,
   detectPromptLeakage,
@@ -560,6 +561,7 @@ const ScoreConfidenceInputSchema = z.object({
   includeViews: z
     .object({
       replay: z.boolean().optional().describe('Include the Replay provenance trace in the response'),
+      provenance: z.boolean().optional().describe('Include the Provenance WSR block in the response'),
     })
     .optional()
     .describe('Optional projection flags — which views to include beyond the Release Confidence view'),
@@ -571,6 +573,28 @@ const ScoreConfidenceInputSchema = z.object({
     })
     .optional()
     .describe('Subject metadata for the confidence verdict; defaults are inferred from url/repoPath'),
+  changeTypes: z
+    .array(
+      z.enum([
+        'refactor',
+        'new-export',
+        'artifact-reader',
+        'config-change',
+        'dependency-bump',
+        'test-addition',
+        'unknown',
+      ])
+    )
+    .optional()
+    .describe('Change types in this release — drives witness-coverage gap analysis'),
+  provenancePolicy: z
+    .object({
+      wsrShipThreshold: z.number().min(0).max(1).optional(),
+      staleAfterSeconds: z.number().positive().optional(),
+      freshThresholdSeconds: z.number().positive().optional(),
+    })
+    .optional()
+    .describe('Provenance rubric policy overrides (WSR ship threshold, TTL decay)'),
 });
 
 mcpServer.registerTool(
@@ -581,10 +605,10 @@ mcpServer.registerTool(
       'Given a URL and/or repo path, runs analyze_app / qulib_score_automation / qulib_score_api as applicable, ' +
       'then fuses the signals into one verdict (ship | caution | hold | block) with a 0–100 confidence score, ' +
       'L1–L5 level, per-source contributions, honesty notes for any excluded/unknown source, and recommended next checks. ' +
-      'Returns the Release Confidence view. Pass includeViews.replay for the full provenance trace.',
+      'Returns the Release Confidence view. Pass includeViews.replay for the full provenance trace; includeViews.provenance for WSR grading.',
     inputSchema: ScoreConfidenceInputSchema,
   },
-  async ({ url, repoPath, includeViews, subject }) => {
+  async ({ url, repoPath, includeViews, subject, changeTypes, provenancePolicy }) => {
     try {
       const subjectRef = subject?.ref ?? url ?? repoPath ?? 'unknown';
       const subjectKind = subject?.kind ?? (url && repoPath ? 'release' : url ? 'app' : 'repo');
@@ -651,6 +675,18 @@ mcpServer.registerTool(
         payload['replay'] = buildReplay(confidenceInput, rc);
       }
 
+      if (includeViews?.provenance) {
+        payload['provenance'] = computeProvenanceScore(
+          {
+            subject: confidenceSubject,
+            evidence: confidenceInput.evidence,
+            policy: provenancePolicy as Parameters<typeof computeProvenanceScore>[0]['policy'],
+            changeTypes,
+          },
+          rc.computedAt
+        );
+      }
+
       log.info(
         `qulib_score_confidence done verdict=${rc.verdict} confidenceScore=${rc.confidenceScore ?? 'null'} ` +
         `level=${rc.level} evidenceSources=${confidenceInput.evidence.length}`
@@ -666,6 +702,123 @@ mcpServer.registerTool(
       }
       log.error(`qulib_score_confidence failed: ${msg}`);
       return toolError('QULIB_CONFIDENCE_FAILED', msg, safeErrorDetail(err));
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// qulib_score_provenance — deterministic WSR grading (P0-2 differentiator)
+// Grades whether release evidence is WITNESSED or merely CLAIMED.
+// ---------------------------------------------------------------------------
+
+const ScoreProvenanceInputSchema = z.object({
+  evidence: z
+    .array(
+      z.object({
+        source: z.enum([
+          'live-app-quality',
+          'accessibility',
+          'crawl-coverage',
+          'test-automation',
+          'api-coverage',
+          'ci-results',
+          'deploy-metadata',
+          'error-telemetry',
+          'feature-flags',
+          'doc-health',
+          'human-approval',
+          'agent-evidence',
+        ]),
+        score: z.number().min(0).max(100).nullable(),
+        weight: z.number().min(0).max(1),
+        applicability: z.enum(['applicable', 'not_applicable', 'unknown']).optional(),
+        blocking: z.boolean().optional(),
+        evidence: z.array(z.string()),
+        recommendations: z.array(z.string()).optional(),
+        reason: z.string().optional(),
+        collectedAt: z.string().datetime(),
+        collector: z.object({
+          tool: z.string(),
+          inputRef: z.string().optional(),
+          durationMs: z.number().optional(),
+        }),
+      })
+    )
+    .min(1)
+    .describe('Evidence bundle to grade — same shape as Release Confidence evidence items'),
+  subject: z
+    .object({
+      kind: z.enum(['release', 'pr', 'deploy', 'app', 'repo']).default('release'),
+      ref: z.string(),
+      tenantId: z.string().optional(),
+    })
+    .describe('What is being graded'),
+  changeTypes: z
+    .array(
+      z.enum([
+        'refactor',
+        'new-export',
+        'artifact-reader',
+        'config-change',
+        'dependency-bump',
+        'test-addition',
+        'unknown',
+      ])
+    )
+    .optional()
+    .describe('Change types in this release for witness-coverage taxonomy'),
+  policy: z
+    .object({
+      wsrShipThreshold: z.number().min(0).max(1).optional(),
+      staleAfterSeconds: z.number().positive().optional(),
+      freshThresholdSeconds: z.number().positive().optional(),
+    })
+    .optional()
+    .describe('Provenance rubric policy (WSR ship threshold, TTL decay windows)'),
+});
+
+mcpServer.registerTool(
+  'qulib_score_provenance',
+  {
+    description:
+      'Grade release evidence provenance deterministically and compute the Witnessed-State-Ratio (WSR). ' +
+      'Classifies each evidence item as witnessed (tool/CI/artifact trail), claimed (unverified/assertion), or stale (TTL expired). ' +
+      'Returns WSR = W/(W+C+S), per-item grades (high/mid/low/none), witness-coverage gaps by change type, ' +
+      'and shipGate (ship | no-ship) when WSR falls below threshold. No LLM — fully deterministic.',
+    inputSchema: ScoreProvenanceInputSchema,
+  },
+  async ({ evidence, subject, changeTypes, policy }) => {
+    try {
+      const normalizedEvidence = evidence.map((item) => ({
+        ...item,
+        applicability: item.applicability ?? ('applicable' as const),
+        blocking: item.blocking ?? false,
+        recommendations: item.recommendations ?? [],
+      }));
+
+      const ps = computeProvenanceScore({
+        subject: {
+          kind: subject.kind,
+          ref: subject.ref,
+          tenantId: subject.tenantId ?? 'default',
+        },
+        evidence: normalizedEvidence,
+        changeTypes,
+        policy: policy as Parameters<typeof computeProvenanceScore>[0]['policy'],
+      });
+
+      log.info(
+        `qulib_score_provenance done wsr=${ps.wsr ?? 'null'} shipGate=${ps.shipGate} ` +
+          `witnessed=${ps.witnessedMass.toFixed(3)} claimed=${ps.claimedMass.toFixed(3)} stale=${ps.staleMass.toFixed(3)}`
+      );
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ provenance: ps }, null, 2) }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(`qulib_score_provenance failed: ${msg}`);
+      return toolError('QULIB_PROVENANCE_FAILED', msg, err instanceof Error ? err.stack : undefined);
     }
   }
 );

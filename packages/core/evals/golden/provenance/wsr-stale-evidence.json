@@ -1,0 +1,33 @@
+{
+  "id": "wsr-stale-evidence",
+  "suite": "provenance",
+  "description": "Evidence older than staleAfterSeconds — mass in stale bucket, WSR=0, shipGate=no-ship.",
+  "tags": ["no-llm", "deterministic", "stale", "ttl"],
+  "input": {
+    "subject": { "kind": "release", "ref": "v0.9.9", "tenantId": "default" },
+    "evidence": [
+      {
+        "source": "test-automation",
+        "score": 80,
+        "weight": 1,
+        "applicability": "applicable",
+        "blocking": false,
+        "evidence": ["Automation maturity L3."],
+        "recommendations": [],
+        "collectedAt": "2026-06-20T08:00:00.000Z",
+        "collector": { "tool": "qulib.score-automation" }
+      }
+    ],
+    "policy": {
+      "staleAfterSeconds": 86400,
+      "freshThresholdSeconds": 14400
+    },
+    "referenceTime": "2026-06-25T12:00:00.000Z"
+  },
+  "expected": {
+    "wsr": 0,
+    "shipGate": "no-ship",
+    "staleMassMin": 0.99,
+    "rubricVersion": "provenance-v1"
+  }
+}
