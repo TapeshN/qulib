@@ -30,7 +30,7 @@
     "build": "npm --prefix ../.. run build -w @qulib/core && tsc && chmod +x dist/index.js",
     "prepublishOnly": "npm run build",
     "dev": "tsx src/index.ts",
-    "test": "node --import tsx/esm --test src/__tests__/summarize-analyze-result.test.ts src/__tests__/analyze-app-mcp-payload.test.ts src/__tests__/score-confidence-mcp.test.ts src/__tests__/score-provenance-mcp.test.ts src/__tests__/naming-aliases.test.ts src/__tests__/diff.test.ts src/__tests__/rate-limit.test.ts"
+    "test": "node --import tsx/esm --test src/__tests__/summarize-analyze-result.test.ts src/__tests__/analyze-app-mcp-payload.test.ts src/__tests__/score-confidence-mcp.test.ts src/__tests__/score-provenance-mcp.test.ts src/__tests__/naming-aliases.test.ts src/__tests__/diff.test.ts src/__tests__/rate-limit.test.ts src/__tests__/entitlements.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
