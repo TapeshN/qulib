@@ -19,6 +19,10 @@ on:
       - ".github/workflows/qulib-action-selftest.yml"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate-selftest:
     name: gate.mjs end-to-end (offline fixture)
