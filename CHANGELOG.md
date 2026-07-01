@@ -20,6 +20,7 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ### Changed
 
+- **chore(ci):** add cancel-in-progress concurrency to `ci`, `security`, and `qulib-action-selftest` workflows.
 - **Honest LLM fallback note:** `qulib score-decisions`, `qulib score-bug-report`, and `qulib validate` now print a one-line note to **stderr** when the LLM judge was requested (a key is present, and where applicable `--enable-llm-judge` was passed) but every result came back deterministic — i.e. the LLM call failed (out of API credits, network, or model). The legitimate "no `ANTHROPIC_API_KEY` → deterministic" case is unchanged and is **not** warned about. `--json` stdout stays pure (the note goes to stderr).
 
 ---
