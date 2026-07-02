@@ -9,6 +9,10 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+---
+
+## [0.14.0] — 2026-07-02
+
 ### Added
 
 - **Per-session rate limit on the LLM-as-judge tools (cost/DoS hardening):** `qulib_score_bug_report` and `qulib_score_decisions` now apply a lightweight, dependency-free, in-process per-session call limiter before any scoring work. Per-field Zod length caps already stop single-call abuse, but a programmatic/direct MCP client could fire either judge tool in a tight loop and drain the deployer's Anthropic API quota. The default budget is 60 calls/minute per session, configurable via `QULIB_JUDGE_MAX_CALLS_PER_MIN` (set to `0` to disable). When exceeded, the handler returns a structured `QULIB_RATE_LIMITED` tool error with a retry hint (no exception, no stack trace) instead of invoking the LLM. Uses a fixed-window counter keyed by MCP session id (stdio shares a single window). Flagged MEDIUM in two security reviews.
