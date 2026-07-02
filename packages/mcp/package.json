@@ -1,7 +1,7 @@
 {
   "name": "@qulib/mcp",
-  "version": "0.13.0",
-  "description": "MCP server for Qulib — AI-callable release confidence. Seven tools: fused verdict, live-app scan, automation maturity, API coverage, test scaffold, and auth tools.",
+  "version": "0.14.0",
+  "description": "MCP server for Qulib \u2014 AI-callable release confidence. Seven tools: fused verdict, live-app scan, automation maturity, API coverage, test scaffold, and auth tools.",
   "license": "MIT",
   "author": "Tapesh Nagarwal",
   "homepage": "https://github.com/TapeshN/qulib#readme",
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@qulib/core": "0.13.0",
+    "@qulib/core": "0.14.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
