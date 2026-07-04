@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tapeshn/qulib",
+  "description": "AI-callable release confidence for MCP clients. Seven tools: a fused should-we-ship verdict, live-app scan, automation-maturity score, API coverage, test scaffold, and auth detection/exploration. Bring-your-own-key; runs locally, no data egress.",
+  "repository": {
+    "url": "https://github.com/TapeshN/qulib",
+    "source": "github"
+  },
+  "version": "0.14.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@qulib/mcp",
+      "version": "0.14.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
