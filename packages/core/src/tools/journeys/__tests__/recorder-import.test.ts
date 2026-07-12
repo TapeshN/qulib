@@ -1065,6 +1065,139 @@ test('escapeCypressTypeLiteral: escapes ONLY "{" — every other character (incl
   assert.equal(escapeCypressTypeLiteral(' '), ' ');
 });
 
+// ---------------------------------------------------------------------------
+// ROUND-6 FINDING 1 — the 'type' TestStep action (the COMMON path: any
+// recorded `change`-event value) is now routed through the SAME
+// escapeCypressType choke-point as the key-press path above. Reproduced
+// through the real importRecorderFlow -> CypressE2EAdapter pipeline, not
+// just a unit call, per both failure modes the reviewer named: a THROW
+// ("template: {editor}") and a SILENT MISCONVERT ("press {enter} to
+// search" — ordinary text that used to fire a real Enter keypress).
+// ---------------------------------------------------------------------------
+
+test('escapeCypressType: escapes EVERY "{" occurrence anywhere in a string, not just a whole-string equality check', async () => {
+  const { escapeCypressType } = await import('../../../adapters/cypress-special-keys.js');
+  assert.equal(escapeCypressType('press {enter} to search'), 'press {{}enter} to search');
+  assert.equal(escapeCypressType('template: {editor}'), 'template: {{}editor}');
+  assert.equal(escapeCypressType('{a}{b}'), '{{}a}{{}b}', 'multiple braces must ALL be escaped');
+  assert.equal(escapeCypressType('hello'), 'hello', 'a plain value with no braces is unchanged');
+  assert.equal(escapeCypressType('}'), '}', 'a bare "}" with no preceding "{" is never special');
+  assert.equal(escapeCypressType(''), '');
+});
+
+test("cypress-e2e adapter: 'type' action value containing a Cypress special-sequence-shaped word is escaped, not interpreted", async () => {
+  const { importRecorderFlow } = await import('../recorder-import.js');
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const flow = {
+    title: 'Editor template picker',
+    steps: [
+      { type: 'change', selectors: [['#template']], value: 'template: {editor}' },
+    ],
+  };
+  const { scenario } = importRecorderFlow(flow);
+  const { code } = new CypressE2EAdapter().render(scenario);
+  assert.match(
+    code,
+    /cy\.get\("#template"\)\.type\("template: \{\{\}editor\}"\);/,
+    `expected the "{" in the recorded value to be escaped as "{{}", got:\n${code}`
+  );
+  assert.ok(!code.includes('.type("template: {editor}")'), 'must NEVER emit the raw, unescaped value — Cypress throws on it at runtime');
+});
+
+test("cypress-e2e adapter: 'type' action value that reads like ordinary prose ('press {enter} to search') is typed literally, NOT interpreted as a real Enter keypress", async () => {
+  const { importRecorderFlow } = await import('../recorder-import.js');
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const flow = {
+    title: 'Search box hint text',
+    steps: [
+      { type: 'change', selectors: [['#hint']], value: 'press {enter} to search' },
+    ],
+  };
+  const { scenario } = importRecorderFlow(flow);
+  const { code } = new CypressE2EAdapter().render(scenario);
+  // The SILENT miscovert this closes: unescaped, Cypress types "press ",
+  // fires a REAL Enter (submitting a form / navigating), then types
+  // " to search" — no error, just silently wrong behavior at test runtime.
+  assert.ok(
+    !code.includes('.type("press {enter} to search")'),
+    'must NEVER emit the raw value — Cypress would fire a REAL Enter keypress mid-string'
+  );
+  assert.match(code, /cy\.get\("#hint"\)\.type\("press \{\{\}enter\} to search"\);/);
+});
+
+test("cypress-e2e adapter: 'type' action value with multiple braces ('{a}{b}') has EVERY brace escaped", async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-type-multi-brace',
+    title: 'Multi-brace value',
+    description: 'type a value with two brace groups',
+    targetPath: '/x',
+    steps: [{ action: 'type' as const, target: '#f', value: '{a}{b}', description: 'type {a}{b}' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /cy\.get\("#f"\)\.type\("\{\{\}a\}\{\{\}b\}"\);/);
+});
+
+test("cypress-e2e adapter: a plain 'type' action value with no braces is unaffected by the round-6 escaping fix", async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-type-plain',
+    title: 'Plain value',
+    description: 'no regression for ordinary text',
+    targetPath: '/login',
+    steps: [{ action: 'type' as const, target: '#email', value: 'user@example.com', description: 'type email' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /cy\.get\("#email"\)\.type\("user@example\.com"\);/);
+});
+
+test("cypress-e2e adapter: key-press '{enter}' whitelist token is NOT double-escaped by the round-6 fix", async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-keypress-enter-no-double-escape',
+    title: 'Enter keypress stays a real token',
+    description: 'press Enter',
+    targetPath: '/search',
+    steps: [{ action: 'key-press' as const, target: '#q', value: 'Enter', description: 'press Enter on #q' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  // The whitelist path (toCypressTypeToken) is an INTENTIONAL special
+  // sequence and must render exactly `{enter}` — never the doubled-brace
+  // escaped form, which would type the literal text "{enter}" instead of
+  // firing a real Enter keypress.
+  assert.match(code, /cy\.get\("#q"\)\.type\("\{enter\}"\);/);
+  assert.ok(!code.includes('{{}enter}'), 'the whitelist {enter} token must NEVER be double-escaped');
+});
+
+test("cypress-e2e adapter: key-press single-char '{' still escapes to '{{}' via the SAME escapeCypressType choke-point (round-5 behavior preserved)", async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-keypress-brace',
+    title: 'Brace keypress',
+    description: 'press {',
+    targetPath: '/x',
+    steps: [{ action: 'key-press' as const, target: '#f', value: '{', description: 'press { on #f' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /cy\.get\("#f"\)\.type\("\{\{\}"\);/);
+});
+
 test('isSingleTypeableCharacter: counts CODE POINTS, not UTF-16 code units — a surrogate-pair emoji is one character', async () => {
   const { isSingleTypeableCharacter } = await import('../../../adapters/cypress-special-keys.js');
   assert.equal(isSingleTypeableCharacter('\u{1F600}'), true, 'a single astral-plane code point is one character');

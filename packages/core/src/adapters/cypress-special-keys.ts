@@ -85,26 +85,54 @@ export function isSingleTypeableCharacter(key: string): boolean {
 }
 
 /**
- * Escape a single printable character (per `isSingleTypeableCharacter`) for
- * safe use inside Cypress's `.type()` call. Cypress's `.type()` DSL treats
- * `{` as the OPENING delimiter of a `{token}` special-sequence (see
- * `CYPRESS_SPECIAL_KEY_MAP` above) — passing a literal `"{"` through
- * unescaped makes Cypress try to parse a token starting there and throw
- * (e.g. `CypressError: Special character sequence: '{' is not recognized`)
- * at real runtime, even though `cy.get(t).type("{")` compiles fine. Per
- * Cypress's own documented escape (its "Table of Special Character
- * Sequences" page), a literal `{` is written as `"{{}"` — the doubled brace
- * closes as its own one-character token that types a single `{`.
+ * THE single choke-point for making an arbitrary string safe inside
+ * Cypress's `.type()` DSL. Cypress's `.type()` treats `{` as the OPENING
+ * delimiter of a `{token}` special-sequence (see `CYPRESS_SPECIAL_KEY_MAP`
+ * above) — ANY unescaped `{` anywhere in a `.type()` argument makes Cypress
+ * try to parse a token starting there. Per Cypress's own documented escape
+ * (its "Table of Special Character Sequences" page), a literal `{` is
+ * written as `"{{}"` — the doubled brace closes as its own one-character
+ * token that types a single `{`.
  *
- * No other single printable character needs escaping. In particular `"}"`
- * does NOT need escaping: Cypress's parser only starts looking for a token
- * when it sees an UNESCAPED `{`, so a bare `}` with no preceding `{` is
- * never treated as closing (or otherwise special-casing) anything — it
- * passes through `.type()` as a plain literal character, matching Cypress's
- * docs (only `{` appears in the escape table, `}` does not).
+ * ROUND-6 FIX (closing the class STRUCTURALLY, not one site at a time):
+ * rounds 2-5 only ever escaped a `{` when it was the ENTIRE key-press value
+ * (`key === '{'`, one printable character). That left the much more common
+ * "type" TestStep path — arbitrary recorded text interpolated verbatim into
+ * `cy.get(t).type(v)` — completely unescaped, with two reproducible failure
+ * modes: (a) THROW — a value like `"template: {editor}"` makes Cypress throw
+ * `CypressError: Special character sequence: {editor} is not recognized` at
+ * real runtime; (b) SILENT MISCONVERT, which is worse — ordinary text like
+ * `"press {enter} to search"` gets Cypress to type "press ", fire a REAL
+ * Enter keypress (submitting a form / navigating), then type " to search",
+ * with no error at all. Both are the same underlying bug: escaping only a
+ * whole-string equality check instead of every `{` occurrence ANYWHERE in
+ * the string. `escapeCypressType` fixes that generally — it is now the ONE
+ * function every `.type()` call site in this adapter must route through,
+ * whether the value is a single key-press character or an arbitrary
+ * multi-character recorded string. `escapeCypressTypeLiteral` below is kept
+ * only as a thin backward-compatible alias so existing call sites/tests
+ * naming it keep working — there is only ONE escaping algorithm now.
+ *
+ * No other character needs escaping. In particular `"}"` does NOT need
+ * escaping: Cypress's parser only starts looking for a token when it sees
+ * an UNESCAPED `{`, so a bare `}` with no preceding `{` is never treated as
+ * closing (or otherwise special-casing) anything — it passes through
+ * `.type()` as a plain literal character, matching Cypress's docs (only `{`
+ * appears in the escape table, `}` does not).
+ */
+export function escapeCypressType(value: string): string {
+  return value.replace(/\{/g, '{{}');
+}
+
+/**
+ * @deprecated Thin alias for `escapeCypressType` — kept only so the
+ * pre-round-6 name (and any code/tests still importing it) keeps working.
+ * Do NOT add new call sites against this name; use `escapeCypressType`
+ * directly so there is exactly ONE escaper name for reviewers/the guard
+ * test to look for.
  */
 export function escapeCypressTypeLiteral(key: string): string {
-  return key === '{' ? '{{}' : key;
+  return escapeCypressType(key);
 }
 
 /**

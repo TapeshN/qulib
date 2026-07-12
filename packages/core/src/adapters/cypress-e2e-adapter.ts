@@ -4,7 +4,7 @@ import {
   isCypressTypeableKey,
   toCypressTypeToken,
   isSingleTypeableCharacter,
-  escapeCypressTypeLiteral,
+  escapeCypressType,
 } from './cypress-special-keys.js';
 import { sanitizeForComment } from './comment-safety.js';
 
@@ -24,8 +24,24 @@ function renderStep(step: TestStep): string {
       return `    cy.visit(${JSON.stringify(step.target ?? step.value ?? '/')});`;
     case 'click':
       return t ? `    cy.get(${t}).click();` : `    // click: ${sanitizeForComment(step.description)}`;
+    // FINDING 1 (round-6 STRUCTURAL fix): this is the COMMON path — any
+    // recorded `change`-event text becomes a 'type' TestStep — and it used
+    // to interpolate `v` (a plain `JSON.stringify(step.value)`) into
+    // `.type()` with NO Cypress-DSL escaping. `JSON.stringify` only escapes
+    // for the surrounding JS *string literal*; it does nothing about `{`,
+    // which Cypress's `.type()` DSL treats as a special-sequence opener at
+    // its OWN runtime layer, one level below JS string parsing. A value
+    // like `"press {enter} to search"` compiled fine but silently typed
+    // "press ", fired a REAL Enter keypress, then typed " to search" — see
+    // `escapeCypressType` in cypress-special-keys.ts for the full citation.
+    // Every `.type()` call in this file now routes through that ONE
+    // choke-point — see the guard test in
+    // __tests__/type-and-comment-choke-point-guard.test.ts, which fails the
+    // build if a future `.type()` site bypasses it.
     case 'type':
-      return t && v ? `    cy.get(${t}).type(${v});` : `    // type: ${sanitizeForComment(step.description)}`;
+      return t && step.value != null
+        ? `    cy.get(${t}).type(${JSON.stringify(escapeCypressType(step.value))});`
+        : `    // type: ${sanitizeForComment(step.description)}`;
     case 'select':
       return t && v ? `    cy.get(${t}).select(${v});` : `    // select: ${sanitizeForComment(step.description)}`;
     case 'key-press': {
@@ -46,20 +62,20 @@ function renderStep(step: TestStep): string {
       // the working code. Never route this through toCypressTypeToken —
       // that throws for anything outside CYPRESS_SPECIAL_KEY_MAP.
       //
-      // FINDING 1 (round-5 REGRESSION FIX): "faithful" is not "verbatim". A
-      // literal "{" keypress is a single printable character, but Cypress's
-      // .type() treats an unescaped "{" as the OPENING of a {token}
-      // special-sequence — cy.get(t).type("{") THROWS at real Cypress
-      // runtime (it never finds a closing "}" that resolves to a known
-      // token), even though the generated spec compiles fine. That is
-      // exactly the "compiles then crashes silently" facade this whole
-      // key-press line of fixes exists to close. escapeCypressTypeLiteral
-      // applies Cypress's own documented escape ("{" -> "{{}"); every other
-      // single printable character (including "}", which is never special
-      // on its own) passes through unchanged. See cypress-special-keys.ts
-      // for the full citation of Cypress's escape rule.
+      // FINDING 1 (round-5 fix, round-6 re-homed): "faithful" is not
+      // "verbatim". A literal "{" keypress is a single printable character,
+      // but Cypress's .type() treats an unescaped "{" as the OPENING of a
+      // {token} special-sequence — cy.get(t).type("{") THROWS at real
+      // Cypress runtime (it never finds a closing "}" that resolves to a
+      // known token), even though the generated spec compiles fine. This
+      // now routes through the SAME escapeCypressType choke-point the
+      // 'type' action above uses (round-6 unified the two call sites into
+      // one escaper — see cypress-special-keys.ts) rather than a
+      // single-char-only variant; every other single printable character
+      // (including "}", which is never special on its own) still passes
+      // through unchanged.
       if (isSingleTypeableCharacter(key)) {
-        return `    cy.get(${t}).type(${JSON.stringify(escapeCypressTypeLiteral(key))});`;
+        return `    cy.get(${t}).type(${JSON.stringify(escapeCypressType(key))});`;
       }
       // Genuinely un-typeable: outside BOTH the {token} whitelist AND a
       // single printable character (e.g. "Tab", "F1", "Shift") —

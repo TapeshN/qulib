@@ -1,6 +1,19 @@
 import type { TestAdapter } from './adapter.interface.js';
 import type { NeutralScenario, GeneratedTest } from '../schemas/gap-analysis.schema.js';
 import type { DiscoveredEndpoint, ApiSurface } from '../tools/repo/api-surface.js';
+// FINDING 2 (round-6): this adapter interpolated step.description /
+// scenario.description / scenario.id / scenario.targetPath / step.action
+// directly into bare `//` comments, unsanitized — the SAME newline-
+// terminates-comment code-injection class that cypress-e2e-adapter.ts and
+// playwright-adapter.ts were already fixed for (round-5). A raw CR/LF (or
+// the U+2028/U+2029 line-terminator code points) embedded in any of these
+// fields silently ends the `//` comment early and turns the remainder of
+// the source text into LIVE, UNCOMMENTED code in the generated spec.
+// sanitizeForComment is the ONE choke-point for this — every `//` comment
+// interpolation of a scenario/step field in this file must route through
+// it. See __tests__/type-and-comment-choke-point-guard.test.ts, which
+// fails the build if a future comment site bypasses it.
+import { sanitizeForComment } from './comment-safety.js';
 
 function slugify(title: string): string {
   return title
@@ -31,7 +44,7 @@ export class ApiAdapter implements TestAdapter {
         if (step.action === 'api-call') {
           const path = step.target ?? step.value ?? '/';
           return [
-            `    // ${step.description}`,
+            `    // ${sanitizeForComment(step.description)}`,
             `    const res = await request(app).get(${JSON.stringify(path)});`,
             `    expect(res.status).toBe(200);`,
           ].join('\n');
@@ -39,18 +52,18 @@ export class ApiAdapter implements TestAdapter {
         if (step.action === 'navigate') {
           const path = step.target ?? step.value ?? '/';
           return [
-            `    // ${step.description}`,
+            `    // ${sanitizeForComment(step.description)}`,
             `    const res = await request(app).get(${JSON.stringify(path)});`,
             `    expect(res.status).toBeLessThan(500);`,
           ].join('\n');
         }
-        return `    // TODO (${step.action}): ${step.description}`;
+        return `    // TODO (${step.action}): ${sanitizeForComment(step.description)}`;
       })
       .join('\n');
 
     const code = [
-      `// ${scenario.description}`,
-      `// qulib-generated — scenario: ${scenario.id}`,
+      `// ${sanitizeForComment(scenario.description)}`,
+      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}`,
       ``,
       `import request from 'supertest';`,
       `import { describe, it, expect } from 'vitest';`,
@@ -61,7 +74,7 @@ export class ApiAdapter implements TestAdapter {
       ``,
       `describe(${JSON.stringify(scenario.title)}, () => {`,
       `  it(${JSON.stringify(scenario.description)}, async () => {`,
-      stepLines || `    // no api-call steps — add assertions for: ${scenario.targetPath}`,
+      stepLines || `    // no api-call steps — add assertions for: ${sanitizeForComment(scenario.targetPath)}`,
       `  });`,
       `});`,
       ``,

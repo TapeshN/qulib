@@ -253,14 +253,24 @@ of several equally-real risks.
   exact key + `cypress-e2e`) at conversion time; a plain printable character
   gets no warning, since it renders faithfully (an earlier round warned about
   EVERY non-whitelisted key, including faithfully-renderable single
-  characters — an inverse facade, now fixed). **The one printable character
-  that still needs special handling: a literal `"{"`.** Cypress's `.type()`
-  treats an unescaped `"{"` as the OPENING of a `{token}` special-sequence —
-  `cy.get(t).type("{")` compiles but THROWS at real Cypress runtime. The
-  `cypress-e2e` adapter escapes it to Cypress's own documented form,
-  `"{{}"` , before emitting the call (`escapeCypressTypeLiteral` in
-  `cypress-special-keys.ts`); every other single printable character,
-  including `"}"` (never special on its own), passes through unescaped.
+  characters — an inverse facade, now fixed). **Every `"{"` in ANY typed
+  value is escaped, not just a whole-string `"{"`.** Cypress's `.type()`
+  treats an unescaped `"{"` as the OPENING of a `{token}` special-sequence
+  ANYWHERE it appears — `cy.get(t).type("{")` compiles but THROWS at real
+  Cypress runtime, and worse, `cy.get(t).type("press {enter} to search")`
+  (ordinary prose) compiles, runs, and SILENTLY fires a real Enter keypress
+  mid-string with no error. The `cypress-e2e` adapter routes every
+  `.type()` value — the single-char key-press case above AND the far more
+  common `'type'` `TestStep` action (any recorded `change`-event text) —
+  through one `escapeCypressType` export (`cypress-special-keys.ts`), which
+  escapes EVERY `"{"` occurrence in the string to Cypress's own documented
+  form, `"{{}"`; every other character, including `"}"` (never special on
+  its own), passes through unescaped. (`escapeCypressTypeLiteral` still
+  exists as a deprecated alias for the same function — there is one escaper
+  now, not two.) A source-scanning guard test
+  (`adapters/__tests__/type-and-comment-choke-point-guard.test.ts`) fails
+  the build if any `.type()` call site in the adapters ever bypasses this
+  choke-point again.
 - **Orphan `keyUp` (no matching `keyDown`).** A `keyUp` step is dropped
   silently ONLY when it is truly redundant — i.e. a `keyDown` for the same
   key already converted to a `key-press` step earlier in the SAME flow. A
@@ -303,18 +313,24 @@ of several equally-real risks.
   distinct `rejectedJourneys` response field, never folded into
   `scenarioCount`/`testCount` — a useless stub must never read as a
   successful conversion.
-- **Newline-safe generated comments.** Every raw external field the
-  `cypress-e2e`/`playwright` adapters interpolate into a generated `//`
-  fallback comment — `TestStep.description`, a `key-press` step's raw key,
-  and `NeutralScenario.description`/`id`/`targetPath`/recipe tag — is passed
+- **Newline-safe generated comments — all THREE adapters.** Every raw
+  external field the `cypress-e2e`/`playwright`/`api` adapters interpolate
+  into a generated `//` fallback comment — `TestStep.description`, a
+  `key-press` step's raw key, and
+  `NeutralScenario.description`/`id`/`targetPath`/recipe tag — is passed
   through `sanitizeForComment` (`adapters/comment-safety.ts`) first, which
   collapses any embedded line break to a space. Without this, a hand-edited
   or non-Recorder-produced flow carrying a raw newline in one of these fields
   could terminate a `//` comment early and turn the rest of that field's text
-  into live, uncommented code in the generated spec. Code-string
-  interpolations (anything wrapped in `JSON.stringify(...)`, e.g. selectors
-  and typed values) were never at risk — `JSON.stringify` already escapes a
-  raw newline to `\n` *inside* the string literal.
+  into live, uncommented code in the generated spec. `api-adapter.ts` was
+  fixed a round after `cypress-e2e`/`playwright` — it interpolated the same
+  fields into its own `//` comments unsanitized; the same guard test that
+  closes the `.type()` escaping class above also fails the build if any
+  future `//` comment interpolation of these fields skips
+  `sanitizeForComment`. Code-string interpolations (anything wrapped in
+  `JSON.stringify(...)`, e.g. selectors and typed values) were never at
+  risk — `JSON.stringify` already escapes a raw newline to `\n` *inside* the
+  string literal.
 
 The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
 optional `journeys` input — see the MCP tools table below. Both `cypress-e2e`
