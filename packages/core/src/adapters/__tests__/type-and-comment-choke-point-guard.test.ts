@@ -3,6 +3,20 @@
  * the "interpolation facade" class rather than point-patching the next site
  * a reviewer happens to find.
  *
+ * ROUND-8 STATUS: this is a SOURCE-TEXT scanner — it only inspects a
+ * `${...}` hole when it sits inside a single backtick template literal
+ * whose own content starts with `//`. That is still a SHAPE assumption
+ * about how the vulnerable code is written, and round-8 found the predicted
+ * gap: a comment built by `+`-concatenating a `//`-prefixed literal to a
+ * SECOND literal that does not itself start with `//` is invisible to this
+ * scanner, even though the two pieces become the same logical comment line
+ * at runtime. `../__tests__/behavioral-injection-guard.test.ts` closes that
+ * gap with an OUTPUT-based check (parses the real generated file with the
+ * TypeScript compiler) and is now the AUTHORITATIVE gate for this injection
+ * class. This file is KEPT as a fast, cheap lint that still fails fast on
+ * every shape it CAN see — it is not redundant, just no longer sufficient
+ * on its own.
+ *
  * Rounds 2-5 fixed this class of bug ONE SITE at a time: change/select,
  * keyDown, a printable-character keyDown, then a single-char "{" key-press.
  * Round-6 tried to close the class STRUCTURALLY with a source-scanning

@@ -86,10 +86,45 @@ function renderStep(step: TestStep): string {
       // text going straight into a `//` comment — sanitizeForComment strips
       // any embedded newline so neither field can prematurely terminate
       // this comment and leak the rest of the line as live code.
+      //
+      // FINDING 2 (round-8, caught by the BEHAVIORAL guard — the exact
+      // `+`-concatenation bypass class the round-7 SOURCE-TEXT scanner is
+      // structurally blind to): this multi-line comment is three separate
+      // backtick template literals joined by `+`, not one literal. Only the
+      // FIRST one's own content starts with `//`, so the round-7 scanner —
+      // which only inspects a `${...}` hole when the ENCLOSING backtick
+      // literal's content starts with `//` — never even looked at the
+      // second/third literals below, even though at runtime they are
+      // concatenated onto the first and become part of the SAME logical
+      // comment line in the generated file. Both `${t}` (the selector) and
+      // the two `JSON.stringify(key)` calls there are NOT real generated
+      // code (there is no actual string literal in the OUTPUT at this
+      // position — the quotes are just decorative text inside a comment
+      // describing the trigger()/realPress() call the reviewer should write
+      // by hand), so JSON.stringify's "safe because it escapes inside a
+      // real string literal" property does not apply. Worse, `JSON.
+      // stringify` does NOT escape U+2028 LINE SEPARATOR / U+2029 PARAGRAPH
+      // SEPARATOR at all (those became legal RAW content inside a genuine
+      // JS string literal as of ES2019, so `JSON.stringify` has no reason
+      // to escape them) — so a `key`/`step.target` containing either one
+      // sailed straight through, and because this text is comment
+      // decoration rather than a real string literal, terminated the `//`
+      // comment in the GENERATED file exactly like a raw CR/LF would,
+      // leaking everything after it as live, uncommented code. `t` (reused
+      // from the top of this function for the REAL `cy.get(${t})` code
+      // sites elsewhere, where it IS safe) is therefore NOT reused here —
+      // `targetForComment` re-derives a comment-safe rendering by routing
+      // `step.target` through `sanitizeForComment` FIRST before
+      // `JSON.stringify`, same as `key` below. See
+      // `behavioral-injection-guard.test.ts` for the OUTPUT-based proof,
+      // which is immune to this exact `${JSON.stringify(...)}` "inside a
+      // comment, not real code" misclassification because it checks what
+      // the generated file IS, not how this source was shaped.
+      const targetForComment = JSON.stringify(sanitizeForComment(step.target ?? ''));
       return (
         `    // key-press: "${sanitizeForComment(key)}" is outside Cypress's .type() special-sequence whitelist — ` +
-        `cy.type() would throw at runtime for this key. Use cy.get(${t}).trigger('keydown', { key: ${JSON.stringify(key)} }) ` +
-        `or cy.realPress(${JSON.stringify(key)}) (cypress-real-events) instead. ${sanitizeForComment(step.description)}`
+        `cy.type() would throw at runtime for this key. Use cy.get(${targetForComment}).trigger('keydown', { key: ${JSON.stringify(sanitizeForComment(key))} }) ` +
+        `or cy.realPress(${JSON.stringify(sanitizeForComment(key))}) (cypress-real-events) instead. ${sanitizeForComment(step.description)}`
       );
     }
     case 'assert-visible':
