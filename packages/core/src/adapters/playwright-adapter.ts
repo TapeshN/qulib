@@ -100,11 +100,19 @@ export class PlaywrightAdapter implements TestAdapter {
     // FINDING 3: same newline-safe-comment fix as cypress-e2e-adapter.ts —
     // these are raw, externally-derived NeutralScenario fields going
     // straight into `//` header comments below.
-    const recipeComment = recipeTag ? `\n// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : '';
+    //
+    // ROUND-7: same restructure as cypress-e2e-adapter.ts — emit the recipe
+    // note as its own standalone `//` line (only when present) instead of
+    // splicing an already-sanitized `recipeComment` string into a second
+    // template as a bare `${recipeComment}` hole. The round-7 guard flags
+    // every unsanitized interpolation in a comment template regardless of
+    // whether its value happens to already be safe — no exceptions to track.
+    const recipeLine = recipeTag ? `// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : null;
 
     const code = [
       `// ${sanitizeForComment(scenario.description)}`,
-      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}${recipeComment}`,
+      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}`,
+      ...(recipeLine ? [recipeLine] : []),
       ``,
       `import { test, expect } from '@playwright/test';`,
       ``,

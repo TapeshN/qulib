@@ -13,6 +13,19 @@ import type { DiscoveredEndpoint, ApiSurface } from '../tools/repo/api-surface.j
 // interpolation of a scenario/step field in this file must route through
 // it. See __tests__/type-and-comment-choke-point-guard.test.ts, which
 // fails the build if a future comment site bypasses it.
+//
+// FINDING 1 (round-7): round-6's fix and its guard both enumerated a fixed
+// list of KNOWN field names (scenario.description, step.description, ...).
+// `renderEndpointTest`/`scaffoldApiTests` below were untouched by round-6 —
+// they interpolate a DIFFERENT set of raw fields (`ep.summary`,
+// `ep.sourceFile`, `ep.sourceTier`, `ep.confidence`, `apiSurface.repoPath`)
+// into bare `//` comments, and `ep.summary` in particular is raw text lifted
+// straight out of a caller-supplied OpenAPI spec's `summary` field — the
+// SAME injection class, at a site the name-enumerated guard had no way to
+// know about. The round-7 guard (see the test file above) no longer
+// enumerates names at all: it fails on ANY unsanitized `${...}` inside a
+// `//`-comment template, so a future new field is caught automatically
+// without needing a matching update to the guard's field list.
 import { sanitizeForComment } from './comment-safety.js';
 
 function slugify(title: string): string {
@@ -57,7 +70,13 @@ export class ApiAdapter implements TestAdapter {
             `    expect(res.status).toBeLessThan(500);`,
           ].join('\n');
         }
-        return `    // TODO (${step.action}): ${sanitizeForComment(step.description)}`;
+        // ROUND-7: step.action is a closed zod enum (never carries a
+        // newline) — round-6's name-enumerated guard deliberately exempted
+        // it. The round-7 guard is shape-based and makes no such judgment
+        // call, so this now routes through sanitizeForComment(...) too;
+        // it's a no-op for an enum value but keeps the rule with zero
+        // exceptions to remember.
+        return `    // TODO (${sanitizeForComment(step.action)}): ${sanitizeForComment(step.description)}`;
       })
       .join('\n');
 
@@ -116,7 +135,7 @@ export class ApiAdapter implements TestAdapter {
     if (endpoints.length === 0) {
       const code = [
         `// qulib-generated API scaffold — no endpoints discovered`,
-        `// qulib-generated — repo: ${apiSurface.repoPath}`,
+        `// qulib-generated — repo: ${sanitizeForComment(apiSurface.repoPath)}`,
         ``,
         `// No API endpoints were discovered in this repository.`,
         `// If your app has REST endpoints, ensure they are declared in a supported`,
@@ -137,8 +156,8 @@ export class ApiAdapter implements TestAdapter {
 
     const code = [
       `// qulib-generated API scaffold — ${endpoints.length} endpoint(s) discovered`,
-      `// qulib-generated — repo: ${apiSurface.repoPath}`,
-      `// Discovery tier breakdown: ${describeDiscoveryTiers(endpoints)}`,
+      `// qulib-generated — repo: ${sanitizeForComment(apiSurface.repoPath)}`,
+      `// Discovery tier breakdown: ${sanitizeForComment(describeDiscoveryTiers(endpoints))}`,
       ``,
       `import request from 'supertest';`,
       `import { describe, it, expect, beforeAll, afterAll } from 'vitest';`,
@@ -171,14 +190,22 @@ function renderEndpointTest(ep: DiscoveredEndpoint): string {
   const method = ep.method === 'unknown' ? 'GET' : ep.method;
   const methodLower = method.toLowerCase();
   const hasBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
-  const sourceLine = `  // Source: ${ep.sourceFile} (${ep.sourceTier}, confidence: ${ep.confidence})`;
+  // FINDING 1 (round-7): ep.sourceFile is a repo-relative path read off disk
+  // and ep.summary (below) is raw OpenAPI spec text — both externally
+  // derived, both routed through sanitizeForComment before landing in a `//`
+  // comment. ep.sourceTier/ep.confidence are closed unions assigned by our
+  // own discovery code (never free text), but they're sanitized too — the
+  // round-7 guard is shape-based (ANY interpolation in a comment must be
+  // sanitizeForComment(...)), not field-name-based, so there is no
+  // "known-safe enum, skip it" carve-out to maintain here.
+  const sourceLine = `  // Source: ${sanitizeForComment(ep.sourceFile)} (${sanitizeForComment(ep.sourceTier)}, confidence: ${sanitizeForComment(ep.confidence)})`;
   const itTitle = `${method} ${ep.path}`;
 
   const requestLine = hasBody
     ? `      const res = await request(app).${methodLower}(${JSON.stringify(ep.path)});\n      // TODO: add request body — e.g. .send({ ... })`
     : `      const res = await request(app).${methodLower}(${JSON.stringify(ep.path)});`;
 
-  const summaryLine = ep.summary ? `  // ${ep.summary}\n` : '';
+  const summaryLine = ep.summary ? `  // ${sanitizeForComment(ep.summary)}\n` : '';
 
   return [
     summaryLine + sourceLine,

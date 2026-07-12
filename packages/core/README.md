@@ -313,24 +313,36 @@ of several equally-real risks.
   distinct `rejectedJourneys` response field, never folded into
   `scenarioCount`/`testCount` — a useless stub must never read as a
   successful conversion.
-- **Newline-safe generated comments — all THREE adapters.** Every raw
-  external field the `cypress-e2e`/`playwright`/`api` adapters interpolate
-  into a generated `//` fallback comment — `TestStep.description`, a
-  `key-press` step's raw key, and
-  `NeutralScenario.description`/`id`/`targetPath`/recipe tag — is passed
-  through `sanitizeForComment` (`adapters/comment-safety.ts`) first, which
-  collapses any embedded line break to a space. Without this, a hand-edited
-  or non-Recorder-produced flow carrying a raw newline in one of these fields
-  could terminate a `//` comment early and turn the rest of that field's text
-  into live, uncommented code in the generated spec. `api-adapter.ts` was
-  fixed a round after `cypress-e2e`/`playwright` — it interpolated the same
-  fields into its own `//` comments unsanitized; the same guard test that
-  closes the `.type()` escaping class above also fails the build if any
-  future `//` comment interpolation of these fields skips
-  `sanitizeForComment`. Code-string interpolations (anything wrapped in
-  `JSON.stringify(...)`, e.g. selectors and typed values) were never at
-  risk — `JSON.stringify` already escapes a raw newline to `\n` *inside* the
-  string literal.
+- **Newline-safe generated comments — all THREE adapters, and the guard is
+  field-name-agnostic.** Every raw external field the
+  `cypress-e2e`/`playwright`/`api` adapters interpolate into a generated `//`
+  fallback comment — `TestStep.description`, a `key-press` step's raw key,
+  `NeutralScenario.description`/`id`/`targetPath`/recipe tag, and (as of
+  round 7) `DiscoveredEndpoint.summary`/`sourceFile`/`sourceTier`/`confidence`
+  and `ApiSurface.repoPath` in `api-adapter.ts`'s repo-first API scaffold path
+  — is passed through `sanitizeForComment` (`adapters/comment-safety.ts`)
+  first, which collapses any embedded line break to a space. Without this, a
+  hand-edited/non-Recorder-produced flow, or a caller-supplied OpenAPI spec
+  (`ep.summary` is lifted straight from spec text), carrying a raw newline in
+  one of these fields could terminate a `//` comment early and turn the rest
+  of that field's text into live, uncommented code in the generated spec.
+  `api-adapter.ts`'s `render()` path was fixed at round 6; its separate
+  repo-first `renderEndpointTest`/`scaffoldApiTests` path (a different code
+  path the round-6 fix never touched) was still raw until round 7 — and
+  round 6's guard, which enumerated a fixed list of known field names, had no
+  way to catch it either, since `ep.summary` wasn't on that list. The guard
+  (`adapters/__tests__/type-and-comment-choke-point-guard.test.ts`) is now
+  **field-NAME-agnostic**: it fails the build on ANY `${...}` interpolation
+  inside a bare `//`-comment template that isn't itself a
+  `sanitizeForComment(...)` call, whatever the expression is named — with a
+  tiny, explicit allowlist for the two shapes that can never carry a line
+  terminator (a bare numeric literal, a `.length` property access). A future
+  field on any schema, interpolated at a site this README doesn't even
+  mention yet, is caught automatically. Code-string interpolations (anything
+  wrapped in `JSON.stringify(...)`, e.g. selectors and typed values) were
+  never at risk — `JSON.stringify` already escapes a raw newline to `\n`
+  *inside* the string literal — and are correctly left alone by the guard,
+  which only looks at `//`-comment-shaped templates.
 
 The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
 optional `journeys` input — see the MCP tools table below. Both `cypress-e2e`

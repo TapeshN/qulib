@@ -157,11 +157,22 @@ export class CypressE2EAdapter implements TestAdapter {
     // straight into `//` header comments below — sanitizeForComment strips
     // any embedded newline so none of them can prematurely terminate a
     // comment and leak trailing text as live code.
-    const recipeComment = recipeTag ? `\n// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : '';
+    //
+    // ROUND-7: this used to be built as a separate `recipeComment` string
+    // (itself safely sanitized) and then spliced into the SAME template as a
+    // second, bare `${recipeComment}` interpolation. The round-7 guard is
+    // shape-based — it flags every unsanitized `${...}` hole in a `//`
+    // comment, with no "trust me, this one's already safe" carve-out — so a
+    // bare-identifier splice like that reads as a violation even though the
+    // value itself was safe. Emitting the recipe note as its own standalone
+    // comment line (only when present) avoids the double-interpolation
+    // pattern entirely: each `//` line now sanitizes its own field directly.
+    const recipeLine = recipeTag ? `// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : null;
 
     const code = [
       `// ${sanitizeForComment(scenario.description)}`,
-      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}${recipeComment}`,
+      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}`,
+      ...(recipeLine ? [recipeLine] : []),
       ``,
       `describe(${JSON.stringify(scenario.title)}, () => {`,
       `  it(${JSON.stringify(scenario.description)}, () => {`,

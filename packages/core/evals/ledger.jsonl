@@ -73,3 +73,17 @@
 {"ts":"2026-07-12T10:53:31.735Z","suite":"analyze-diff","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
 {"ts":"2026-07-12T10:53:31.738Z","suite":"prompt-leakage","outcome":"PASS","score":0,"counts":{"pass":5,"warn":0,"fail":0,"skip":0,"total":5},"qulibVersion":"0.14.0","tenantId":"default","falsePositiveRate":0}
 {"ts":"2026-07-12T10:53:31.739Z","suite":"provenance","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.637Z","suite":"scaffold","outcome":"PASS","score":0,"counts":{"pass":6,"warn":0,"fail":0,"skip":0,"total":6},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.641Z","suite":"score-automation","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.642Z","suite":"confidence","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.644Z","suite":"evidence","outcome":"PASS","score":0,"counts":{"pass":9,"warn":0,"fail":0,"skip":0,"total":9},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.645Z","suite":"analyze-diff","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:12:34.648Z","suite":"prompt-leakage","outcome":"PASS","score":0,"counts":{"pass":5,"warn":0,"fail":0,"skip":0,"total":5},"qulibVersion":"0.14.0","tenantId":"default","falsePositiveRate":0}
+{"ts":"2026-07-12T11:12:34.649Z","suite":"provenance","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.781Z","suite":"scaffold","outcome":"PASS","score":0,"counts":{"pass":6,"warn":0,"fail":0,"skip":0,"total":6},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.783Z","suite":"score-automation","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.785Z","suite":"confidence","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.787Z","suite":"evidence","outcome":"PASS","score":0,"counts":{"pass":9,"warn":0,"fail":0,"skip":0,"total":9},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.788Z","suite":"analyze-diff","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
+{"ts":"2026-07-12T11:14:27.790Z","suite":"prompt-leakage","outcome":"PASS","score":0,"counts":{"pass":5,"warn":0,"fail":0,"skip":0,"total":5},"qulibVersion":"0.14.0","tenantId":"default","falsePositiveRate":0}
+{"ts":"2026-07-12T11:14:27.792Z","suite":"provenance","outcome":"PASS","score":0,"counts":{"pass":4,"warn":0,"fail":0,"skip":0,"total":4},"qulibVersion":"0.14.0","tenantId":"default"}
