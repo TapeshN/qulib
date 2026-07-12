@@ -1,0 +1,17 @@
+{
+  "id": "clean-header",
+  "suite": "prompt-leakage",
+  "description": "Clean twin of leaky-header: identical /api/chat response headers with the seeded x-system-prompt header removed. Must produce zero prompt-leakage gaps — feeds the falsePositiveRate metric.",
+  "tags": ["no-llm", "deterministic", "negative", "clean-twin", "header-leak"],
+  "cleanTwinOf": "leaky-header",
+  "input": {
+    "path": "/api/chat",
+    "headers": {
+      "content-type": "application/json",
+      "cache-control": "no-store"
+    }
+  },
+  "expected": {
+    "zeroGaps": true
+  }
+}

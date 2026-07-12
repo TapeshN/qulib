@@ -9,6 +9,10 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ## [Unreleased]
 
+### Added
+
+- **Clean-twin false-positive guard for the golden eval (precision half):** every golden case previously only scored recall — does qulib detect the seeded defect. `evals/golden/<suite>/*.json` cases can now declare `cleanTwinOf: "<seeded-case-id>"`, marking themselves as the defect-free twin of a seeded-defect case (derived by removing the seeded defect, never a new fixture). The runner cross-references every twin against its own result and emits a new `EvalRunSummary.falsePositiveRate` / `EvalLedgerEntry.falsePositiveRate` metric (`undefined`, never `0`, when a suite has no twins). Any nonzero false-positive rate is a hard deduction — it forces the suite's outcome to `FAIL`, which flows through the existing rollup into `npm run eval` and the `npm run eval:check` CI merge gate unchanged. Reference pair shipped for `prompt-leakage`: `clean-header.json` / `clean-route.json` twin `leaky-header` / `leaky-inline-script`. See `packages/core/evals/README.md` § "Clean-twin false-positive guard".
+
 ---
 
 ## [0.14.0] — 2026-07-02

@@ -30,7 +30,7 @@ import { runAnalyzeDiffCase } from './run-analyze-diff.js';
 import { runPromptLeakageCase } from './run-prompt-leakage.js';
 import { runProvenanceCase } from './run-provenance.js';
 import { judgeConfigured, type JudgeImpl } from './judge-bridge.js';
-import { summarize, toLedgerEntry, resolveTenantId } from './rollup.js';
+import { summarize, toLedgerEntry, resolveTenantId, computeFalsePositiveRate } from './rollup.js';
 
 const require = createRequire(import.meta.url);
 
@@ -72,6 +72,19 @@ export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise
   }
   const finishedAt = new Date().toISOString();
   const summary = summarize(suite, results, startedAt, finishedAt);
+
+  // Clean-twin false-positive guard (precision half of the eval — see rollup.ts).
+  // Cross-reference every cleanTwinOf case in this corpus against its own result.
+  const falsePositiveRate = computeFalsePositiveRate(cases, results);
+  if (falsePositiveRate !== undefined) {
+    summary.falsePositiveRate = falsePositiveRate;
+    // Hard deduction: ANY false positive on a clean twin forces this suite to FAIL,
+    // regardless of how every other case scored — a tool that flags a defect-free
+    // clean twin is not shippable, so this overrides whatever rollupOutcomes()
+    // already computed from the per-case outcomes above.
+    if (falsePositiveRate > 0) summary.outcome = 'FAIL';
+  }
+
   // An empty corpus is SKIP, not PASS — never let "no cases" read as a pass.
   if (results.length === 0) summary.outcome = 'SKIP';
   return summary;
@@ -136,10 +149,11 @@ function printSummary(summaries: EvalRunSummary[], env: NodeJS.ProcessEnv): void
   console.log(`[qulib:eval] ${judgeNote}`);
   for (const s of summaries) {
     const { pass, warn, fail, skip, total } = s.counts;
+    const fpNote = s.falsePositiveRate === undefined ? '' : `  falsePositiveRate=${s.falsePositiveRate.toFixed(3)}`;
     console.log(
       `[qulib:eval] ${s.suite}: ${s.outcome}  ` +
         `(${pass} pass / ${warn} warn / ${fail} fail / ${skip} skip of ${total})  ` +
-        `judgeScore=${s.score.toFixed(3)}`
+        `judgeScore=${s.score.toFixed(3)}${fpNote}`
     );
     for (const r of s.results) {
       if (r.outcome === 'FAIL' || r.outcome === 'WARN') {

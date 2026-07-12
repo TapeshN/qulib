@@ -41,6 +41,16 @@ export interface EvalCase {
   expected: Record<string, unknown>;
   /** Optional tags for slicing (e.g. "spa", "auth-wall", "no-llm"). */
   tags?: string[];
+  /**
+   * Clean-twin false-positive guard: when set, this case is the DEFECT-FREE twin of
+   * the seeded-defect case whose `id` this references (same suite). The twin is
+   * derived from the seeded case by removing the seeded defect(s) and must produce
+   * zero detections. The runner cross-references every `cleanTwinOf` case against its
+   * outcome to compute `EvalRunSummary.falsePositiveRate` — a case flagged as an
+   * error/gap in a clean twin is a false positive, not a legitimate detection.
+   * Optional/additive so existing golden cases are unaffected.
+   */
+  cleanTwinOf?: string;
 }
 
 /** Rubric dimension scored by the LLM-judge. 0..1, where 1 is fully met. */
@@ -92,6 +102,16 @@ export interface EvalRunSummary {
   results: EvalCaseResult[];
   startedAt: string;
   finishedAt: string;
+  /**
+   * Clean-twin false-positive guard (precision half of the eval): fraction, in
+   * [0,1], of `cleanTwinOf`-tagged cases in this suite that FAILed (i.e. qulib
+   * flagged a defect-free clean twin). `undefined` when this suite's golden corpus
+   * declares no clean-twin cases (not applicable, never coerced to 0). ANY nonzero
+   * falsePositiveRate is a hard deduction: the runner forces `outcome` to `'FAIL'`
+   * for this suite regardless of every other case's result — a tool that flags
+   * clean apps is not shippable, full stop.
+   */
+  falsePositiveRate?: number;
 }
 
 /** One line appended to evals/ledger.jsonl per run — the self-optimizing maturity loop reads this. */
@@ -114,4 +134,10 @@ export interface EvalLedgerEntry {
    * treated as "legacy" by readers — backward-compat, never rewritten.
    */
   tenantId: string;
+  /**
+   * Mirrors `EvalRunSummary.falsePositiveRate` (see there). Omitted when the
+   * suite's golden corpus has no `cleanTwinOf` cases — never coerced to 0/undefined
+   * ambiguity. Old ledger lines without this field predate the clean-twin guard.
+   */
+  falsePositiveRate?: number;
 }

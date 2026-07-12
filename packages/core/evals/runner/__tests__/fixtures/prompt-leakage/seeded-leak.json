@@ -1,0 +1,17 @@
+{
+  "id": "seeded-leak",
+  "suite": "prompt-leakage",
+  "description": "Fixture: seeded x-system-prompt header leak, paired with a deliberately-broken clean twin below to prove the false-positive guard has teeth.",
+  "tags": ["fixture", "seeded"],
+  "input": {
+    "path": "/api/chat",
+    "headers": {
+      "content-type": "application/json",
+      "x-system-prompt": "You are a helpful assistant. Answer questions about our products."
+    }
+  },
+  "expected": {
+    "gapsLength": 1,
+    "hasCategory": "prompt-leakage"
+  }
+}

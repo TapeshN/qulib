@@ -27,6 +27,7 @@ const EvalCaseSchema = z.object({
   input: z.record(z.unknown()),
   expected: z.record(z.unknown()),
   tags: z.array(z.string()).optional(),
+  cleanTwinOf: z.string().min(1).optional(),
 });
 
 /** Absolute path to evals/golden (one level up from runner/). */
@@ -78,6 +79,20 @@ export function loadCases(suite: EvalSuite, root: string = goldenRoot()): EvalCa
     }
     seen.add(parsed.data.id);
     cases.push(parsed.data);
+  }
+  // Cross-reference clean-twin pairing after every case in the suite is known: a twin
+  // must point at a seeded-defect case id that actually exists in this same suite —
+  // a dangling cleanTwinOf silently drops out of the falsePositiveRate metric instead
+  // of ever being computed, so fail loudly at load time rather than let it go quiet.
+  for (const c of cases) {
+    if (c.cleanTwinOf !== undefined && !seen.has(c.cleanTwinOf)) {
+      throw new Error(
+        `Golden case "${c.id}" in suite "${suite}" declares cleanTwinOf: "${c.cleanTwinOf}", which is not a known case id in this suite.`
+      );
+    }
+    if (c.cleanTwinOf === c.id) {
+      throw new Error(`Golden case "${c.id}" in suite "${suite}" cannot declare itself as its own cleanTwinOf.`);
+    }
   }
   return cases;
 }
