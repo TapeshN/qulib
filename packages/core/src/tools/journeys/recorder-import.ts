@@ -36,25 +36,32 @@
  *                                            `{key}` syntax, which would be
  *                                            wrong under Playwright (a
  *                                            literal string) AND wrong under
- *                                            Cypress for any key outside its
- *                                            small special-sequence
- *                                            whitelist (e.g. "Tab" throws).
- *                                            Each adapter renders `key-press`
- *                                            in its own idiom at RENDER
- *                                            time — see cypress-e2e-adapter
- *                                            .ts / playwright-adapter.ts —
- *                                            against the last interacted
- *                                            selector, since keyDown steps in
- *                                            a Recorder export do not carry
+ *                                            Cypress for any multi-character
+ *                                            key NAME outside its small
+ *                                            special-sequence whitelist (e.g.
+ *                                            "Tab" throws). Each adapter
+ *                                            renders `key-press` in its own
+ *                                            idiom at RENDER time — see
+ *                                            cypress-e2e-adapter.ts /
+ *                                            playwright-adapter.ts — against
+ *                                            the last interacted selector,
+ *                                            since keyDown steps in a
+ *                                            Recorder export do not carry
  *                                            their own `selectors`, they act
  *                                            on whatever currently has focus.
- *                                            A key outside Cypress's
- *                                            whitelist is warned about by
- *                                            name here, at conversion time,
- *                                            since Playwright's `.press()`
- *                                            renders virtually any key
- *                                            faithfully and only Cypress is
- *                                            at risk)
+ *                                            A key that is genuinely
+ *                                            un-renderable by Cypress's
+ *                                            `.type()` — outside BOTH the
+ *                                            `{token}` whitelist AND a single
+ *                                            printable character (a plain
+ *                                            letter/digit/punctuation/space
+ *                                            renders faithfully unbraced, see
+ *                                            `isSingleTypeableCharacter`) —
+ *                                            is warned about by name here,
+ *                                            at conversion time, since
+ *                                            Playwright's `.press()` renders
+ *                                            virtually any key faithfully
+ *                                            and only Cypress is at risk)
  *   waitForElement     → 'assert-visible' / 'assert-hidden' (per `visible`),
  *                         or 'assert-count' when the step carries a `count`
  *                         (an element-COUNT assertion rather than a single-
@@ -89,17 +96,27 @@
  * `page.locator(t).selectOption(v)`); a checkbox/radio target should become
  * a 'click' step instead.
  *
- * Anything else Recorder can emit (keyUp, hover, scroll, waitForExpression,
- * and any step type we have never seen) is TOLERATED — parsing never throws
- * on it — but is not mappable to today's TestStep vocabulary, so it is
- * skipped with a warning rather than silently dropped or forced into a
- * misleading action. The one exception is `setViewport`, which is genuinely
+ * Anything else Recorder can emit (hover, scroll, waitForExpression, and any
+ * step type we have never seen) is TOLERATED — parsing never throws on it —
+ * but is not mappable to today's TestStep vocabulary, so it is skipped with
+ * a warning rather than silently dropped or forced into a misleading
+ * action. The one exception is `setViewport`, which is genuinely
  * informational (viewport metadata, not a user-facing action) but is still
  * warned about — the recorded dimensions are NOT threaded into the
  * generated project config (which uses a fixed default viewport), so
- * silently no-op'ing it would drop real signal without a trace. `keyUp` is
- * the one truly silent no-op: it is always paired with the `keyDown` that
- * already produced a full `key-press` step, so nothing is lost.
+ * silently no-op'ing it would drop real signal without a trace.
+ *
+ * `keyUp` is CONDITIONALLY silent: this module's own prior comment here
+ * claimed "keyUp is always paired with a keyDown, nothing lost" — that was
+ * an UNENFORCED assumption, not a guarantee. A trimmed/hand-edited export, a
+ * chord's second-key release, or any Recorder-shaped JSON not produced by an
+ * unedited Recorder session can carry a `keyUp` with no matching `keyDown`
+ * earlier in the SAME flow — dropping that unconditionally, silently, is
+ * exactly the silent-drop class the `assertedEvents` fix above closes. So
+ * this module tracks which keys had a `keyDown` actually CONVERTED earlier
+ * in this flow: a `keyUp` whose key matches a still-pending prior `keyDown`
+ * is truly redundant and stays silent; a `keyUp` with NO matching prior
+ * `keyDown` (orphaned) is warned about by name instead of vanishing.
  *
  * Selector resilience: a Recorder step's `selectors` field is a fallback
  * chain of alternative selector strings, engine-prefixed (`aria/`, `text/`,
@@ -112,7 +129,7 @@
 import type { NeutralScenario, TestStep } from '../../schemas/gap-analysis.schema.js';
 import { NeutralScenarioSchema } from '../../schemas/gap-analysis.schema.js';
 import { RecorderFlowSchema, type RecorderFlow, type RecorderStep } from '../../schemas/recorder-flow.schema.js';
-import { isCypressTypeableKey } from '../../adapters/cypress-special-keys.js';
+import { isCypressTypeableKey, isSingleTypeableCharacter } from '../../adapters/cypress-special-keys.js';
 
 // ---------------------------------------------------------------------------
 // Format auto-detection
@@ -267,6 +284,12 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
   const steps: TestStep[] = [];
   let targetPath: string | undefined;
   let lastTarget: string | undefined;
+  // FINDING 1: how many CONVERTED keyDown steps for each key are still
+  // "pending" a matching keyUp, earlier in THIS flow. A keyDown that was
+  // itself skipped (no key, no known target) never increments this — only a
+  // keyDown that actually produced a key-press step counts as something a
+  // later keyUp can legitimately be redundant with.
+  const pendingKeyDowns = new Map<string, number>();
 
   const pushAssertedEvents = (step: RecorderStep, index: number): void => {
     for (const event of step.assertedEvents ?? []) {
@@ -395,16 +418,23 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
         }
         // Playwright's page.locator(t).press() accepts virtually any
         // KeyboardEvent.key value faithfully, so it is never at risk here.
-        // Cypress's .type() is limited to a small special-sequence
-        // whitelist — a key outside it (e.g. "Tab") is warned about BY
-        // NAME at conversion time, since the Cypress adapter will fall back
-        // to a safe comment rather than emitting code that throws.
-        if (!isCypressTypeableKey(key)) {
+        // Cypress's .type() renders a multi-character key NAME via its
+        // special-sequence whitelist, and a single printable character
+        // (letter/digit/punctuation/space) faithfully via a plain unbraced
+        // .type(char) call (FINDING 2) — a key outside BOTH of those is
+        // genuinely un-typeable in Cypress (e.g. "Tab", "F1", "Shift") and
+        // is warned about BY NAME at conversion time, since the Cypress
+        // adapter will fall back to a safe comment rather than emitting
+        // code that throws. A plain printable character is NOT warned about
+        // here — it renders faithfully, so a warning would be false
+        // reassurance-in-reverse (an inverse facade): telling a reviewer a
+        // working step "cannot be rendered".
+        if (!isCypressTypeableKey(key) && !isSingleTypeableCharacter(key)) {
           warnings.push(
             `keyDown step at index ${index}: key "${key}" is outside Cypress's .type() special-sequence ` +
-              `whitelist — the cypress-e2e adapter cannot render a real key-press for this key (it will emit ` +
-              `a non-throwing placeholder comment instead of code that crashes at runtime); the playwright ` +
-              `adapter renders it faithfully via .press("${key}").`
+              `whitelist and is not a single printable character — the cypress-e2e adapter cannot render a ` +
+              `real key-press for this key (it will emit a non-throwing placeholder comment instead of code ` +
+              `that crashes at runtime); the playwright adapter renders it faithfully via .press("${key}").`
           );
         }
         steps.push({
@@ -413,12 +443,34 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
           value: key,
           description: `Press ${key} on ${describeSelector(pick ?? { selector: target, rank: 'css' })}`,
         });
+        // Only a keyDown that actually converted (reached here) can make a
+        // later keyUp for the same key truly redundant — see FINDING 1.
+        pendingKeyDowns.set(key, (pendingKeyDowns.get(key) ?? 0) + 1);
         break;
       }
 
-      case 'keyUp':
-        // Paired with keyDown — the key press is already captured; keyUp adds nothing new.
+      case 'keyUp': {
+        // FINDING 1: keyUp was previously an UNCONDITIONAL silent drop —
+        // "always paired with a keyDown, nothing lost" was an unenforced
+        // assumption, not a guarantee. A trimmed/hand-edited export, a
+        // chord's second-key release, or any Recorder-shaped JSON not
+        // produced by an unedited Recorder session can carry a keyUp with
+        // no matching keyDown earlier in this flow. Consume one pending
+        // "credit" left by a converted keyDown for this key when one
+        // exists (truly redundant — stays silent); warn by name when none
+        // exists (nothing here already captured this key press).
+        const key = step.key;
+        const pending = key ? (pendingKeyDowns.get(key) ?? 0) : 0;
+        if (key && pending > 0) {
+          pendingKeyDowns.set(key, pending - 1);
+        } else {
+          const keyLabel = key ? `key=${key}` : 'key=<none>';
+          warnings.push(
+            `keyUp step at index ${index} (${keyLabel}) has no matching earlier keyDown in this flow — skipped`
+          );
+        }
         break;
+      }
 
       case 'waitForElement': {
         const pick = pickResilientSelector(step.selectors);

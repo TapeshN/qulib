@@ -1,6 +1,6 @@
 import type { TestAdapter } from './adapter.interface.js';
 import type { NeutralScenario, GeneratedTest, TestStep } from '../schemas/gap-analysis.schema.js';
-import { isCypressTypeableKey, toCypressTypeToken } from './cypress-special-keys.js';
+import { isCypressTypeableKey, toCypressTypeToken, isSingleTypeableCharacter } from './cypress-special-keys.js';
 
 function slugify(title: string): string {
   return title
@@ -28,7 +28,22 @@ function renderStep(step: TestStep): string {
       if (isCypressTypeableKey(key)) {
         return `    cy.get(${t}).type(${JSON.stringify(toCypressTypeToken(key))});`;
       }
-      // Outside Cypress's .type() special-sequence whitelist (e.g. "Tab") —
+      // FINDING 2: a single printable character (letter/digit/punctuation/
+      // space) is NOT a Cypress special-sequence token, but it renders
+      // FAITHFULLY via a plain unbraced .type(char) call — the exact same
+      // primitive the 'type' action above already uses — firing a real
+      // keydown/keypress/input/keyup sequence. Routing this through the
+      // {token} whitelist check (which it can never pass, since it isn't a
+      // multi-character key NAME) or the safe-comment fallback below would
+      // be an inverse facade: a common single-key shortcut recording (e.g.
+      // Gmail's "c"/"j"/"k") would wrongly get a broken comment instead of
+      // the working code. Never route this through toCypressTypeToken —
+      // that throws for anything outside CYPRESS_SPECIAL_KEY_MAP.
+      if (isSingleTypeableCharacter(key)) {
+        return `    cy.get(${t}).type(${JSON.stringify(key)});`;
+      }
+      // Genuinely un-typeable: outside BOTH the {token} whitelist AND a
+      // single printable character (e.g. "Tab", "F1", "Shift") —
       // cy.type("{tab}") throws at real Cypress runtime, so NEVER emit that
       // string. A safe, non-throwing comment naming the exact gap beats a
       // spec that compiles but crashes the first time it actually runs.

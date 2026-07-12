@@ -379,6 +379,87 @@ test('importRecorderFlow: keyDown with no known target is skipped with a warning
   assert.ok(warnings.some((w) => w.includes('keyDown') && w.includes('no known target')));
 });
 
+// ---------------------------------------------------------------------------
+// keyDown fidelity: a plain printable character must NOT be warned about
+// (FINDING 2 — the inverse-facade fix) — only genuinely un-typeable
+// multi-character key NAMES (Tab, F1, …) get the fidelity warning.
+// ---------------------------------------------------------------------------
+
+test('importRecorderFlow: keyDown with a plain printable character (e.g. "a") produces NO fidelity warning', () => {
+  const flow = {
+    title: 'Gmail-style shortcut',
+    steps: [{ type: 'click', selectors: [['aria/Inbox']] }, { type: 'keyDown', key: 'a' }],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    !warnings.some((w) => w.includes('key "a"')),
+    'a single printable character renders faithfully via cy.type("a") — no fidelity warning should fire'
+  );
+});
+
+test('importRecorderFlow: keyDown with "Tab" (genuinely un-typeable key NAME) still produces the fidelity warning', () => {
+  const flow = {
+    title: 'Tab flow',
+    steps: [{ type: 'click', selectors: [['aria/Name']] }, { type: 'keyDown', key: 'Tab' }],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    warnings.some((w) => w.includes('key "Tab"') && w.includes('cypress-e2e')),
+    'a multi-character key NAME outside the whitelist must still be warned about by name'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// orphan keyUp — FINDING 1
+// ---------------------------------------------------------------------------
+
+test('importRecorderFlow: an orphan keyUp (no matching prior keyDown) emits a named warning, not a silent drop', () => {
+  // No keyDown anywhere in this flow — a trimmed/hand-edited export, or a
+  // chord's second-key release recorded on its own.
+  const flow = {
+    title: 'Orphan keyUp',
+    steps: [{ type: 'click', selectors: [['aria/Name']] }, { type: 'keyUp', key: 'Shift' }],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps.length, 1, 'keyUp itself never produces a TestStep — only the warning is new');
+  assert.ok(
+    warnings.some((w) => w.includes('keyUp step at index 1') && w.includes('key=Shift') && w.includes('no matching earlier keyDown')),
+    'an orphan keyUp must be warned about by index + key, never silently dropped'
+  );
+});
+
+test('importRecorderFlow: a well-formed keyDown+keyUp pair stays silent (no spurious orphan warning)', () => {
+  const flow = {
+    title: 'Paired keyDown/keyUp',
+    steps: [
+      { type: 'click', selectors: [['aria/Search']] },
+      { type: 'keyDown', key: 'Enter' },
+      { type: 'keyUp', key: 'Enter' },
+    ],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    !warnings.some((w) => w.includes('keyUp') && w.includes('no matching earlier keyDown')),
+    'a keyUp matching an earlier CONVERTED keyDown for the same key is truly redundant — must stay silent'
+  );
+});
+
+test('importRecorderFlow: a second, unmatched keyUp for the same key IS warned about (one keyDown credit consumed, not reusable)', () => {
+  const flow = {
+    title: 'Double keyUp',
+    steps: [
+      { type: 'click', selectors: [['aria/Search']] },
+      { type: 'keyDown', key: 'Enter' },
+      { type: 'keyUp', key: 'Enter' }, // consumes the one keyDown credit — silent
+      { type: 'keyUp', key: 'Enter' }, // no credit left — orphaned
+    ],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  const orphanWarnings = warnings.filter((w) => w.includes('keyUp') && w.includes('no matching earlier keyDown'));
+  assert.equal(orphanWarnings.length, 1, 'only the SECOND keyUp for this key is orphaned');
+  assert.ok(orphanWarnings[0]?.includes('index 3'));
+});
+
 test('cypress-e2e adapter: key-press for a whitelisted key renders the EXACT documented Cypress special-sequence syntax', async () => {
   const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
   const adapter = new CypressE2EAdapter();
@@ -417,6 +498,32 @@ test('cypress-e2e adapter: key-press for a NON-whitelisted key (Tab) renders a s
   assert.ok(!code.includes('.type("{tab}")'), 'must NEVER emit cy.type("{tab}") — Cypress throws on this at runtime');
   assert.match(code, /\/\/ key-press: "Tab" is outside Cypress's \.type\(\) special-sequence whitelist/);
 });
+
+// FINDING 2 — a single printable character (letters/digits/punctuation/
+// space) renders FAITHFULLY via unbraced cy.get(t).type(char), never a
+// broken {token} nor the safe-comment fallback.
+for (const key of ['a', '1', '?', ' ']) {
+  test(`cypress-e2e adapter: key-press for the single printable character "${key}" renders unbraced cy.type(), no comment`, async () => {
+    const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+    const adapter = new CypressE2EAdapter();
+    const scenario = {
+      id: 'scn-keypress-char',
+      title: 'Printable char keypress',
+      description: `press ${key}`,
+      targetPath: '/inbox',
+      steps: [{ action: 'key-press' as const, target: '#body', value: key, description: `press ${key} on #body` }],
+      tags: [],
+      recommendations: [],
+      sourceGapIds: [],
+    };
+    const { code } = adapter.render(scenario);
+    // The EXACT generated step line — unbraced, faithful, no {token}, no comment.
+    const expectedLine = `    cy.get("#body").type(${JSON.stringify(key)});`;
+    assert.ok(code.includes(expectedLine), `expected exact line "${expectedLine}" in generated code:\n${code}`);
+    assert.ok(!code.includes('key-press:'), 'must NOT fall back to the placeholder comment for a faithfully-renderable character');
+    assert.ok(!code.includes('.type("{'), 'must NOT emit a {token}-style special-sequence call for a plain printable character');
+  });
+}
 
 test('playwright adapter: key-press renders page.locator(t).press(key) faithfully for ANY key, including ones Cypress cannot render', async () => {
   const { PlaywrightAdapter } = await import('../../../adapters/playwright-adapter.js');

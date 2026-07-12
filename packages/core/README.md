@@ -228,20 +228,38 @@ a silent drop, and never a warning that reassures a reviewer about only one
 of several equally-real risks.
 - **`keyDown` → framework-neutral `key-press` (not Cypress-only `{key}`
   syntax).** A `keyDown` step converts to a new `'key-press'` `TestStep`
-  action carrying the RAW key Recorder recorded (e.g. `"Enter"`, `"Tab"`) —
-  never Cypress's `{token}` special-sequence syntax baked in up front, which
-  would be wrong under Playwright (writes the literal string `"{enter}"`
-  instead of pressing a key) and wrong under Cypress itself for any key
-  outside its small special-sequence whitelist (`{tab}` throws at real
-  runtime even though the spec compiles). Each adapter renders `key-press` in
-  its own idiom: `cypress-e2e` emits real `.type("{token}")` syntax only for
-  whitelisted keys (`Enter`, `Escape`, `Backspace`, `Delete`, the arrow keys,
-  `Home`/`End`/`PageUp`/`PageDown`, `Insert` — see `cypress-special-keys.ts`)
-  and a safe, non-throwing comment for anything else; `playwright` renders
-  `page.locator(t).press(key)` faithfully for virtually any key, since
-  Playwright's key names match Recorder's directly. A key Cypress cannot
-  render is warned about by name (the exact key + `cypress-e2e`) at
-  conversion time.
+  action carrying the RAW key Recorder recorded (e.g. `"Enter"`, `"Tab"`,
+  `"a"`) — never Cypress's `{token}` special-sequence syntax baked in up
+  front, which would be wrong under Playwright (writes the literal string
+  `"{enter}"` instead of pressing a key) and wrong under Cypress itself for
+  any multi-character key NAME outside its small special-sequence whitelist
+  (`{tab}` throws at real runtime even though the spec compiles). Each
+  adapter renders `key-press` in its own idiom: `cypress-e2e` emits real
+  `.type("{token}")` syntax for whitelisted key NAMES (`Enter`, `Escape`,
+  `Backspace`, `Delete`, the arrow keys, `Home`/`End`/`PageUp`/`PageDown`,
+  `Insert` — see `cypress-special-keys.ts`), a plain unbraced
+  `.type("a")`/`.type("1")`/`.type("?")`/`.type(" ")` call for a **single
+  printable character** (a letter, digit, punctuation mark, or space — this
+  renders FAITHFULLY, firing a real keydown/keypress/input/keyup sequence,
+  the exact primitive a common single-key shortcut recording like Gmail's
+  `c`/`j`/`k` needs), and a safe, non-throwing comment only for a genuinely
+  un-typeable multi-character key NAME outside the whitelist (`Tab`, `F1`,
+  `Shift`, …); `playwright` renders `page.locator(t).press(key)` faithfully
+  for virtually any key, since Playwright's key names match Recorder's
+  directly. Only a key that is genuinely un-renderable by Cypress — outside
+  BOTH the `{token}` whitelist AND the single-printable-character case — is
+  warned about by name (the exact key + `cypress-e2e`) at conversion time; a
+  plain printable character gets no warning, since it renders faithfully
+  (an earlier round warned about EVERY non-whitelisted key, including
+  faithfully-renderable single characters — an inverse facade, now fixed).
+- **Orphan `keyUp` (no matching `keyDown`).** A `keyUp` step is dropped
+  silently ONLY when it is truly redundant — i.e. a `keyDown` for the same
+  key already converted to a `key-press` step earlier in the SAME flow. A
+  `keyUp` with no matching prior `keyDown` (a trimmed/hand-edited export, a
+  chord's second-key release, or any Recorder-shaped JSON not produced by an
+  unedited Recorder session) is warned about by index + key rather than
+  silently vanishing — the same "never a silent drop" guarantee every other
+  step type in this table already gets.
 - **Element-count operator.** Only `>=` has a faithful rendering in EITHER
   adapter today (`should('have.length.gte', …)` in Cypress,
   `toBeGreaterThanOrEqual(…)` in Playwright). A `waitForElement` count
