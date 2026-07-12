@@ -174,6 +174,50 @@ npx @qulib/core score-automation --repo /path/to/repo
 
 Use `npx playwright install chromium` the first time you scan (Playwright is a dependency).
 
+## Journey interchange (Chrome DevTools Recorder)
+
+`scaffoldTests(url, { scenarios })` already accepts pre-built scenarios instead
+of crawling — `importRecorderFlow` lets those scenarios come from a **Chrome
+DevTools Recorder** export (Chrome DevTools → Recorder panel → record a flow →
+"Export as JSON") instead of hand-authoring them:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { importRecorderFlow, isRecorderFlow, scaffoldTests } from '@qulib/core';
+
+const raw = JSON.parse(readFileSync('login-flow.json', 'utf8'));
+
+if (isRecorderFlow(raw)) {
+  const { scenario, warnings } = importRecorderFlow(raw);
+  // warnings: non-fatal notes for steps Recorder emits that have no
+  // NeutralScenario equivalent (hover, scroll, waitForExpression, an unknown
+  // future step type, …) — the converter tolerates and skips these, it never
+  // throws on them. Only a structurally malformed flow throws.
+  for (const w of warnings) console.warn(w);
+
+  const result = await scaffoldTests('https://app.example.com', {
+    framework: 'cypress-e2e',
+    scenarios: [scenario],
+  });
+  // result.generatedTests is a ready-to-run Cypress spec — the exact same
+  // downstream path a crawl-derived or recipe-derived scenario takes.
+}
+```
+
+**Mapping.** `navigate` seeds the scenario's `targetPath`; `click`/`change`/
+`keyDown` become `click`/`type` steps; `waitForElement` becomes
+`assert-visible`/`assert-hidden`; a step's `assertedEvents` (e.g. a
+`navigation` event) becomes an extra assertion step. Each step's `selectors`
+fallback chain is resolved by `pickResilientSelector`, which prefers
+`aria/`- and `text/`-prefixed selectors over brittle `css`/`xpath` ones — the
+selector least likely to break when the page's markup changes wins. Steps
+Recorder can emit with no NeutralScenario equivalent (`hover`, `scroll`,
+`waitForExpression`, `setViewport`, an unrecognized future `type`) are skipped
+with a warning rather than thrown or silently dropped.
+
+The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
+optional `journeys` input — see the MCP tools table below.
+
 ## Programmatic API
 
 ```ts
@@ -367,7 +411,7 @@ A minimal structural snapshot looks like:
 | `qulib_analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
 | `qulib_score_automation` | Score local repo test-automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
 | `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
-| `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
+| `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL, or from pre-recorded journeys instead of crawling (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes`, `journeys` (Chrome DevTools Recorder exports or NeutralScenarios — format auto-detected) |
 | **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report vs planted-bug target | `report` (title, description, steps, severity), `target` (description, type, severity, expectedBehavior) |
 | **`qulib_score_decisions`** | Pivotal-decision evaluation at agent forks | absolute `forksPath` (JSONL), optional `enableLlmJudge` |
 | `qulib_explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |

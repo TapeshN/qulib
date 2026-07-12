@@ -70,6 +70,14 @@ export type { ApiCoverageResult, ApiEndpointCoverage } from './tools/scoring/api
 export { scaffoldTests } from './scaffold-tests.js';
 export type { ScaffoldOptions, ScaffoldResult, ProjectConfig } from './scaffold-tests.js';
 export { expandRecipes, buildAuthScenarios, buildA11yScenarios, buildNavScenarios, buildSeedScenarios } from './recipes/index.js';
+export {
+  importRecorderFlow,
+  isRecorderFlow,
+  pickResilientSelector,
+} from './tools/journeys/recorder-import.js';
+export type { RecorderImportResult, ResilientSelector, SelectorRank } from './tools/journeys/recorder-import.js';
+export { NeutralScenarioSchema } from './schemas/gap-analysis.schema.js';
+export type { NeutralScenario, TestStep } from './schemas/gap-analysis.schema.js';
 export { createProvider } from './llm/provider-registry.js';
 export { resolveMaxOutputTokensPerLlmCall } from './schemas/config.schema.js';
 export { resolveScanStateBaseDir, resolveReportDir } from './harness/state-manager.js';
