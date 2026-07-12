@@ -1,5 +1,6 @@
 import type { TestAdapter } from './adapter.interface.js';
 import type { NeutralScenario, GeneratedTest, TestStep } from '../schemas/gap-analysis.schema.js';
+import { sanitizeForComment } from './comment-safety.js';
 
 function slugify(title: string): string {
   return title
@@ -16,11 +17,15 @@ function renderStep(step: TestStep): string {
     case 'navigate':
       return `    await page.goto(${JSON.stringify(step.target ?? step.value ?? '/')});`;
     case 'click':
-      return t ? `    await page.locator(${t}).click();` : `    // click: ${step.description}`;
+      return t ? `    await page.locator(${t}).click();` : `    // click: ${sanitizeForComment(step.description)}`;
     case 'type':
-      return t && v ? `    await page.locator(${t}).fill(${v});` : `    // type: ${step.description}`;
+      return t && v
+        ? `    await page.locator(${t}).fill(${v});`
+        : `    // type: ${sanitizeForComment(step.description)}`;
     case 'select':
-      return t && v ? `    await page.locator(${t}).selectOption(${v});` : `    // select: ${step.description}`;
+      return t && v
+        ? `    await page.locator(${t}).selectOption(${v});`
+        : `    // select: ${sanitizeForComment(step.description)}`;
     case 'key-press':
       // Playwright's .press() takes the exact same key names Chrome
       // DevTools Recorder captures (KeyboardEvent.key values like "Enter",
@@ -28,7 +33,9 @@ function renderStep(step: TestStep): string {
       // to a fixed special-sequence whitelist, so this is faithful for
       // every key the converter hands it, including ones Cypress cannot
       // render (see cypress-e2e-adapter.ts's key-press case).
-      return t && v ? `    await page.locator(${t}).press(${v});` : `    // key-press: ${step.description}`;
+      return t && v
+        ? `    await page.locator(${t}).press(${v});`
+        : `    // key-press: ${sanitizeForComment(step.description)}`;
     case 'assert-visible':
       return t
         ? `    await expect(page.locator(${t})).toBeVisible();`
@@ -36,25 +43,25 @@ function renderStep(step: TestStep): string {
     case 'assert-hidden':
       return t
         ? `    await expect(page.locator(${t})).toBeHidden();`
-        : `    // assert-hidden: ${step.description}`;
+        : `    // assert-hidden: ${sanitizeForComment(step.description)}`;
     case 'assert-text':
       if (t && v) return `    await expect(page.locator(${t})).toContainText(${v});`;
       if (t) return `    await expect(page.locator(${t})).not.toBeEmpty();`;
-      return `    // assert-text: ${step.description}`;
+      return `    // assert-text: ${sanitizeForComment(step.description)}`;
     case 'assert-disabled':
       return t
         ? `    await expect(page.locator(${t})).toBeDisabled();`
-        : `    // assert-disabled: ${step.description}`;
+        : `    // assert-disabled: ${sanitizeForComment(step.description)}`;
     case 'assert-count':
       return t
         ? `    expect(await page.locator(${t}).count()).toBeGreaterThanOrEqual(${parseInt(step.value ?? '1', 10)});`
-        : `    // assert-count: ${step.description}`;
+        : `    // assert-count: ${sanitizeForComment(step.description)}`;
     case 'wait':
       return `    await page.waitForTimeout(${parseInt(step.value ?? '1000', 10)});`;
     case 'api-call':
       return `    expect((await page.request.get(${JSON.stringify(step.target ?? step.value ?? '/')})).status()).toBe(200);`;
     default:
-      return `    // TODO: ${step.description}`;
+      return `    // TODO: ${sanitizeForComment(step.description)}`;
   }
 }
 
@@ -90,17 +97,20 @@ export class PlaywrightAdapter implements TestAdapter {
       .join('\n');
 
     const recipeTag = (scenario.tags ?? []).find((t) => t.startsWith('recipe-'));
-    const recipeComment = recipeTag ? `\n// recipe: ${recipeTag.replace('recipe-', '')}` : '';
+    // FINDING 3: same newline-safe-comment fix as cypress-e2e-adapter.ts —
+    // these are raw, externally-derived NeutralScenario fields going
+    // straight into `//` header comments below.
+    const recipeComment = recipeTag ? `\n// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : '';
 
     const code = [
-      `// ${scenario.description}`,
-      `// qulib-generated — scenario: ${scenario.id}${recipeComment}`,
+      `// ${sanitizeForComment(scenario.description)}`,
+      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}${recipeComment}`,
       ``,
       `import { test, expect } from '@playwright/test';`,
       ``,
       `test.describe(${JSON.stringify(scenario.title)}, () => {`,
       `  test(${JSON.stringify(scenario.description)}, async ({ page }) => {`,
-      stepLines || `    // no steps — add assertions for: ${scenario.targetPath}`,
+      stepLines || `    // no steps — add assertions for: ${sanitizeForComment(scenario.targetPath)}`,
       `  });`,
       `});`,
       ``,

@@ -239,19 +239,28 @@ of several equally-real risks.
   `Backspace`, `Delete`, the arrow keys, `Home`/`End`/`PageUp`/`PageDown`,
   `Insert` — see `cypress-special-keys.ts`), a plain unbraced
   `.type("a")`/`.type("1")`/`.type("?")`/`.type(" ")` call for a **single
-  printable character** (a letter, digit, punctuation mark, or space — this
-  renders FAITHFULLY, firing a real keydown/keypress/input/keyup sequence,
-  the exact primitive a common single-key shortcut recording like Gmail's
-  `c`/`j`/`k` needs), and a safe, non-throwing comment only for a genuinely
-  un-typeable multi-character key NAME outside the whitelist (`Tab`, `F1`,
-  `Shift`, …); `playwright` renders `page.locator(t).press(key)` faithfully
-  for virtually any key, since Playwright's key names match Recorder's
-  directly. Only a key that is genuinely un-renderable by Cypress — outside
-  BOTH the `{token}` whitelist AND the single-printable-character case — is
-  warned about by name (the exact key + `cypress-e2e`) at conversion time; a
-  plain printable character gets no warning, since it renders faithfully
-  (an earlier round warned about EVERY non-whitelisted key, including
-  faithfully-renderable single characters — an inverse facade, now fixed).
+  printable character** (a letter, digit, punctuation mark, symbol, or space,
+  counted by Unicode CODE POINT so a single astral-plane character like an
+  emoji also qualifies — this renders FAITHFULLY, firing a real
+  keydown/keypress/input/keyup sequence, the exact primitive a common
+  single-key shortcut recording like Gmail's `c`/`j`/`k` needs), and a safe,
+  non-throwing comment only for a genuinely un-typeable multi-character key
+  NAME outside the whitelist (`Tab`, `F1`, `Shift`, …); `playwright` renders
+  `page.locator(t).press(key)` faithfully for virtually any key, since
+  Playwright's key names match Recorder's directly. Only a key that is
+  genuinely un-renderable by Cypress — outside BOTH the `{token}` whitelist
+  AND the single-printable-character case — is warned about by name (the
+  exact key + `cypress-e2e`) at conversion time; a plain printable character
+  gets no warning, since it renders faithfully (an earlier round warned about
+  EVERY non-whitelisted key, including faithfully-renderable single
+  characters — an inverse facade, now fixed). **The one printable character
+  that still needs special handling: a literal `"{"`.** Cypress's `.type()`
+  treats an unescaped `"{"` as the OPENING of a `{token}` special-sequence —
+  `cy.get(t).type("{")` compiles but THROWS at real Cypress runtime. The
+  `cypress-e2e` adapter escapes it to Cypress's own documented form,
+  `"{{}"` , before emitting the call (`escapeCypressTypeLiteral` in
+  `cypress-special-keys.ts`); every other single printable character,
+  including `"}"` (never special on its own), passes through unescaped.
 - **Orphan `keyUp` (no matching `keyDown`).** A `keyUp` step is dropped
   silently ONLY when it is truly redundant — i.e. a `keyDown` for the same
   key already converted to a `key-press` step earlier in the SAME flow. A
@@ -294,6 +303,18 @@ of several equally-real risks.
   distinct `rejectedJourneys` response field, never folded into
   `scenarioCount`/`testCount` — a useless stub must never read as a
   successful conversion.
+- **Newline-safe generated comments.** Every raw external field the
+  `cypress-e2e`/`playwright` adapters interpolate into a generated `//`
+  fallback comment — `TestStep.description`, a `key-press` step's raw key,
+  and `NeutralScenario.description`/`id`/`targetPath`/recipe tag — is passed
+  through `sanitizeForComment` (`adapters/comment-safety.ts`) first, which
+  collapses any embedded line break to a space. Without this, a hand-edited
+  or non-Recorder-produced flow carrying a raw newline in one of these fields
+  could terminate a `//` comment early and turn the rest of that field's text
+  into live, uncommented code in the generated spec. Code-string
+  interpolations (anything wrapped in `JSON.stringify(...)`, e.g. selectors
+  and typed values) were never at risk — `JSON.stringify` already escapes a
+  raw newline to `\n` *inside* the string literal.
 
 The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
 optional `journeys` input — see the MCP tools table below. Both `cypress-e2e`

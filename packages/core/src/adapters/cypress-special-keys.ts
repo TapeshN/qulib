@@ -61,16 +61,50 @@ const DEL_CODE = 127;
  * (Recorder emits key NAMES like "Enter" for those, never the literal
  * string "e"), so the two predicates are mutually exclusive in practice.
  *
- * `key.length === 1` alone is not sufficient: `KeyboardEvent.key` values for
- * control keys such as Backspace/Delete/Escape are always multi-character
- * NAMES, but this stays defensive against a hypothetical single-character
- * control code slipping through — hence the explicit code-point check
- * (C0 control block + DEL) below, rather than a bare length check.
+ * ROUND-5 FIX: this used to gate on `key.length === 1` — a UTF-16 code-UNIT
+ * count. A single astral-plane character (e.g. an emoji like "😀") is ONE
+ * code point but TWO UTF-16 code units (a surrogate pair), so `key.length`
+ * is 2 for it — the old check mis-routed a genuine single keypress into the
+ * warned/un-typeable path even though Cypress's `.type()` renders it
+ * faithfully (fails safe — an over-warn, not a broken spec — but still
+ * wrong). `[...key]` iterates by CODE POINT (respects surrogate pairs), so
+ * `[...key].length === 1` correctly recognizes a single astral character as
+ * one printable character. `KeyboardEvent.key` values for control keys such
+ * as Backspace/Delete/Escape are always multi-character NAMES (code-point
+ * length > 1), but this stays defensive against a hypothetical
+ * single-code-point control code slipping through — hence the explicit
+ * code-point-value check (C0 control block + DEL) below, rather than a bare
+ * length check.
  */
 export function isSingleTypeableCharacter(key: string): boolean {
-  if (key.length !== 1) return false;
-  const code = key.charCodeAt(0);
-  return code > LAST_C0_CONTROL_CODE && code !== DEL_CODE;
+  const codePoints = [...key];
+  if (codePoints.length !== 1) return false;
+  const codePoint = codePoints[0]?.codePointAt(0);
+  if (codePoint === undefined) return false;
+  return codePoint > LAST_C0_CONTROL_CODE && codePoint !== DEL_CODE;
+}
+
+/**
+ * Escape a single printable character (per `isSingleTypeableCharacter`) for
+ * safe use inside Cypress's `.type()` call. Cypress's `.type()` DSL treats
+ * `{` as the OPENING delimiter of a `{token}` special-sequence (see
+ * `CYPRESS_SPECIAL_KEY_MAP` above) — passing a literal `"{"` through
+ * unescaped makes Cypress try to parse a token starting there and throw
+ * (e.g. `CypressError: Special character sequence: '{' is not recognized`)
+ * at real runtime, even though `cy.get(t).type("{")` compiles fine. Per
+ * Cypress's own documented escape (its "Table of Special Character
+ * Sequences" page), a literal `{` is written as `"{{}"` — the doubled brace
+ * closes as its own one-character token that types a single `{`.
+ *
+ * No other single printable character needs escaping. In particular `"}"`
+ * does NOT need escaping: Cypress's parser only starts looking for a token
+ * when it sees an UNESCAPED `{`, so a bare `}` with no preceding `{` is
+ * never treated as closing (or otherwise special-casing) anything — it
+ * passes through `.type()` as a plain literal character, matching Cypress's
+ * docs (only `{` appears in the escape table, `}` does not).
+ */
+export function escapeCypressTypeLiteral(key: string): string {
+  return key === '{' ? '{{}' : key;
 }
 
 /**

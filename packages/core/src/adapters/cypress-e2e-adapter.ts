@@ -1,6 +1,12 @@
 import type { TestAdapter } from './adapter.interface.js';
 import type { NeutralScenario, GeneratedTest, TestStep } from '../schemas/gap-analysis.schema.js';
-import { isCypressTypeableKey, toCypressTypeToken, isSingleTypeableCharacter } from './cypress-special-keys.js';
+import {
+  isCypressTypeableKey,
+  toCypressTypeToken,
+  isSingleTypeableCharacter,
+  escapeCypressTypeLiteral,
+} from './cypress-special-keys.js';
+import { sanitizeForComment } from './comment-safety.js';
 
 function slugify(title: string): string {
   return title
@@ -17,21 +23,21 @@ function renderStep(step: TestStep): string {
     case 'navigate':
       return `    cy.visit(${JSON.stringify(step.target ?? step.value ?? '/')});`;
     case 'click':
-      return t ? `    cy.get(${t}).click();` : `    // click: ${step.description}`;
+      return t ? `    cy.get(${t}).click();` : `    // click: ${sanitizeForComment(step.description)}`;
     case 'type':
-      return t && v ? `    cy.get(${t}).type(${v});` : `    // type: ${step.description}`;
+      return t && v ? `    cy.get(${t}).type(${v});` : `    // type: ${sanitizeForComment(step.description)}`;
     case 'select':
-      return t && v ? `    cy.get(${t}).select(${v});` : `    // select: ${step.description}`;
+      return t && v ? `    cy.get(${t}).select(${v});` : `    // select: ${sanitizeForComment(step.description)}`;
     case 'key-press': {
       const key = step.value;
-      if (!t || !key) return `    // key-press: ${step.description}`;
+      if (!t || !key) return `    // key-press: ${sanitizeForComment(step.description)}`;
       if (isCypressTypeableKey(key)) {
         return `    cy.get(${t}).type(${JSON.stringify(toCypressTypeToken(key))});`;
       }
-      // FINDING 2: a single printable character (letter/digit/punctuation/
-      // space) is NOT a Cypress special-sequence token, but it renders
-      // FAITHFULLY via a plain unbraced .type(char) call — the exact same
-      // primitive the 'type' action above already uses — firing a real
+      // FINDING 2 (round-4): a single printable character (letter/digit/
+      // punctuation/space) is NOT a Cypress special-sequence token, but it
+      // renders FAITHFULLY via a plain unbraced .type(char) call — the exact
+      // same primitive the 'type' action above already uses — firing a real
       // keydown/keypress/input/keyup sequence. Routing this through the
       // {token} whitelist check (which it can never pass, since it isn't a
       // multi-character key NAME) or the safe-comment fallback below would
@@ -39,40 +45,61 @@ function renderStep(step: TestStep): string {
       // Gmail's "c"/"j"/"k") would wrongly get a broken comment instead of
       // the working code. Never route this through toCypressTypeToken —
       // that throws for anything outside CYPRESS_SPECIAL_KEY_MAP.
+      //
+      // FINDING 1 (round-5 REGRESSION FIX): "faithful" is not "verbatim". A
+      // literal "{" keypress is a single printable character, but Cypress's
+      // .type() treats an unescaped "{" as the OPENING of a {token}
+      // special-sequence — cy.get(t).type("{") THROWS at real Cypress
+      // runtime (it never finds a closing "}" that resolves to a known
+      // token), even though the generated spec compiles fine. That is
+      // exactly the "compiles then crashes silently" facade this whole
+      // key-press line of fixes exists to close. escapeCypressTypeLiteral
+      // applies Cypress's own documented escape ("{" -> "{{}"); every other
+      // single printable character (including "}", which is never special
+      // on its own) passes through unchanged. See cypress-special-keys.ts
+      // for the full citation of Cypress's escape rule.
       if (isSingleTypeableCharacter(key)) {
-        return `    cy.get(${t}).type(${JSON.stringify(key)});`;
+        return `    cy.get(${t}).type(${JSON.stringify(escapeCypressTypeLiteral(key))});`;
       }
       // Genuinely un-typeable: outside BOTH the {token} whitelist AND a
       // single printable character (e.g. "Tab", "F1", "Shift") —
       // cy.type("{tab}") throws at real Cypress runtime, so NEVER emit that
       // string. A safe, non-throwing comment naming the exact gap beats a
       // spec that compiles but crashes the first time it actually runs.
+      // FINDING 3 (round-5): `key` and `step.description` are raw external
+      // text going straight into a `//` comment — sanitizeForComment strips
+      // any embedded newline so neither field can prematurely terminate
+      // this comment and leak the rest of the line as live code.
       return (
-        `    // key-press: "${key}" is outside Cypress's .type() special-sequence whitelist — ` +
+        `    // key-press: "${sanitizeForComment(key)}" is outside Cypress's .type() special-sequence whitelist — ` +
         `cy.type() would throw at runtime for this key. Use cy.get(${t}).trigger('keydown', { key: ${JSON.stringify(key)} }) ` +
-        `or cy.realPress(${JSON.stringify(key)}) (cypress-real-events) instead. ${step.description}`
+        `or cy.realPress(${JSON.stringify(key)}) (cypress-real-events) instead. ${sanitizeForComment(step.description)}`
       );
     }
     case 'assert-visible':
       return t ? `    cy.get(${t}).should('be.visible');` : `    cy.get('body').should('be.visible');`;
     case 'assert-hidden':
-      return t ? `    cy.get(${t}).should('not.be.visible');` : `    // assert-hidden: ${step.description}`;
+      return t
+        ? `    cy.get(${t}).should('not.be.visible');`
+        : `    // assert-hidden: ${sanitizeForComment(step.description)}`;
     case 'assert-text':
       if (t && v) return `    cy.get(${t}).should('contain.text', ${v});`;
       if (t) return `    cy.get(${t}).should('not.be.empty');`;
-      return `    // assert-text: ${step.description}`;
+      return `    // assert-text: ${sanitizeForComment(step.description)}`;
     case 'assert-disabled':
-      return t ? `    cy.get(${t}).should('be.disabled');` : `    // assert-disabled: ${step.description}`;
+      return t
+        ? `    cy.get(${t}).should('be.disabled');`
+        : `    // assert-disabled: ${sanitizeForComment(step.description)}`;
     case 'assert-count':
       return t
         ? `    cy.get(${t}).should('have.length.gte', ${parseInt(step.value ?? '1', 10)});`
-        : `    // assert-count: ${step.description}`;
+        : `    // assert-count: ${sanitizeForComment(step.description)}`;
     case 'wait':
       return `    cy.wait(${parseInt(step.value ?? '1000', 10)});`;
     case 'api-call':
       return `    cy.request(${JSON.stringify(step.target ?? step.value ?? '/')}).its('status').should('eq', 200);`;
     default:
-      return `    // TODO: ${step.description}`;
+      return `    // TODO: ${sanitizeForComment(step.description)}`;
   }
 }
 
@@ -108,15 +135,21 @@ export class CypressE2EAdapter implements TestAdapter {
       .join('\n');
 
     const recipeTag = (scenario.tags ?? []).find((t) => t.startsWith('recipe-'));
-    const recipeComment = recipeTag ? `\n// recipe: ${recipeTag.replace('recipe-', '')}` : '';
+    // FINDING 3: recipeTag/scenario.description/scenario.id/scenario.targetPath
+    // are all raw, externally-derived fields (NeutralScenario is a caller-
+    // supplied shape, not something only Recorder ever produces) going
+    // straight into `//` header comments below — sanitizeForComment strips
+    // any embedded newline so none of them can prematurely terminate a
+    // comment and leak trailing text as live code.
+    const recipeComment = recipeTag ? `\n// recipe: ${sanitizeForComment(recipeTag.replace('recipe-', ''))}` : '';
 
     const code = [
-      `// ${scenario.description}`,
-      `// qulib-generated — scenario: ${scenario.id}${recipeComment}`,
+      `// ${sanitizeForComment(scenario.description)}`,
+      `// qulib-generated — scenario: ${sanitizeForComment(scenario.id)}${recipeComment}`,
       ``,
       `describe(${JSON.stringify(scenario.title)}, () => {`,
       `  it(${JSON.stringify(scenario.description)}, () => {`,
-      stepLines || `    // no steps — add assertions for: ${scenario.targetPath}`,
+      stepLines || `    // no steps — add assertions for: ${sanitizeForComment(scenario.targetPath)}`,
       `  });`,
       `});`,
       ``,

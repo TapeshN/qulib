@@ -29,6 +29,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 import { importRecorderFlow, isRecorderFlow, pickResilientSelector } from '../recorder-import.js';
 import { NeutralScenarioSchema } from '../../../schemas/gap-analysis.schema.js';
@@ -705,4 +706,390 @@ test('round-trip: a converted scenario flows through scaffoldTests into a real, 
 
   // The real proof of consumability: the generated spec actually compiles.
   assert.equal(result.specValidation.ok, true, JSON.stringify(result.specValidation));
+});
+
+// ---------------------------------------------------------------------------
+// ROUND-5 FINDING 1 (REGRESSION FIX) — a literal "{" keypress must render
+// via Cypress's documented "{{}" escape, never an unescaped .type("{") that
+// compiles but THROWS at real Cypress runtime (an unescaped "{" opens the
+// {token} special-sequence parser). Round-4's "single printable char is
+// always faithful" generalization broke this; round-3 was conservatively
+// correct (warned+commented). This closes the gap without regressing
+// round-4's fix for the OTHER single printable characters.
+// ---------------------------------------------------------------------------
+
+test(
+  'cypress-e2e adapter: key-press for the literal "{" character escapes to Cypress\'s documented "{{}" ' +
+    'form — never an unescaped, throwing .type("{")',
+  async () => {
+    const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+    const adapter = new CypressE2EAdapter();
+    const scenario = {
+      id: 'scn-keypress-brace',
+      title: 'Brace keypress',
+      description: 'press {',
+      targetPath: '/editor',
+      steps: [{ action: 'key-press' as const, target: '#code', value: '{', description: 'press { on #code' }],
+      tags: [],
+      recommendations: [],
+      sourceGapIds: [],
+    };
+    const { code } = adapter.render(scenario);
+    assert.ok(
+      code.includes('cy.get("#code").type("{{}");'),
+      `expected the escaped brace literal in generated code:\n${code}`
+    );
+    // The regression this closes: an UNESCAPED "{" opens Cypress's
+    // special-sequence parser and throws at real runtime even though the
+    // spec compiles — must never appear.
+    assert.ok(!code.includes('cy.get("#code").type("{");'), 'must NEVER emit an unescaped, throwing .type("{")');
+    // "{" is faithfully renderable (once escaped) — must not fall back to
+    // the safe-comment/warning path either.
+    assert.ok(!code.includes('key-press:'), 'a faithfully-renderable "{" must not fall back to a placeholder comment');
+  }
+);
+
+test('importRecorderFlow: keyDown with key "{" produces NO fidelity warning (it IS faithful once escaped)', () => {
+  const flow = {
+    title: 'Brace flow',
+    steps: [{ type: 'click', selectors: [['aria/Code editor']] }, { type: 'keyDown', key: '{' }],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    !warnings.some((w) => w.includes('key "{"')),
+    'a single printable character (including "{", once escaped by the adapter) renders faithfully — no fidelity warning should fire'
+  );
+});
+
+test(
+  'cypress-e2e adapter: key-press for the literal "}" renders it literally — no escaping needed ' +
+    '(Cypress only treats an unescaped "{" as special)',
+  async () => {
+    const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+    const adapter = new CypressE2EAdapter();
+    const scenario = {
+      id: 'scn-keypress-close-brace',
+      title: 'Close-brace keypress',
+      description: 'press }',
+      targetPath: '/editor',
+      steps: [{ action: 'key-press' as const, target: '#code', value: '}', description: 'press } on #code' }],
+      tags: [],
+      recommendations: [],
+      sourceGapIds: [],
+    };
+    const { code } = adapter.render(scenario);
+    assert.ok(code.includes('cy.get("#code").type("}");'), `expected the literal, unescaped "}" in:\n${code}`);
+  }
+);
+
+test('cypress-e2e adapter: baseline single printable characters (a, 1, ?, space) are unaffected by the brace fix', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  for (const key of ['a', '1', '?', ' ']) {
+    const scenario = {
+      id: `scn-keypress-baseline-${encodeURIComponent(key)}`,
+      title: 'Baseline printable char',
+      description: `press ${key}`,
+      targetPath: '/inbox',
+      steps: [{ action: 'key-press' as const, target: '#body', value: key, description: `press ${key} on #body` }],
+      tags: [],
+      recommendations: [],
+      sourceGapIds: [],
+    };
+    const { code } = adapter.render(scenario);
+    const expectedLine = `    cy.get("#body").type(${JSON.stringify(key)});`;
+    assert.ok(code.includes(expectedLine), `expected exact unescaped line "${expectedLine}" in:\n${code}`);
+  }
+});
+
+test('round-trip: a keyDown "{" flow scaffolds a real, compilable Cypress spec with the escaped literal', async () => {
+  const flow = {
+    title: 'Type a literal brace',
+    steps: [
+      { type: 'navigate', url: 'https://app.example.test/editor' },
+      { type: 'click', selectors: [['aria/Code editor']] },
+      { type: 'keyDown', key: '{' },
+    ],
+  };
+  const { scenario } = importRecorderFlow(flow);
+  const result = await scaffoldTests('https://app.example.test', {
+    framework: 'cypress-e2e',
+    scenarios: [scenario],
+  });
+  const spec = result.generatedTests[0]!;
+  assert.ok(spec.code.includes('.type("{{}");'), `expected the escaped brace in the scaffolded spec:\n${spec.code}`);
+  assert.equal(result.specValidation.ok, true, JSON.stringify(result.specValidation));
+});
+
+// ---------------------------------------------------------------------------
+// ROUND-5 FINDING 2 — a single ASTRAL-PLANE character (one Unicode CODE
+// POINT, but two UTF-16 code units — a surrogate pair) must be recognized as
+// a faithfully-renderable single printable character. The old
+// `key.length === 1` check counted UTF-16 code UNITS, so a genuine single
+// keypress like an emoji reaction shortcut was mis-routed to the
+// warned/commented path even though Cypress's .type() renders it faithfully
+// (an over-warn — fails safe, but still wrong).
+// ---------------------------------------------------------------------------
+
+test('importRecorderFlow: keyDown with a single astral-plane character (emoji) produces NO fidelity warning', () => {
+  const emoji = '\u{1F600}'; // one code point, two UTF-16 code units
+  const flow = {
+    title: 'Emoji reaction shortcut',
+    steps: [{ type: 'click', selectors: [['aria/Reaction picker']] }, { type: 'keyDown', key: emoji }],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    !warnings.some((w) => w.includes('special-sequence')),
+    'a single astral-plane character is ONE code point — it renders faithfully via cy.type(), no fidelity warning should fire'
+  );
+});
+
+test('cypress-e2e adapter: key-press for a single astral-plane character renders unbraced cy.type(), no comment', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const emoji = '\u{1F600}';
+  const scenario = {
+    id: 'scn-keypress-emoji',
+    title: 'Emoji keypress',
+    description: `press ${emoji}`,
+    targetPath: '/chat',
+    steps: [{ action: 'key-press' as const, target: '#msg', value: emoji, description: `press ${emoji} on #msg` }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  const expectedLine = `    cy.get("#msg").type(${JSON.stringify(emoji)});`;
+  assert.ok(code.includes(expectedLine), `expected exact line "${expectedLine}" in generated code:\n${code}`);
+  assert.ok(!code.includes('key-press:'), 'a single astral character must NOT fall back to the placeholder comment');
+});
+
+test('importRecorderFlow: keyDown with a TWO-code-point string (not a single character) still gets the fidelity warning', () => {
+  // Sanity check the boundary the other way: two distinct code points is
+  // NOT "a single printable character" under either the old or new check.
+  const flow = {
+    title: 'Two-character key oddity',
+    steps: [{ type: 'click', selectors: [['aria/Name']] }, { type: 'keyDown', key: 'ab' }],
+  };
+  const { warnings } = importRecorderFlow(flow);
+  assert.ok(
+    warnings.some((w) => w.includes('key "ab"') && w.includes('cypress-e2e')),
+    'a genuine multi-code-point string must still be warned about — the astral-plane fix only affects true single-code-point keys'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ROUND-5 FINDING 3 — a newline embedded in raw external text (step
+// description, step key, scenario description/id/targetPath) must never
+// terminate a generated `//` comment early and leak the remainder as live,
+// uncommented code in the generated spec.
+// ---------------------------------------------------------------------------
+
+const INJECTED_MARKER = 'INJECTED_LIVE_CODE_SHOULD_NOT_RUN();';
+
+/**
+ * Every line containing `INJECTED_MARKER` must be a `//` comment line.
+ *
+ * NOT valid for a line where the marker is embedded inside a
+ * `JSON.stringify(...)`-produced quoted string argument (e.g. the
+ * `it(JSON.stringify(scenario.description), ...)` line) — that occurrence is
+ * SAFE by construction (`JSON.stringify` already escapes a raw newline to
+ * the two-character `\n` sequence *inside* the string literal, so it can
+ * never terminate anything) and is deliberately proven safe separately, via
+ * `assertCompiles`, in the tests that exercise scenario-level fields.
+ */
+function assertNoLiveCodeLeak(code: string): void {
+  for (const line of code.split('\n')) {
+    if (line.includes(INJECTED_MARKER)) {
+      assert.ok(line.trim().startsWith('//'), `marker leaked as live, uncommented code on line: "${line}"`);
+    }
+  }
+}
+
+/**
+ * Real proof (not just string-matching) that `code` is syntactically valid
+ * TypeScript — the direct check for "a raw newline broke out of a quoted
+ * string literal and desynced the file", which a JSON.stringify(...)-escaped
+ * value could otherwise mask from a naive per-line marker check.
+ */
+function assertCompiles(code: string): void {
+  const result = ts.transpileModule(code, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+    reportDiagnostics: true,
+  });
+  const errors = (result.diagnostics ?? []).filter((d) => d.category === ts.DiagnosticCategory.Error);
+  const messages = errors.map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
+  assert.equal(errors.length, 0, `generated spec has syntax errors:\n${messages.join('\n')}\n--- spec ---\n${code}`);
+}
+
+test('cypress-e2e adapter: a step.description containing a newline collapses to ONE safe comment line, no live code leak', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-newline-comment',
+    title: 'Newline in description',
+    description: 'top-level description, safe',
+    targetPath: '/x',
+    steps: [
+      {
+        action: 'click' as const,
+        // no target -> falls back to the "// click: <description>" comment
+        description: `click something\n${INJECTED_MARKER}`,
+      },
+    ],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.ok(
+    code.includes(`// click: click something ${INJECTED_MARKER}`),
+    `expected the newline collapsed into a single safe comment line:\n${code}`
+  );
+  assertNoLiveCodeLeak(code);
+  assert.equal(
+    code.split(INJECTED_MARKER).length,
+    2,
+    'the marker text must appear exactly once, never duplicated by a broken join'
+  );
+});
+
+test('cypress-e2e adapter: a key-press step.key containing a newline is sanitized in the un-typeable safe-comment fallback', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const maliciousKey = `F13\n${INJECTED_MARKER}`;
+  const scenario = {
+    id: 'scn-newline-key',
+    title: 'Newline in key',
+    description: 'press a malformed key',
+    targetPath: '/x',
+    steps: [{ action: 'key-press' as const, target: '#x', value: maliciousKey, description: 'press it' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assertNoLiveCodeLeak(code);
+});
+
+test('cypress-e2e adapter: a scenario.description containing a newline does not break the file-header comment', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: 'scn-newline-scenario-desc',
+    title: 'Header newline',
+    description: `top level\n${INJECTED_MARKER}`,
+    targetPath: '/x',
+    steps: [{ action: 'navigate' as const, target: '/x', description: 'go' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  // The file's FIRST line is the raw `// ${scenario.description}` comment —
+  // must be the sanitized single-line form, verbatim.
+  const [firstLine] = code.split('\n');
+  assert.equal(firstLine, `// top level ${INJECTED_MARKER}`, `unexpected header comment line:\n${code}`);
+  // `it(JSON.stringify(scenario.description), ...)` ALSO carries the raw
+  // (unsanitized) description — legitimately safe, since JSON.stringify
+  // escapes the real newline to the two-char `\n` sequence inside the
+  // string literal, so it can never desync the file. Prove that with a
+  // real compile, not just a string match.
+  assert.ok(code.includes(`it(${JSON.stringify(scenario.description)}`), `expected the JSON.stringify'd it() name in:\n${code}`);
+  assertCompiles(code);
+});
+
+test('cypress-e2e adapter: a scenario.id containing a newline does not break the file-header comment', async () => {
+  const { CypressE2EAdapter } = await import('../../../adapters/cypress-e2e-adapter.js');
+  const adapter = new CypressE2EAdapter();
+  const scenario = {
+    id: `scn-newline-id\n${INJECTED_MARKER}`,
+    title: 'Header id newline',
+    description: 'fine',
+    targetPath: '/x',
+    steps: [{ action: 'navigate' as const, target: '/x', description: 'go' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  const lines = code.split('\n');
+  assert.equal(
+    lines[1],
+    `// qulib-generated — scenario: scn-newline-id ${INJECTED_MARKER}`,
+    `unexpected header comment line:\n${code}`
+  );
+  assertCompiles(code);
+});
+
+test('playwright adapter: a step.description containing a newline collapses to ONE safe comment line, no live code leak', async () => {
+  const { PlaywrightAdapter } = await import('../../../adapters/playwright-adapter.js');
+  const adapter = new PlaywrightAdapter();
+  const scenario = {
+    id: 'scn-newline-comment-pw',
+    title: 'Newline in description (Playwright)',
+    description: 'top-level description, safe',
+    targetPath: '/x',
+    steps: [
+      {
+        action: 'click' as const,
+        description: `click something\n${INJECTED_MARKER}`,
+      },
+    ],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.ok(
+    code.includes(`// click: click something ${INJECTED_MARKER}`),
+    `expected the newline collapsed into a single safe comment line:\n${code}`
+  );
+  assertNoLiveCodeLeak(code);
+});
+
+test('sanitizeForComment: CR, LF, and the Unicode line/paragraph separators all collapse to a single space', async () => {
+  const { sanitizeForComment } = await import('../../../adapters/comment-safety.js');
+  assert.equal(sanitizeForComment('a\nb'), 'a b');
+  assert.equal(sanitizeForComment('a\r\nb'), 'a b');
+  assert.equal(sanitizeForComment('a\u2028b'), 'a b', 'U+2028 LINE SEPARATOR');
+  assert.equal(sanitizeForComment('a\u2029b'), 'a b', 'U+2029 PARAGRAPH SEPARATOR');
+  assert.equal(sanitizeForComment('no newline here'), 'no newline here');
+});
+
+test('escapeCypressTypeLiteral: escapes ONLY "{" — every other character (including "}") passes through unchanged', async () => {
+  const { escapeCypressTypeLiteral } = await import('../../../adapters/cypress-special-keys.js');
+  assert.equal(escapeCypressTypeLiteral('{'), '{{}');
+  assert.equal(escapeCypressTypeLiteral('}'), '}');
+  assert.equal(escapeCypressTypeLiteral('a'), 'a');
+  assert.equal(escapeCypressTypeLiteral(' '), ' ');
+});
+
+test('isSingleTypeableCharacter: counts CODE POINTS, not UTF-16 code units — a surrogate-pair emoji is one character', async () => {
+  const { isSingleTypeableCharacter } = await import('../../../adapters/cypress-special-keys.js');
+  assert.equal(isSingleTypeableCharacter('\u{1F600}'), true, 'a single astral-plane code point is one character');
+  assert.equal(isSingleTypeableCharacter('a'), true);
+  assert.equal(isSingleTypeableCharacter('ab'), false, 'two code points is not a single character');
+  assert.equal(isSingleTypeableCharacter(''), false, 'empty string is not a single character');
+  assert.equal(isSingleTypeableCharacter('\n'), false, 'a C0 control code stays excluded');
+});
+
+test('playwright adapter: a scenario.description containing a newline does not break the file-header comment', async () => {
+  const { PlaywrightAdapter } = await import('../../../adapters/playwright-adapter.js');
+  const adapter = new PlaywrightAdapter();
+  const scenario = {
+    id: 'scn-newline-scenario-desc-pw',
+    title: 'Header newline (Playwright)',
+    description: `top level\n${INJECTED_MARKER}`,
+    targetPath: '/x',
+    steps: [{ action: 'navigate' as const, target: '/x', description: 'go' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  const [firstLine] = code.split('\n');
+  assert.equal(firstLine, `// top level ${INJECTED_MARKER}`, `unexpected header comment line:\n${code}`);
+  assert.ok(code.includes(`test(${JSON.stringify(scenario.description)}`), `expected the JSON.stringify'd test() name in:\n${code}`);
+  assertCompiles(code);
 });
