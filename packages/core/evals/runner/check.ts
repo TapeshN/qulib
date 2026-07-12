@@ -51,6 +51,8 @@ export interface SuiteCheckResult {
   skipCount: number;
   totalCount: number;
   reason: string;
+  /** Mirrors EvalRunSummary.falsePositiveRate (see rollup.ts) — undefined when this suite has no clean-twin cases. */
+  falsePositiveRate?: number;
 }
 
 export interface CheckReport {
@@ -145,6 +147,7 @@ export function buildCheckReport(
       skipCount: summary.counts.skip,
       totalCount: summary.counts.total,
       reason,
+      falsePositiveRate: summary.falsePositiveRate,
     };
   });
 
@@ -189,8 +192,9 @@ function printReport(report: CheckReport, env: NodeJS.ProcessEnv): void {
       : r.judgeRan
         ? 'judge=ran'
         : `judge=SKIPPED (no ANTHROPIC_API_KEY; ${r.totalCount} case(s) not judged)`;
+    const fpTag = r.falsePositiveRate === undefined ? '' : `  falsePositiveRate=${r.falsePositiveRate.toFixed(3)}`;
     console.log(
-      `[qulib:eval:check] ${r.suite}: ${r.verdict}  runOutcome=${r.runOutcome}  ${judgeTag}  — ${r.reason}`
+      `[qulib:eval:check] ${r.suite}: ${r.verdict}  runOutcome=${r.runOutcome}  ${judgeTag}${fpTag}  — ${r.reason}`
     );
   }
   const judgeSummary = !report.anyJudgeApplicable

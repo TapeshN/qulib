@@ -22,6 +22,8 @@ export const TestStepSchema = z.object({
     'navigate',
     'click',
     'type',
+    'select',
+    'key-press',
     'assert-visible',
     'assert-hidden',
     'assert-text',

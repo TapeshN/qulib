@@ -197,3 +197,78 @@ test('renderAll: maps each scenario to its own valid playwright GeneratedTest', 
 test('adapterType exposes the playwright identifier', () => {
   assert.equal(adapter.adapterType, 'playwright');
 });
+
+// ---------------------------------------------------------------------------
+// select action — FINDING 2 (additive TestStep action)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// key-press action — FINDING 1 (framework-neutral keyboard step)
+// ---------------------------------------------------------------------------
+
+test("render: 'key-press' renders page.locator(t).press(key) faithfully for a key Cypress CANNOT render (Tab)", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-001',
+    title: 'Tab through form',
+    description: 'press Tab to move focus',
+    targetPath: '/form',
+    steps: [{ action: 'key-press', target: '#name', value: 'Tab', description: 'press Tab on #name' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /await page\.locator\("#name"\)\.press\("Tab"\);/);
+  assertValidPlaywrightSpec(code);
+});
+
+test("render: 'key-press' renders page.locator(t).press(key) for a key Cypress CAN also render (Enter) — same idiom either way", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-002',
+    title: 'Search submit',
+    description: 'press Enter to submit search',
+    targetPath: '/search',
+    steps: [{ action: 'key-press', target: '#q', value: 'Enter', description: 'press Enter on #q' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /await page\.locator\("#q"\)\.press\("Enter"\);/);
+  assertValidPlaywrightSpec(code);
+});
+
+test("render: a target-less/value-less 'key-press' step falls back to a comment", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-003',
+    title: 'Degenerate key-press',
+    description: 'key-press step missing target/value',
+    targetPath: '/x',
+    steps: [{ action: 'key-press', description: 'press an undescribed key' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.ok(code.includes('// key-press: press an undescribed key'));
+  assertValidPlaywrightSpec(code);
+});
+
+test("render: 'select' TestStep action renders page.locator(t).selectOption(v)", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-select-001',
+    title: 'Country picker',
+    description: 'User picks a country from a real <select>',
+    targetPath: '/settings',
+    steps: [
+      { action: 'navigate', target: '/settings', description: 'go to settings' },
+      { action: 'select', target: '#country', value: 'Canada', description: 'pick Canada' },
+    ],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /await page\.locator\("#country"\)\.selectOption\("Canada"\);/);
+  assertValidPlaywrightSpec(code);
+});

@@ -65,3 +65,61 @@ qulib's test spine is `node --import tsx/esm --test` (see
 `packages/core/package.json` `test` script) — **not** vitest. The runner, judge,
 and loader each ship `node:test` unit tests with real assertions (no smoke stubs),
 wired into the `test` script the same way the existing CLI tests are.
+
+## Clean-twin false-positive guard
+
+Every golden case up to this point only scored **recall** — does qulib detect the
+defect a fixture was seeded with. That is only half the bar: a detector that
+flags everything has perfect recall and is useless. The clean-twin guard adds
+the **precision** half.
+
+**Pattern.** For a seeded-defect golden case, add a companion case that is the
+same fixture with the seeded defect(s) removed — the "clean twin" — and set
+`cleanTwinOf: "<seeded-case-id>"` on it. Derive the twin from the existing
+fixture (delete the seeded lines), never invent a new app just to host it. See
+`golden/prompt-leakage/clean-header.json` (twin of `leaky-header`) and
+`golden/prompt-leakage/clean-route.json` (twin of `leaky-inline-script`) for
+the reference pair — the twin's `expected` block asserts zero detections
+(e.g. `{ "zeroGaps": true }`), exactly like any other negative case, but the
+`cleanTwinOf` field is what makes the pairing explicit and machine-readable
+instead of just a matching description.
+
+**Loader contract.** `cleanTwinOf` must name a case id that exists in the same
+suite (`load-cases.ts` throws a loud "not a known case id" error otherwise) and
+a case may never twin itself. This keeps the pairing from silently drifting —
+rename or delete a seeded case and its twin's `cleanTwinOf` breaks the load
+instead of quietly dropping out of the metric.
+
+**Near-duplicate guard.** A twin only pads `falsePositiveRate`'s denominator
+honestly when it is actually a near-duplicate of the case it twins — the
+intended shape is "the same fixture, seeded defect(s) removed", never a
+structurally unrelated case. `load-cases.ts` enforces this at load time with a
+cheap token-based Jaccard similarity check between the twin's `input` and its
+seeded case's `input` (tokenize the serialized JSON, lowercase, split on
+non-alphanumeric runs); a similarity below the calibrated floor (`0.2`, well
+below the real reference pairs' ≈`0.48`–`0.50` and well above a genuinely
+unrelated fixture's ≈`0.03`) throws loudly at load time, the same "fail once,
+fail loud" posture as the dangling/self-referential checks above.
+
+**Scoring.** The runner (`runner/index.ts`) cross-references every
+`cleanTwinOf` case in a suite's loaded corpus against its own result and emits
+`EvalRunSummary.falsePositiveRate` — the fraction of clean-twin cases that
+FAILed (i.e. qulib flagged a fixture that has no seeded defect). It is
+`undefined`, never `0`, for a suite whose corpus declares no twins at all, so
+"not measured" is never confused with "measured, zero false positives".
+
+**Hard deduction.** Any `falsePositiveRate > 0` forces that suite's `outcome`
+to `'FAIL'`, overriding whatever the per-case rollup already computed — a false
+positive on a clean twin is disqualifying on its own, not just one bad case
+among many. That FAIL flows through the existing rollup unchanged: `npm run
+eval` exits non-zero, and `npm run eval:check` reports it under the existing
+`MALFORMED/FAIL (exit 1)` path (§ "Regression gate" in `runner/check.ts`) —
+the CI merge gate blocks the same way any other suite FAIL does. `toLedgerEntry`
+mirrors `falsePositiveRate` onto `EvalLedgerEntry` (also omitted, never `0`,
+when not applicable) so `evals/ledger.jsonl` carries the precision trend
+release-over-release, same as every other tracked metric.
+
+**Adding a new pair.** Pick (or add) a seeded-defect case, then add a sibling
+JSON file in the same `golden/<suite>/` directory with `cleanTwinOf` pointing
+at it and an `expected` block that demands zero detections. No runner/loader
+changes are needed — the cross-reference and scoring are suite-agnostic.

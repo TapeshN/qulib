@@ -25,6 +25,7 @@ import {
   rollupOutcomes,
   combineCaseOutcome,
   meanJudgeScore,
+  computeFalsePositiveRate,
   summarize,
   toLedgerEntry,
   resolveTenantId,
@@ -35,7 +36,7 @@ import { runScoreAutomationCase } from '../run-score-automation.js';
 import { judgeConfigured, skipVerdict, judgeOrSkip, reduceScaffoldVerdicts } from '../judge-bridge.js';
 import type { JudgeImpl } from '../judge-bridge.js';
 import { runSuite, runEval, ledgerLineCount, readLedger, filterLedgerByTenant } from '../index.js';
-import type { EvalCaseResult, JudgeVerdict } from '../../types.js';
+import type { EvalCase, EvalCaseResult, JudgeVerdict } from '../../types.js';
 import type { NeutralScenario } from '../../../src/schemas/gap-analysis.schema.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +89,72 @@ test('meanJudgeScore: zero when no judge verdicts ran', () => {
     { caseId: 'a', suite: 'scaffold', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
   ];
   assert.equal(meanJudgeScore(results), 0);
+});
+
+// ---------------------------------------------------------------------------
+// computeFalsePositiveRate (clean-twin false-positive guard)
+// ---------------------------------------------------------------------------
+
+function evalCase(overrides: Partial<EvalCase> = {}): EvalCase {
+  return {
+    id: 'x',
+    suite: 'prompt-leakage',
+    description: 'd',
+    input: {},
+    expected: {},
+    ...overrides,
+  };
+}
+
+test('computeFalsePositiveRate: undefined when the suite declares no clean-twin cases', () => {
+  const cases = [evalCase({ id: 'seeded' })];
+  const results: EvalCaseResult[] = [
+    { caseId: 'seeded', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  assert.equal(computeFalsePositiveRate(cases, results), undefined);
+});
+
+test('computeFalsePositiveRate: 0 when every clean-twin case PASSes (no false positives)', () => {
+  const cases = [
+    evalCase({ id: 'seeded' }),
+    evalCase({ id: 'twin', cleanTwinOf: 'seeded' }),
+  ];
+  const results: EvalCaseResult[] = [
+    { caseId: 'seeded', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+    { caseId: 'twin', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  assert.equal(computeFalsePositiveRate(cases, results), 0);
+});
+
+test('computeFalsePositiveRate: counts a FAILed clean-twin case as a false positive', () => {
+  const cases = [
+    evalCase({ id: 'seeded-a' }),
+    evalCase({ id: 'twin-a', cleanTwinOf: 'seeded-a' }),
+    evalCase({ id: 'seeded-b' }),
+    evalCase({ id: 'twin-b', cleanTwinOf: 'seeded-b' }),
+  ];
+  const results: EvalCaseResult[] = [
+    { caseId: 'seeded-a', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+    { caseId: 'twin-a', suite: 'prompt-leakage', outcome: 'FAIL', deterministic: { outcome: 'FAIL', notes: ['FAIL: false positive'] }, latencyMs: 1 },
+    { caseId: 'seeded-b', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+    { caseId: 'twin-b', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  assert.equal(computeFalsePositiveRate(cases, results), 0.5, '1 of 2 clean twins false-positived');
+});
+
+test('computeFalsePositiveRate: non-twin cases never count toward the denominator', () => {
+  const cases = [
+    evalCase({ id: 'unrelated' }),
+    evalCase({ id: 'seeded' }),
+    evalCase({ id: 'twin', cleanTwinOf: 'seeded' }),
+  ];
+  const results: EvalCaseResult[] = [
+    { caseId: 'unrelated', suite: 'prompt-leakage', outcome: 'FAIL', deterministic: { outcome: 'FAIL', notes: [] }, latencyMs: 1 },
+    { caseId: 'seeded', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+    { caseId: 'twin', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ];
+  // unrelated FAILs but is not a clean twin — must not pollute falsePositiveRate.
+  assert.equal(computeFalsePositiveRate(cases, results), 0);
 });
 
 test('toLedgerEntry: projects summary + pins judge identity/cost when a verdict ran', () => {
@@ -168,6 +235,132 @@ test('loadCases: throws when a case declares a suite different from its folder',
 test('loadCases: empty/missing suite dir returns []', () => {
   const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-empty-'));
   assert.deepEqual(loadCases('scaffold', dir), []);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: throws when cleanTwinOf references a case id that does not exist in the suite', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-dangling-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({
+      id: 'twin',
+      suite: 'prompt-leakage',
+      description: 'd',
+      input: {},
+      expected: {},
+      cleanTwinOf: 'no-such-seeded-case',
+    })
+  );
+  assert.throws(() => loadCases('prompt-leakage', dir), /cleanTwinOf.*no-such-seeded-case.*not a known case id/s);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: throws when a case declares itself as its own cleanTwinOf', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-self-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'self.json'),
+    JSON.stringify({ id: 'self', suite: 'prompt-leakage', description: 'd', input: {}, expected: {}, cleanTwinOf: 'self' })
+  );
+  assert.throws(() => loadCases('prompt-leakage', dir), /cannot declare itself/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: throws when a twin input is not a plausible near-duplicate of its seeded case (FINDING 4)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-unrelated-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'seeded.json'),
+    JSON.stringify({
+      id: 'seeded',
+      suite: 'prompt-leakage',
+      description: 'd',
+      input: { path: '/api/chat', headers: { 'x-system-prompt': 'You are a helpful assistant.' } },
+      expected: {},
+    })
+  );
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({
+      id: 'twin',
+      suite: 'prompt-leakage',
+      description: 'd',
+      // Wildly unrelated to "seeded" — a different shape, different content —
+      // not the same fixture with the seeded defect removed.
+      input: { unrelatedField: 'completely different fixture', nested: { a: 1, b: [1, 2, 3] } },
+      expected: {},
+      cleanTwinOf: 'seeded',
+    })
+  );
+  assert.throws(
+    () => loadCases('prompt-leakage', dir),
+    /declares cleanTwinOf: "seeded" but its input is not a plausible near-duplicate/
+  );
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: a twin that IS a plausible near-duplicate (same fixture, defect line removed) loads cleanly', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-plausible-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'seeded.json'),
+    JSON.stringify({
+      id: 'seeded',
+      suite: 'prompt-leakage',
+      description: 'd',
+      input: {
+        path: '/api/chat',
+        headers: { 'content-type': 'application/json', 'x-system-prompt': 'You are a helpful assistant.' },
+      },
+      expected: {},
+    })
+  );
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({
+      id: 'twin',
+      suite: 'prompt-leakage',
+      description: 'd',
+      // Same fixture, seeded x-system-prompt header removed — the intended shape.
+      input: { path: '/api/chat', headers: { 'content-type': 'application/json' } },
+      expected: {},
+      cleanTwinOf: 'seeded',
+    })
+  );
+  const cases = loadCases('prompt-leakage', dir);
+  assert.equal(cases.length, 2);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: real prompt-leakage clean-twin pairs (clean-header/clean-route) pass the near-duplicate check', () => {
+  // Regression guard: the real shipped golden corpus must load cleanly under
+  // the FINDING 4 similarity gate — proves the threshold is calibrated
+  // against real reference pairs, not just synthetic fixtures above.
+  const cases = loadCases('prompt-leakage');
+  const twins = cases.filter((c) => c.cleanTwinOf !== undefined).map((c) => c.id);
+  assert.ok(twins.includes('clean-header') && twins.includes('clean-route'));
+});
+
+test('loadCases: a valid cleanTwinOf pairing (twin id exists, points elsewhere) loads cleanly', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-valid-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'seeded.json'),
+    JSON.stringify({ id: 'seeded', suite: 'prompt-leakage', description: 'd', input: {}, expected: {} })
+  );
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({ id: 'twin', suite: 'prompt-leakage', description: 'd', input: {}, expected: {}, cleanTwinOf: 'seeded' })
+  );
+  const cases = loadCases('prompt-leakage', dir);
+  assert.equal(cases.length, 2);
+  assert.equal(cases.find((c) => c.id === 'twin')?.cleanTwinOf, 'seeded');
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -255,6 +448,48 @@ test('runEval: a suite containing a FAIL case yields a non-zero exit code (CI me
   });
   assert.equal(summaries[0].outcome, 'FAIL');
   assert.equal(exitCode, 1, 'a FAIL rollup must exit non-zero');
+});
+
+// ---------------------------------------------------------------------------
+// clean-twin false-positive guard — real corpus + negative fixture end-to-end
+// ---------------------------------------------------------------------------
+
+test('runSuite: real prompt-leakage corpus reports falsePositiveRate=0 (both clean twins hold)', async () => {
+  const summary = await runSuite('prompt-leakage', { appendLedger: false });
+  assert.equal(summary.outcome, 'PASS');
+  assert.equal(summary.falsePositiveRate, 0);
+  const twinCaseIds = loadCases('prompt-leakage')
+    .filter((c) => c.cleanTwinOf !== undefined)
+    .map((c) => c.id);
+  assert.ok(twinCaseIds.length >= 2, 'expected at least 2 clean-twin cases in the real corpus (clean-route, clean-header)');
+});
+
+test('negative fixture: a clean twin that still leaks FAILs, drives falsePositiveRate to 1, and forces the suite to FAIL', async () => {
+  const { summaries, exitCode } = await runEval({
+    suites: ['prompt-leakage'],
+    appendLedger: false,
+    goldenRoot: FIXTURE_ROOT,
+  });
+  const summary = summaries[0];
+  const twinResult = summary.results.find((r) => r.caseId === 'expected-fail-false-positive-twin');
+  assert.ok(twinResult, 'fixture expected-fail-false-positive-twin present');
+  assert.equal(twinResult!.outcome, 'FAIL', 'the mislabeled clean twin must FAIL — it still leaks');
+  assert.equal(summary.falsePositiveRate, 1, 'the one and only clean-twin case in this fixture corpus false-positived');
+  assert.equal(summary.outcome, 'FAIL', 'a nonzero falsePositiveRate is a hard deduction — forces suite FAIL');
+  assert.equal(exitCode, 1, 'the CI eval gate must trip on a clean-twin false positive');
+});
+
+test('ledger projection: falsePositiveRate is omitted when the suite has no clean-twin cases, present when it does', () => {
+  const noTwins = summarize('scaffold', [
+    { caseId: 'a', suite: 'scaffold', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ], 't0', 't1');
+  assert.equal(toLedgerEntry(noTwins, '1.0.0').falsePositiveRate, undefined);
+
+  const withTwins = summarize('prompt-leakage', [
+    { caseId: 'a', suite: 'prompt-leakage', outcome: 'PASS', deterministic: { outcome: 'PASS', notes: [] }, latencyMs: 1 },
+  ], 't0', 't1');
+  withTwins.falsePositiveRate = 0;
+  assert.equal(toLedgerEntry(withTwins, '1.0.0').falsePositiveRate, 0);
 });
 
 // ---------------------------------------------------------------------------

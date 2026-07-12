@@ -1,4 +1,17 @@
 import type { Gap } from '../schemas/gap-analysis.schema.js';
+import { TestStepSchema } from '../schemas/gap-analysis.schema.js';
+
+/**
+ * FINDING 3: the documented action vocabulary in this prompt MUST match
+ * `TestStepSchema`'s `action` union exactly — derived from it directly
+ * (`.options`, zod's own enum-values accessor) rather than a hand-copied
+ * literal list, so the two can never drift apart again the way they did
+ * when `key-press`/`select` were added to the schema and both adapters in
+ * round 3 but never to this prompt: a gap-driven scenario generator that
+ * cannot even ADVERTISE an action undercuts the "exhaustive" framing just
+ * as much as an adapter that cannot RENDER one.
+ */
+const TEST_STEP_ACTIONS: readonly string[] = TestStepSchema.shape.action.options;
 
 export function buildGapPrompt(gaps: Gap[], limit: number): string {
   const topGaps = [...gaps]
@@ -26,7 +39,7 @@ Each item must match this exact shape:
   "description": "string",
   "targetPath": "string (the route path)",
   "steps": [
-    { "action": "navigate|click|type|assert-visible|assert-hidden|assert-text|assert-disabled|assert-count|wait|api-call", "target": "string (optional)", "value": "string (optional)", "description": "string" }
+    { "action": "${TEST_STEP_ACTIONS.join('|')}", "target": "string (optional)", "value": "string (optional)", "description": "string" }
   ],
   "tags": ["string"],
   "recommendations": [

@@ -1,0 +1,92 @@
+{
+  "title": "Listly login flow",
+  "steps": [
+    {
+      "type": "setViewport",
+      "width": 1512,
+      "height": 823,
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "isLandscape": false
+    },
+    {
+      "type": "navigate",
+      "url": "https://app.example.test/login",
+      "assertedEvents": [
+        {
+          "type": "navigation",
+          "url": "https://app.example.test/login",
+          "title": "Listly — Log in"
+        }
+      ]
+    },
+    {
+      "type": "click",
+      "target": "main",
+      "selectors": [
+        ["aria/Email"],
+        ["#email-input"],
+        ["xpath//html/body/div/main/form/input[1]"]
+      ],
+      "offsetX": 24,
+      "offsetY": 12
+    },
+    {
+      "type": "change",
+      "target": "main",
+      "selectors": [
+        ["aria/Email"],
+        ["#email-input"],
+        ["xpath//html/body/div/main/form/input[1]"]
+      ],
+      "value": "reader@example.test"
+    },
+    {
+      "type": "click",
+      "target": "main",
+      "selectors": [
+        ["aria/Password"],
+        ["#password-input"],
+        ["xpath//html/body/div/main/form/input[2]"]
+      ],
+      "offsetX": 24,
+      "offsetY": 12
+    },
+    {
+      "type": "change",
+      "target": "main",
+      "selectors": [
+        ["aria/Password"],
+        ["#password-input"],
+        ["xpath//html/body/div/main/form/input[2]"]
+      ],
+      "value": "correct-horse-battery"
+    },
+    {
+      "type": "keyDown",
+      "target": "main",
+      "key": "Enter",
+      "assertedEvents": [
+        {
+          "type": "navigation",
+          "url": "https://app.example.test/dashboard",
+          "title": "Listly — Dashboard"
+        }
+      ]
+    },
+    {
+      "type": "keyUp",
+      "target": "main",
+      "key": "Enter"
+    },
+    {
+      "type": "waitForElement",
+      "selectors": [
+        ["aria/Your reading list"],
+        ["[data-testid=dashboard-root]"]
+      ],
+      "visible": true
+    }
+  ]
+}

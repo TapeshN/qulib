@@ -174,6 +174,182 @@ npx @qulib/core score-automation --repo /path/to/repo
 
 Use `npx playwright install chromium` the first time you scan (Playwright is a dependency).
 
+## Journey interchange (Chrome DevTools Recorder)
+
+`scaffoldTests(url, { scenarios })` already accepts pre-built scenarios instead
+of crawling — `importRecorderFlow` lets those scenarios come from a **Chrome
+DevTools Recorder** export (Chrome DevTools → Recorder panel → record a flow →
+"Export as JSON") instead of hand-authoring them:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { importRecorderFlow, isRecorderFlow, scaffoldTests } from '@qulib/core';
+
+const raw = JSON.parse(readFileSync('login-flow.json', 'utf8'));
+
+if (isRecorderFlow(raw)) {
+  const { scenario, warnings } = importRecorderFlow(raw);
+  // warnings: non-fatal notes for steps Recorder emits that have no
+  // NeutralScenario equivalent (hover, scroll, waitForExpression, an unknown
+  // future step type, …) — the converter tolerates and skips these, it never
+  // throws on them. Only a structurally malformed flow throws.
+  for (const w of warnings) console.warn(w);
+
+  const result = await scaffoldTests('https://app.example.com', {
+    framework: 'cypress-e2e',
+    scenarios: [scenario],
+  });
+  // result.generatedTests is a ready-to-run Cypress spec — the exact same
+  // downstream path a crawl-derived or recipe-derived scenario takes.
+}
+```
+
+**Mapping.** `navigate` seeds the scenario's `targetPath`; `click`/`change`
+become `click`/`type` steps; `keyDown` becomes a framework-neutral
+**`key-press`** step (see below); `waitForElement` becomes
+`assert-visible`/`assert-hidden` — or `assert-count` when the step carries a
+Recorder element-COUNT assertion (`count`/`operator`, e.g. "wait until >= 3
+matching elements exist") instead of a single-element check; a step's
+`assertedEvents` (e.g. a `navigation` event) becomes an extra assertion step.
+Each step's `selectors` fallback chain is resolved by `pickResilientSelector`,
+which prefers `aria/`- and `text/`-prefixed selectors over brittle
+`css`/`xpath` ones — the selector least likely to break when the page's
+markup changes wins. Steps Recorder can emit with no NeutralScenario
+equivalent (`hover`, `scroll`, `waitForExpression`, an unrecognized future
+`type`) are skipped with a warning rather than thrown or silently dropped;
+`setViewport` is genuinely informational (no user-facing action to map) but
+is still warned about, since its dimensions are not threaded into the
+generated project config either.
+
+**Honesty guardrails.** The governing rule for every Recorder step type
+against every adapter: a conversion is EITHER rendered faithfully at real
+framework runtime, OR accompanied by a warning naming the exact risk — never
+a silent drop, and never a warning that reassures a reviewer about only one
+of several equally-real risks.
+- **`keyDown` → framework-neutral `key-press` (not Cypress-only `{key}`
+  syntax).** A `keyDown` step converts to a new `'key-press'` `TestStep`
+  action carrying the RAW key Recorder recorded (e.g. `"Enter"`, `"Tab"`,
+  `"a"`) — never Cypress's `{token}` special-sequence syntax baked in up
+  front, which would be wrong under Playwright (writes the literal string
+  `"{enter}"` instead of pressing a key) and wrong under Cypress itself for
+  any multi-character key NAME outside its small special-sequence whitelist
+  (`{tab}` throws at real runtime even though the spec compiles). Each
+  adapter renders `key-press` in its own idiom: `cypress-e2e` emits real
+  `.type("{token}")` syntax for whitelisted key NAMES (`Enter`, `Escape`,
+  `Backspace`, `Delete`, the arrow keys, `Home`/`End`/`PageUp`/`PageDown`,
+  `Insert` — see `cypress-special-keys.ts`), a plain unbraced
+  `.type("a")`/`.type("1")`/`.type("?")`/`.type(" ")` call for a **single
+  printable character** (a letter, digit, punctuation mark, symbol, or space,
+  counted by Unicode CODE POINT so a single astral-plane character like an
+  emoji also qualifies — this renders FAITHFULLY, firing a real
+  keydown/keypress/input/keyup sequence, the exact primitive a common
+  single-key shortcut recording like Gmail's `c`/`j`/`k` needs), and a safe,
+  non-throwing comment only for a genuinely un-typeable multi-character key
+  NAME outside the whitelist (`Tab`, `F1`, `Shift`, …); `playwright` renders
+  `page.locator(t).press(key)` faithfully for virtually any key, since
+  Playwright's key names match Recorder's directly. Only a key that is
+  genuinely un-renderable by Cypress — outside BOTH the `{token}` whitelist
+  AND the single-printable-character case — is warned about by name (the
+  exact key + `cypress-e2e`) at conversion time; a plain printable character
+  gets no warning, since it renders faithfully (an earlier round warned about
+  EVERY non-whitelisted key, including faithfully-renderable single
+  characters — an inverse facade, now fixed). **Every `"{"` in ANY typed
+  value is escaped, not just a whole-string `"{"`.** Cypress's `.type()`
+  treats an unescaped `"{"` as the OPENING of a `{token}` special-sequence
+  ANYWHERE it appears — `cy.get(t).type("{")` compiles but THROWS at real
+  Cypress runtime, and worse, `cy.get(t).type("press {enter} to search")`
+  (ordinary prose) compiles, runs, and SILENTLY fires a real Enter keypress
+  mid-string with no error. The `cypress-e2e` adapter routes every
+  `.type()` value — the single-char key-press case above AND the far more
+  common `'type'` `TestStep` action (any recorded `change`-event text) —
+  through one `escapeCypressType` export (`cypress-special-keys.ts`), which
+  escapes EVERY `"{"` occurrence in the string to Cypress's own documented
+  form, `"{{}"`; every other character, including `"}"` (never special on
+  its own), passes through unescaped. (`escapeCypressTypeLiteral` still
+  exists as a deprecated alias for the same function — there is one escaper
+  now, not two.) A source-scanning guard test
+  (`adapters/__tests__/type-and-comment-choke-point-guard.test.ts`) fails
+  the build if any `.type()` call site in the adapters ever bypasses this
+  choke-point again.
+- **Orphan `keyUp` (no matching `keyDown`).** A `keyUp` step is dropped
+  silently ONLY when it is truly redundant — i.e. a `keyDown` for the same
+  key already converted to a `key-press` step earlier in the SAME flow. A
+  `keyUp` with no matching prior `keyDown` (a trimmed/hand-edited export, a
+  chord's second-key release, or any Recorder-shaped JSON not produced by an
+  unedited Recorder session) is warned about by index + key rather than
+  silently vanishing — the same "never a silent drop" guarantee every other
+  step type in this table already gets.
+- **Element-count operator.** Only `>=` has a faithful rendering in EITHER
+  adapter today (`should('have.length.gte', …)` in Cypress,
+  `toBeGreaterThanOrEqual(…)` in Playwright). A `waitForElement` count
+  assertion with any other Recorder `operator` (`==`, `<=`, …) still converts
+  to `assert-count`, but with a warning naming BOTH adapters — the generated
+  spec enforces `>=` semantics, not the operator Recorder recorded, no matter
+  which framework renders it.
+- **`change` vs `<select>`/checkbox/radio.** Chrome Recorder's `change` step
+  is identical whether the user typed into a text input, picked an option
+  from a `<select>`, or toggled a checkbox/radio — there is no field that
+  disambiguates any of them. Guessing `type` silently would be false
+  confidence: BOTH `cy.get(t).type(value)` (Cypress) and
+  `page.locator(t).fill(value)` (Playwright) throw at runtime against a real
+  `<select>`, checkbox, or radio, even though the scenario is schema-valid
+  and the spec compiles. So every `change` step converts to `type` **and**
+  carries a warning naming ALL THREE non-text-input risks (never just
+  `<select>` alone). A reviewer who confirms the target really is a
+  `<select>` can hand-edit that one step's `action` to the `'select'`
+  `TestStep` action, which renders `cy.get(t).select(v)` (Cypress) /
+  `page.locator(t).selectOption(v)` (Playwright); a checkbox/radio target
+  should become a `'click'` step instead.
+- **`assertedEvents` with an unrecognized `type`.** Any asserted event whose
+  `type` is not `"navigation"` (or a `navigation` event missing its `url`) is
+  warned about by name rather than silently no-op'd.
+- **Zero-converted-step flows.** A Recorder flow whose every step is
+  unmappable (`hover`/`scroll`/`waitForExpression`/unknown, or no usable
+  selector) still returns a schema-valid `NeutralScenario` from
+  `importRecorderFlow` (so a caller not tracking rejection still gets a
+  well-formed value) — but the result also carries `rejected: true`. The
+  **MCP** `qulib_scaffold_tests` tool (below) acts on this flag: a rejected
+  journey is excluded from the scaffold input entirely and reported in a
+  distinct `rejectedJourneys` response field, never folded into
+  `scenarioCount`/`testCount` — a useless stub must never read as a
+  successful conversion.
+- **Newline-safe generated comments — all THREE adapters, and the guard is
+  field-name-agnostic.** Every raw external field the
+  `cypress-e2e`/`playwright`/`api` adapters interpolate into a generated `//`
+  fallback comment — `TestStep.description`, a `key-press` step's raw key,
+  `NeutralScenario.description`/`id`/`targetPath`/recipe tag, and (as of
+  round 7) `DiscoveredEndpoint.summary`/`sourceFile`/`sourceTier`/`confidence`
+  and `ApiSurface.repoPath` in `api-adapter.ts`'s repo-first API scaffold path
+  — is passed through `sanitizeForComment` (`adapters/comment-safety.ts`)
+  first, which collapses any embedded line break to a space. Without this, a
+  hand-edited/non-Recorder-produced flow, or a caller-supplied OpenAPI spec
+  (`ep.summary` is lifted straight from spec text), carrying a raw newline in
+  one of these fields could terminate a `//` comment early and turn the rest
+  of that field's text into live, uncommented code in the generated spec.
+  `api-adapter.ts`'s `render()` path was fixed at round 6; its separate
+  repo-first `renderEndpointTest`/`scaffoldApiTests` path (a different code
+  path the round-6 fix never touched) was still raw until round 7 — and
+  round 6's guard, which enumerated a fixed list of known field names, had no
+  way to catch it either, since `ep.summary` wasn't on that list. The guard
+  (`adapters/__tests__/type-and-comment-choke-point-guard.test.ts`) is now
+  **field-NAME-agnostic**: it fails the build on ANY `${...}` interpolation
+  inside a bare `//`-comment template that isn't itself a
+  `sanitizeForComment(...)` call, whatever the expression is named — with a
+  tiny, explicit allowlist for the two shapes that can never carry a line
+  terminator (a bare numeric literal, a `.length` property access). A future
+  field on any schema, interpolated at a site this README doesn't even
+  mention yet, is caught automatically. Code-string interpolations (anything
+  wrapped in `JSON.stringify(...)`, e.g. selectors and typed values) were
+  never at risk — `JSON.stringify` already escapes a raw newline to `\n`
+  *inside* the string literal — and are correctly left alone by the guard,
+  which only looks at `//`-comment-shaped templates.
+- **The comment guard is now BEHAVIORAL / output-based, not source-text-shaped (round 8, FINAL).** The round 6/7 guard above is a SOURCE-TEXT scanner: it only inspects a `${...}` hole when it sits inside a single backtick template literal whose own content starts with `//`. Round-8 review found the predicted gap: a comment built by `+`-concatenating a `//`-prefixed literal to a SECOND literal that does not itself start with `//` is invisible to that scanner, even though the two pieces are concatenated onto each other at runtime and become the SAME logical comment line in the generated file — and this real shape existed in shipped code (`cypress-e2e-adapter.ts`'s `key-press` warning comment used three `+`-joined literals; only the first was scanned). `adapters/__tests__/behavioral-injection-guard.test.ts` is the new AUTHORITATIVE gate: for every adapter and every public entrypoint (`render`/`renderAll` on all three adapters, plus `ApiAdapter.scaffoldApiTests`'s populated AND zero-endpoint branches), it sets every raw field to a sentinel carrying every ECMAScript line-terminator code point (CR, LF, U+2028, U+2029) around a uniquely-tagged live-code marker, runs the REAL adapter, and parses the REAL generated output with the TypeScript compiler — asserting the marker never resolves to a live AST node and no Cypress `.type()` argument carries an un-escaped `{`. It checks what the generated file IS, not how the source that produced it was shaped, so it cannot be defeated by reformatting the same bug into a new shape. The source-text scanner (`type-and-comment-choke-point-guard.test.ts`) is kept as a fast, cheap lint, but the behavioral guard is authoritative. It caught and drove the fix for a real leak: `JSON.stringify` is safe for a REAL generated string literal, but not for text used purely as comment decoration — and `JSON.stringify` never escapes U+2028/U+2029 at all (legal raw content inside a genuine string literal since ES2019) — so those two code points, embedded in a `step.value`/`step.target`, terminated the `//` comment in the generated file. Fixed by routing those fields through `sanitizeForComment` before `JSON.stringify` at every comment-decoration site.
+
+The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
+optional `journeys` input — see the MCP tools table below. Both `cypress-e2e`
+and `playwright` are fully implemented `framework` choices for scaffolding,
+including from Recorder-derived journeys.
+
 ## Programmatic API
 
 ```ts
@@ -367,7 +543,7 @@ A minimal structural snapshot looks like:
 | `qulib_analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
 | `qulib_score_automation` | Score local repo test-automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
 | `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
-| `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes` |
+| `qulib_scaffold_tests` | Generate a Cypress or Playwright scaffold from a live URL, or from pre-recorded journeys instead of crawling (`cypress-e2e` and `playwright` both fully implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes`, `journeys` (Chrome DevTools Recorder exports or NeutralScenarios — format auto-detected) |
 | **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report vs planted-bug target | `report` (title, description, steps, severity), `target` (description, type, severity, expectedBehavior) |
 | **`qulib_score_decisions`** | Pivotal-decision evaluation at agent forks | absolute `forksPath` (JSONL), optional `enableLlmJudge` |
 | `qulib_explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |

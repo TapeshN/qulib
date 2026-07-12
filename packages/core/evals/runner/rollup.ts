@@ -6,6 +6,7 @@
  * else if there is at least one PASS ⇒ PASS, else (all SKIP / empty) ⇒ SKIP.
  */
 import type {
+  EvalCase,
   EvalCaseResult,
   EvalLedgerEntry,
   EvalOutcome,
@@ -50,6 +51,25 @@ export function meanJudgeScore(results: EvalCaseResult[]): number {
   if (scored.length === 0) return 0;
   const sum = scored.reduce((acc, r) => acc + (r.judge?.score ?? 0), 0);
   return Number((sum / scored.length).toFixed(4));
+}
+
+/**
+ * Clean-twin false-positive guard: fraction of `cleanTwinOf`-tagged cases in this
+ * suite's corpus whose result FAILed (qulib incorrectly flagged a defect-free clean
+ * twin). Returns `undefined` — not 0 — when the suite declares no clean-twin cases
+ * at all, so "no false positives measured" is never confused with "measured, zero
+ * false positives". Pure: takes the already-loaded cases + already-run results, no I/O.
+ */
+export function computeFalsePositiveRate(
+  cases: EvalCase[],
+  results: EvalCaseResult[]
+): number | undefined {
+  const twinIds = new Set(cases.filter((c) => c.cleanTwinOf !== undefined).map((c) => c.id));
+  if (twinIds.size === 0) return undefined;
+  const twinResults = results.filter((r) => twinIds.has(r.caseId));
+  if (twinResults.length === 0) return undefined;
+  const falsePositives = twinResults.filter((r) => r.outcome === 'FAIL').length;
+  return Number((falsePositives / twinResults.length).toFixed(4));
 }
 
 /** Build the run summary for one suite from its case results. */
@@ -119,6 +139,9 @@ export function toLedgerEntry(
   }
   if (cost.any) {
     entry.cost = { inputTokens: cost.inputTokens, outputTokens: cost.outputTokens };
+  }
+  if (summary.falsePositiveRate !== undefined) {
+    entry.falsePositiveRate = summary.falsePositiveRate;
   }
   return entry;
 }

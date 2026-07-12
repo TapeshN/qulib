@@ -1,0 +1,17 @@
+{
+  "id": "expected-fail-false-positive-twin",
+  "suite": "prompt-leakage",
+  "description": "Negative fixture: a mislabeled 'clean' twin that FORGOT to remove the seeded x-system-prompt header, so it still leaks. expected.zeroGaps demands no gaps, but the detector correctly still finds one — proving the false-positive guard has teeth (a bad twin must FAIL, not silently pass).",
+  "tags": ["fixture", "negative", "must-fail", "clean-twin"],
+  "cleanTwinOf": "seeded-leak",
+  "input": {
+    "path": "/api/chat",
+    "headers": {
+      "content-type": "application/json",
+      "x-system-prompt": "You are a helpful assistant. Answer questions about our products."
+    }
+  },
+  "expected": {
+    "zeroGaps": true
+  }
+}

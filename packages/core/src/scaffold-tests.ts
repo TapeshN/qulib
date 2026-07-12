@@ -133,7 +133,14 @@ export async function scaffoldTests(
 
   let scenarios: NeutralScenario[];
 
-  if (options.scenarios && options.scenarios.length > 0) {
+  // `options.scenarios !== undefined` (not `.length > 0`) is the "did the
+  // caller supply scenarios" signal: a caller that explicitly passes
+  // scenarios — including an empty array, e.g. every journeys[] entry got
+  // rejected as zero-step, see journey-input.ts — is opting OUT of crawling
+  // the URL. Falling back to a live crawl just because the supplied array
+  // happens to be empty would silently violate that "journeys supplied ⇒
+  // never crawl" contract.
+  if (options.scenarios !== undefined) {
     scenarios = options.scenarios;
   } else {
     const result = await analyzeApp({

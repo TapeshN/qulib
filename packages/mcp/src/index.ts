@@ -40,6 +40,7 @@ import type { AnalyzeDiffResult, HarnessConfig, AnalyzeProgressSink, TelemetrySi
 import { RecipeIdSchema } from '@qulib/core';
 import { z } from 'zod';
 import { buildAnalyzeAppMcpPayload } from './analyze-app-mcp-payload.js';
+import { resolveJourneyScenarios } from './journey-input.js';
 import { log } from './logger.js';
 import { safeErrorDetail, toolError } from './tool-error.js';
 import { getJudgeRateLimiter, sessionKey } from './rate-limit.js';
@@ -417,7 +418,7 @@ const ScaffoldTestsInputSchema = z.object({
   framework: z
     .enum(['cypress-e2e', 'playwright'])
     .optional()
-    .describe('Test framework to generate. Default and recommended: cypress-e2e. playwright is accepted but not yet implemented (returns an error).'),
+    .describe('Test framework to generate. Both cypress-e2e (default) and playwright are fully implemented and produce a real, compilable spec + project config.'),
   maxPagesToScan: z
     .number()
     .int()
@@ -438,6 +439,20 @@ const ScaffoldTestsInputSchema = z.object({
         'Recipe scenarios are APPENDED to crawl-derived scenarios — they never replace them. ' +
         'Example: ["auth", "a11y"] adds 6 ready-to-run test scenarios.'
     ),
+  journeys: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Optional list of pre-recorded user journeys to scaffold tests from INSTEAD of crawling the URL. ' +
+        'Each entry is auto-detected as one of two shapes: ' +
+        '(1) a Chrome DevTools Recorder export — export a flow from Chrome DevTools > Recorder panel > ' +
+        '"Export as JSON", an object with "title" and a "steps" array of typed steps (navigate, click, ' +
+        'change, keyDown, doubleClick, hover, scroll, waitForElement, waitForExpression, setViewport, ...); ' +
+        'or (2) an already-shaped qulib NeutralScenario ({ id, title, steps: [{ action, ... }], ... }). ' +
+        'Recorder selector fallback chains are resolved preferring aria/text selectors over brittle css/xpath. ' +
+        'When journeys is non-empty, the URL is NOT crawled — scenarios come entirely from these journeys ' +
+        '(plus any requested recipes, which are still appended).'
+    ),
 });
 
 export async function handleScaffoldTests({
@@ -445,6 +460,7 @@ export async function handleScaffoldTests({
   framework,
   maxPagesToScan,
   recipes,
+  journeys,
 }: z.infer<typeof ScaffoldTestsInputSchema>): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const entitlementCtx = resolveEntitlementContext();
   if (!tierAllows(entitlementCtx.tier, 'scaffold_tests')) {
@@ -454,15 +470,29 @@ export async function handleScaffoldTests({
       content: [{ type: 'text', text: JSON.stringify(entitlementBlockedPayload(notice), null, 2) }],
     };
   }
+
+  let journeyScenarios: ReturnType<typeof resolveJourneyScenarios> | undefined;
+  if (journeys && journeys.length > 0) {
+    try {
+      journeyScenarios = resolveJourneyScenarios(journeys);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.warn(`qulib_scaffold_tests invalid journeys input: ${msg}`);
+      return toolError('QULIB_INPUT_INVALID', msg, undefined);
+    }
+  }
+
   try {
     const recipesLog = recipes && recipes.length > 0 ? ` recipes=[${recipes.join(',')}]` : '';
-    log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}${recipesLog}`);
+    const journeysLog = journeyScenarios ? ` journeys=${journeyScenarios.scenarios.length}` : '';
+    log.info(`qulib_scaffold_tests url=${url} framework=${framework ?? 'cypress-e2e'} maxPagesToScan=${maxPagesToScan ?? 10}${recipesLog}${journeysLog}`);
     const result = await scaffoldTests(url, {
       framework: framework ?? 'cypress-e2e',
       maxPagesToScan: maxPagesToScan ?? 10,
       progressLog: mcpProgressLog,
       telemetry: telemetrySink,
       ...(recipes && recipes.length > 0 && { recipes }),
+      ...(journeyScenarios && { scenarios: journeyScenarios.scenarios }),
     });
     return {
       content: [
@@ -476,6 +506,12 @@ export async function handleScaffoldTests({
               testCount: result.generatedTests.length,
               generatedTests: result.generatedTests,
               projectConfig: result.projectConfig,
+              ...(journeyScenarios && journeyScenarios.warnings.length > 0 && { journeyWarnings: journeyScenarios.warnings }),
+              // journeys[] entries that produced zero convertible steps — deliberately
+              // NEVER folded into scenarioCount/testCount (a useless stub is not a
+              // successful conversion). Distinct field so a caller reading
+              // testCount:N as "N real tests" is never misled by a silent stub.
+              ...(journeyScenarios && journeyScenarios.rejectedJourneys.length > 0 && { rejectedJourneys: journeyScenarios.rejectedJourneys }),
             },
             null,
             2
@@ -494,7 +530,7 @@ mcpServer.registerTool(
   'qulib_scaffold_tests',
   {
     description:
-      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported framework: cypress-e2e (default). playwright scaffold is experimental and not yet implemented. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers.',
+      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported frameworks: cypress-e2e (default) and playwright — both fully implemented (real generated specs, project config, and dry-run TypeScript compile validation). Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers. Optionally pass journeys — pre-recorded user flows (Chrome DevTools Recorder JSON exports, or already-shaped qulib scenarios) — to scaffold from those instead of crawling; format is auto-detected per entry.',
     inputSchema: ScaffoldTestsInputSchema,
   },
   handleScaffoldTests

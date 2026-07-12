@@ -150,10 +150,17 @@ test('MCP alias convergence: analyze_app description points to qulib_analyze_app
 });
 
 // ---------------------------------------------------------------------------
-// Scaffold stub accuracy: description must NOT advertise Playwright as working
+// Scaffold description accuracy: description must NOT claim Playwright is
+// unimplemented — it IS fully wired (adapter-factory.ts -> PlaywrightAdapter,
+// scaffold-tests.ts builds a real playwright.config.ts, and Recorder keyDown
+// steps now render faithfully under Playwright via the key-press action —
+// FINDING 1/4). A description that undersells a working capability is just
+// as dishonest as one that oversells a broken one, so this guard now checks
+// the CORRECT direction: the false "not yet implemented" claim must be gone,
+// and the description must say playwright is supported.
 // ---------------------------------------------------------------------------
 
-test('MCP stub de-advertising: qulib_scaffold_tests description marks playwright as not yet implemented', async () => {
+test('MCP description accuracy: qulib_scaffold_tests advertises playwright as fully supported, not "not yet implemented"', async () => {
   const { readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const { dirname, resolve } = await import('node:path');
@@ -161,8 +168,16 @@ test('MCP stub de-advertising: qulib_scaffold_tests description marks playwright
   const __dirname = dirname(__filename);
   const indexSrc = readFileSync(resolve(__dirname, '..', 'index.ts'), 'utf8');
   assert.ok(
-    indexSrc.includes('playwright scaffold is experimental and not yet implemented'),
-    'scaffold description should not advertise playwright as working'
+    !indexSrc.includes('playwright scaffold is experimental and not yet implemented'),
+    'scaffold description must not claim playwright is unimplemented — it is (adapter-factory.ts wires PlaywrightAdapter and scaffold-tests.ts builds a real playwright.config.ts)'
+  );
+  assert.ok(
+    !indexSrc.includes('playwright is accepted but not yet implemented'),
+    'framework field description must not claim playwright is unimplemented either'
+  );
+  assert.ok(
+    indexSrc.includes('cypress-e2e (default) and playwright — both fully implemented'),
+    'scaffold description should honestly advertise both frameworks as fully implemented'
   );
 });
 

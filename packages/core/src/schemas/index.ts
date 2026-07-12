@@ -38,6 +38,14 @@ export {
   type Route,
 } from './route-inventory.schema.js';
 export {
+  RecorderAssertedEventSchema,
+  RecorderStepSchema,
+  RecorderFlowSchema,
+  type RecorderAssertedEvent,
+  type RecorderStep,
+  type RecorderFlow,
+} from './recorder-flow.schema.js';
+export {
   GapAnalysisSchema,
   GapSchema,
   NeutralScenarioSchema,
