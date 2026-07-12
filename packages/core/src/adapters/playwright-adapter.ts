@@ -19,6 +19,8 @@ function renderStep(step: TestStep): string {
       return t ? `    await page.locator(${t}).click();` : `    // click: ${step.description}`;
     case 'type':
       return t && v ? `    await page.locator(${t}).fill(${v});` : `    // type: ${step.description}`;
+    case 'select':
+      return t && v ? `    await page.locator(${t}).selectOption(${v});` : `    // select: ${step.description}`;
     case 'assert-visible':
       return t
         ? `    await expect(page.locator(${t})).toBeVisible();`

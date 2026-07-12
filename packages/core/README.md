@@ -206,14 +206,45 @@ if (isRecorderFlow(raw)) {
 
 **Mapping.** `navigate` seeds the scenario's `targetPath`; `click`/`change`/
 `keyDown` become `click`/`type` steps; `waitForElement` becomes
-`assert-visible`/`assert-hidden`; a step's `assertedEvents` (e.g. a
-`navigation` event) becomes an extra assertion step. Each step's `selectors`
-fallback chain is resolved by `pickResilientSelector`, which prefers
-`aria/`- and `text/`-prefixed selectors over brittle `css`/`xpath` ones — the
-selector least likely to break when the page's markup changes wins. Steps
-Recorder can emit with no NeutralScenario equivalent (`hover`, `scroll`,
-`waitForExpression`, `setViewport`, an unrecognized future `type`) are skipped
-with a warning rather than thrown or silently dropped.
+`assert-visible`/`assert-hidden` — or `assert-count` when the step carries a
+Recorder element-COUNT assertion (`count`/`operator`, e.g. "wait until >= 3
+matching elements exist") instead of a single-element check; a step's
+`assertedEvents` (e.g. a `navigation` event) becomes an extra assertion step.
+Each step's `selectors` fallback chain is resolved by `pickResilientSelector`,
+which prefers `aria/`- and `text/`-prefixed selectors over brittle
+`css`/`xpath` ones — the selector least likely to break when the page's
+markup changes wins. Steps Recorder can emit with no NeutralScenario
+equivalent (`hover`, `scroll`, `waitForExpression`, `setViewport`, an
+unrecognized future `type`) are skipped with a warning rather than thrown or
+silently dropped.
+
+**Honesty guardrails.**
+- **Element-count operator.** Only `>=` has a faithful Cypress rendering
+  today (`should('have.length.gte', …)`). A `waitForElement` count assertion
+  with any other Recorder `operator` (`==`, `<=`, …) still converts to
+  `assert-count`, but with a warning — the generated spec enforces `>=`
+  semantics, not the operator Recorder recorded.
+- **`change` vs `<select>`.** Chrome Recorder's `change` step is identical
+  whether the user typed into a text input or picked an option from a
+  `<select>` — there is no field that disambiguates the two. Guessing `type`
+  silently would be false confidence: the generated `cy.get(t).type(value)`
+  throws at runtime against a real `<select>` even though the scenario is
+  schema-valid and the spec compiles. So every `change` step converts to
+  `type` **and** carries a warning naming the possible-`<select>` ambiguity.
+  A reviewer who confirms the target really is a `<select>` can hand-edit
+  that one step's `action` to the new `'select'` `TestStep` action, which
+  renders `cy.get(t).select(v)` (Cypress) / `page.locator(t).selectOption(v)`
+  (Playwright).
+- **Zero-converted-step flows.** A Recorder flow whose every step is
+  unmappable (`hover`/`scroll`/`waitForExpression`/unknown, or no usable
+  selector) still returns a schema-valid `NeutralScenario` from
+  `importRecorderFlow` (so a caller not tracking rejection still gets a
+  well-formed value) — but the result also carries `rejected: true`. The
+  **MCP** `qulib_scaffold_tests` tool (below) acts on this flag: a rejected
+  journey is excluded from the scaffold input entirely and reported in a
+  distinct `rejectedJourneys` response field, never folded into
+  `scenarioCount`/`testCount` — a useless stub must never read as a
+  successful conversion.
 
 The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
 optional `journeys` input — see the MCP tools table below.

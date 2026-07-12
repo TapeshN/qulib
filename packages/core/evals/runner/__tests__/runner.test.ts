@@ -269,6 +269,83 @@ test('loadCases: throws when a case declares itself as its own cleanTwinOf', () 
   rmSync(dir, { recursive: true, force: true });
 });
 
+test('loadCases: throws when a twin input is not a plausible near-duplicate of its seeded case (FINDING 4)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-unrelated-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'seeded.json'),
+    JSON.stringify({
+      id: 'seeded',
+      suite: 'prompt-leakage',
+      description: 'd',
+      input: { path: '/api/chat', headers: { 'x-system-prompt': 'You are a helpful assistant.' } },
+      expected: {},
+    })
+  );
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({
+      id: 'twin',
+      suite: 'prompt-leakage',
+      description: 'd',
+      // Wildly unrelated to "seeded" — a different shape, different content —
+      // not the same fixture with the seeded defect removed.
+      input: { unrelatedField: 'completely different fixture', nested: { a: 1, b: [1, 2, 3] } },
+      expected: {},
+      cleanTwinOf: 'seeded',
+    })
+  );
+  assert.throws(
+    () => loadCases('prompt-leakage', dir),
+    /declares cleanTwinOf: "seeded" but its input is not a plausible near-duplicate/
+  );
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: a twin that IS a plausible near-duplicate (same fixture, defect line removed) loads cleanly', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-plausible-'));
+  const suiteDir = join(dir, 'prompt-leakage');
+  mkdirSync(suiteDir, { recursive: true });
+  writeFileSync(
+    join(suiteDir, 'seeded.json'),
+    JSON.stringify({
+      id: 'seeded',
+      suite: 'prompt-leakage',
+      description: 'd',
+      input: {
+        path: '/api/chat',
+        headers: { 'content-type': 'application/json', 'x-system-prompt': 'You are a helpful assistant.' },
+      },
+      expected: {},
+    })
+  );
+  writeFileSync(
+    join(suiteDir, 'twin.json'),
+    JSON.stringify({
+      id: 'twin',
+      suite: 'prompt-leakage',
+      description: 'd',
+      // Same fixture, seeded x-system-prompt header removed — the intended shape.
+      input: { path: '/api/chat', headers: { 'content-type': 'application/json' } },
+      expected: {},
+      cleanTwinOf: 'seeded',
+    })
+  );
+  const cases = loadCases('prompt-leakage', dir);
+  assert.equal(cases.length, 2);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('loadCases: real prompt-leakage clean-twin pairs (clean-header/clean-route) pass the near-duplicate check', () => {
+  // Regression guard: the real shipped golden corpus must load cleanly under
+  // the FINDING 4 similarity gate — proves the threshold is calibrated
+  // against real reference pairs, not just synthetic fixtures above.
+  const cases = loadCases('prompt-leakage');
+  const twins = cases.filter((c) => c.cleanTwinOf !== undefined).map((c) => c.id);
+  assert.ok(twins.includes('clean-header') && twins.includes('clean-route'));
+});
+
 test('loadCases: a valid cleanTwinOf pairing (twin id exists, points elsewhere) loads cleanly', () => {
   const dir = mkdtempSync(join(tmpdir(), 'qulib-eval-twin-valid-'));
   const suiteDir = join(dir, 'prompt-leakage');

@@ -197,3 +197,26 @@ test('renderAll: maps each scenario to its own valid playwright GeneratedTest', 
 test('adapterType exposes the playwright identifier', () => {
   assert.equal(adapter.adapterType, 'playwright');
 });
+
+// ---------------------------------------------------------------------------
+// select action — FINDING 2 (additive TestStep action)
+// ---------------------------------------------------------------------------
+
+test("render: 'select' TestStep action renders page.locator(t).selectOption(v)", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-select-001',
+    title: 'Country picker',
+    description: 'User picks a country from a real <select>',
+    targetPath: '/settings',
+    steps: [
+      { action: 'navigate', target: '/settings', description: 'go to settings' },
+      { action: 'select', target: '#country', value: 'Canada', description: 'pick Canada' },
+    ],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /await page\.locator\("#country"\)\.selectOption\("Canada"\);/);
+  assertValidPlaywrightSpec(code);
+});

@@ -78,7 +78,11 @@ test('@qulib/core public export: importRecorderFlow converts the real on-disk fi
   assert.equal(scenario.id, 'recorder-listly-login-flow');
   assert.equal(scenario.title, 'Listly login flow');
   assert.equal(scenario.targetPath, '/login');
-  assert.deepEqual(warnings, []);
+  // The fixture's two `change` steps (Email, Password) each carry a
+  // possible-<select> warning — Recorder cannot disambiguate a <select>
+  // from a text input, so this is never silent.
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every((w) => w.includes('may be a <select> element')));
 
   const clickEmail = scenario.steps.find((s) => s.action === 'click' && s.target === 'aria/Email');
   assert.ok(clickEmail, 'aria/Email click step present with the aria selector chosen over #email-input/xpath');
@@ -107,17 +111,23 @@ test('resolveJourneyScenarios: converts a Recorder entry and passes through an a
     sourceGapIds: [],
   };
 
-  const { scenarios, warnings } = resolveJourneyScenarios([loadFixture() as Record<string, unknown>, neutralScenario]);
+  const { scenarios, warnings, rejectedJourneys } = resolveJourneyScenarios([
+    loadFixture() as Record<string, unknown>,
+    neutralScenario,
+  ]);
   assert.equal(scenarios.length, 2);
   assert.equal(scenarios[0]?.id, 'recorder-listly-login-flow');
   assert.equal(scenarios[1]?.id, 'hand-authored');
-  assert.deepEqual(warnings, []);
+  assert.equal(warnings.length, 2, 'the two change-step possible-<select> warnings, index-prefixed');
+  assert.ok(warnings.every((w) => w.startsWith('journeys[0]:') && w.includes('may be a <select> element')));
+  assert.deepEqual(rejectedJourneys, []);
 });
 
 test('resolveJourneyScenarios: undefined input yields empty scenarios, not an error', () => {
-  const { scenarios, warnings } = resolveJourneyScenarios(undefined);
+  const { scenarios, warnings, rejectedJourneys } = resolveJourneyScenarios(undefined);
   assert.deepEqual(scenarios, []);
   assert.deepEqual(warnings, []);
+  assert.deepEqual(rejectedJourneys, []);
 });
 
 test('resolveJourneyScenarios: an entry that is neither Recorder nor NeutralScenario throws an index-prefixed error', () => {
@@ -134,6 +144,59 @@ test('resolveJourneyScenarios: propagates a Recorder conversion warning index-pr
   };
   const { warnings } = resolveJourneyScenarios([flowWithUnknownStep]);
   assert.ok(warnings.some((w) => w.startsWith('journeys[0]:') && w.includes('hover')));
+});
+
+// ---------------------------------------------------------------------------
+// rejected (zero-step) journeys — FINDING 3
+// ---------------------------------------------------------------------------
+
+test('resolveJourneyScenarios: an all-unmappable Recorder flow is excluded from scenarios and reported in rejectedJourneys', () => {
+  const allUnmappable = {
+    title: 'Nothing but hover/scroll',
+    steps: [{ type: 'hover', selectors: [['.menu']] }, { type: 'scroll' }],
+  };
+  const { scenarios, rejectedJourneys } = resolveJourneyScenarios([allUnmappable]);
+  assert.deepEqual(scenarios, [], 'a zero-step conversion must never appear in scenarios');
+  assert.equal(rejectedJourneys.length, 1);
+  assert.equal(rejectedJourneys[0]?.index, 0);
+  assert.equal(rejectedJourneys[0]?.title, 'Nothing but hover/scroll');
+  assert.match(rejectedJourneys[0]?.reason ?? '', /no steps could be converted/);
+});
+
+test('resolveJourneyScenarios: an already-empty NeutralScenario-shaped entry is also excluded and reported', () => {
+  // NOTE: `{ title: string, steps: [] }` is inherently ambiguous between the
+  // two supported shapes — isRecorderFlow resolves that ambiguity by
+  // treating a zero-step `steps` array as Recorder-shaped (see its own
+  // "empty flow" test), so this entry is converted via importRecorderFlow,
+  // not parsed as a NeutralScenario directly. Either way it must land in
+  // rejectedJourneys, never in scenarios — that end-to-end outcome is what
+  // this test proves; the defensive zero-step check on the NeutralScenario
+  // branch in resolveJourneyScenarios covers the case where that ambiguity
+  // is ever resolved differently.
+  const emptyScenario = {
+    id: 'stub',
+    title: 'Stub',
+    description: 'd',
+    targetPath: '/',
+    steps: [],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { scenarios, rejectedJourneys } = resolveJourneyScenarios([emptyScenario]);
+  assert.deepEqual(scenarios, []);
+  assert.equal(rejectedJourneys.length, 1);
+  assert.equal(rejectedJourneys[0]?.title, 'Stub');
+});
+
+test('resolveJourneyScenarios: a mix of usable and rejected journeys keeps only the usable ones in scenarios', () => {
+  const usable = loadFixture() as Record<string, unknown>;
+  const allUnmappable = { title: 'Unusable', steps: [{ type: 'scroll' }] };
+  const { scenarios, rejectedJourneys } = resolveJourneyScenarios([usable, allUnmappable]);
+  assert.equal(scenarios.length, 1);
+  assert.equal(scenarios[0]?.id, 'recorder-listly-login-flow');
+  assert.equal(rejectedJourneys.length, 1);
+  assert.equal(rejectedJourneys[0]?.index, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -172,5 +235,35 @@ test('handleScaffoldTests: a malformed journeys entry returns QULIB_INPUT_INVALI
     const err = body['error'] as Record<string, unknown>;
     assert.equal(err['code'], 'QULIB_INPUT_INVALID');
     assert.match(err['message'] as string, /journeys\[0\]/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// end-to-end: an all-rejected journeys[] never scaffolds a stub "success" — FINDING 3
+// ---------------------------------------------------------------------------
+
+test('handleScaffoldTests: an all-unmappable journeys entry does not contribute to scenarioCount/testCount and surfaces rejectedJourneys, without falling back to a live crawl', async () => {
+  await withEnv({ [TAP_TIER_ENV]: 'enterprise' }, async () => {
+    const response = await handleScaffoldTests({
+      // Deliberately unreachable — if the all-rejected journeys entry fell
+      // back to crawling the URL (instead of respecting "journeys supplied
+      // ⇒ never crawl" even when every entry rejects), this call would hang
+      // or error against a real network attempt instead of returning cleanly.
+      url: 'https://127.0.0.1:1/unreachable-for-test',
+      framework: 'cypress-e2e',
+      journeys: [{ title: 'Nothing but hover/scroll', steps: [{ type: 'hover' }, { type: 'scroll' }] }],
+    });
+    const body = parseText(response);
+    assert.ok(!('error' in body), `expected no tool error, got ${JSON.stringify(body)}`);
+    assert.equal(body['scenarioCount'], 0, 'a zero-step conversion must never be counted as a scenario');
+    assert.equal(body['testCount'], 0, 'a zero-step conversion must never be counted as a generated test');
+    assert.equal((body['generatedTests'] as unknown[]).length, 0);
+
+    const rejected = body['rejectedJourneys'] as Array<{ index: number; title: string; reason: string }>;
+    assert.ok(rejected, 'rejectedJourneys must be present as a distinct, non-ignorable field');
+    assert.equal(rejected.length, 1);
+    assert.equal(rejected[0]?.index, 0);
+    assert.equal(rejected[0]?.title, 'Nothing but hover/scroll');
+    assert.match(rejected[0]?.reason ?? '', /unmappable/);
   });
 });

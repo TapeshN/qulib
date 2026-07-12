@@ -19,6 +19,8 @@ function renderStep(step: TestStep): string {
       return t ? `    cy.get(${t}).click();` : `    // click: ${step.description}`;
     case 'type':
       return t && v ? `    cy.get(${t}).type(${v});` : `    // type: ${step.description}`;
+    case 'select':
+      return t && v ? `    cy.get(${t}).select(${v});` : `    // select: ${step.description}`;
     case 'assert-visible':
       return t ? `    cy.get(${t}).should('be.visible');` : `    cy.get('body').should('be.visible');`;
     case 'assert-hidden':

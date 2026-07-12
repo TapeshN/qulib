@@ -48,6 +48,20 @@ export const RecorderStepSchema = z
     key: z.string().optional(),
     /** waitForElement: false = wait for the element to become hidden/absent. */
     visible: z.boolean().optional(),
+    /**
+     * waitForElement: an element-COUNT assertion instead of a single-element
+     * visibility check — e.g. "wait until >= 3 matching elements exist".
+     * When present, the converter emits an `assert-count` TestStep instead
+     * of `assert-visible`/`assert-hidden` (see recorder-import.ts).
+     */
+    count: z.number().optional(),
+    /**
+     * waitForElement: the comparison Recorder recorded for `count` (">=",
+     * "==", "<=", …). Only ">=" has a faithful Cypress adapter rendering
+     * today (`should('have.length.gte', …)`) — any other operator is
+     * converted with a warning rather than silently mis-rendered.
+     */
+    operator: z.string().optional(),
     /** waitForExpression: the JS expression Recorder waited on. */
     expression: z.string().optional(),
     /** Expected side effects Recorder observed after this step (e.g. a navigation). */

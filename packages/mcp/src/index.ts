@@ -507,6 +507,11 @@ export async function handleScaffoldTests({
               generatedTests: result.generatedTests,
               projectConfig: result.projectConfig,
               ...(journeyScenarios && journeyScenarios.warnings.length > 0 && { journeyWarnings: journeyScenarios.warnings }),
+              // journeys[] entries that produced zero convertible steps — deliberately
+              // NEVER folded into scenarioCount/testCount (a useless stub is not a
+              // successful conversion). Distinct field so a caller reading
+              // testCount:N as "N real tests" is never misled by a silent stub.
+              ...(journeyScenarios && journeyScenarios.rejectedJourneys.length > 0 && { rejectedJourneys: journeyScenarios.rejectedJourneys }),
             },
             null,
             2

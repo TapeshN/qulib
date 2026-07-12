@@ -90,6 +90,17 @@ a case may never twin itself. This keeps the pairing from silently drifting —
 rename or delete a seeded case and its twin's `cleanTwinOf` breaks the load
 instead of quietly dropping out of the metric.
 
+**Near-duplicate guard.** A twin only pads `falsePositiveRate`'s denominator
+honestly when it is actually a near-duplicate of the case it twins — the
+intended shape is "the same fixture, seeded defect(s) removed", never a
+structurally unrelated case. `load-cases.ts` enforces this at load time with a
+cheap token-based Jaccard similarity check between the twin's `input` and its
+seeded case's `input` (tokenize the serialized JSON, lowercase, split on
+non-alphanumeric runs); a similarity below the calibrated floor (`0.2`, well
+below the real reference pairs' ≈`0.48`–`0.50` and well above a genuinely
+unrelated fixture's ≈`0.03`) throws loudly at load time, the same "fail once,
+fail loud" posture as the dangling/self-referential checks above.
+
 **Scoring.** The runner (`runner/index.ts`) cross-references every
 `cleanTwinOf` case in a suite's loaded corpus against its own result and emits
 `EvalRunSummary.falsePositiveRate` — the fraction of clean-twin cases that

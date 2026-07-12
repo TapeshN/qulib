@@ -21,7 +21,12 @@
  *                                            single click — TestStep has no
  *                                            distinct double-click action —
  *                                            and is warned about)
- *   change             → 'type'            (value carried through verbatim)
+ *   change             → 'type'            (value carried through verbatim —
+ *                                            see the "change vs select"
+ *                                            warning below; Recorder cannot
+ *                                            tell a `<select>` from a text
+ *                                            input, so this is a WARNED
+ *                                            guess, never a silent one)
  *   keyDown            → 'type'            (Cypress `{enter}`-style special-
  *                                            key syntax, `value: "{key}"`,
  *                                            against the last interacted
@@ -29,8 +34,25 @@
  *                                            Recorder export do not carry
  *                                            their own `selectors`, they act
  *                                            on whatever currently has focus)
- *   waitForElement     → 'assert-visible' / 'assert-hidden' (per `visible`)
+ *   waitForElement     → 'assert-visible' / 'assert-hidden' (per `visible`),
+ *                         or 'assert-count' when the step carries a `count`
+ *                         (an element-COUNT assertion rather than a single-
+ *                         element check) — only the `>=` `operator` has a
+ *                         faithful Cypress rendering today, any other
+ *                         operator ("==", "<=", …) is converted with a
+ *                         warning since it cannot be rendered faithfully
  *   assertedEvents     → an extra 'assert-visible' step per navigation event,
+ *
+ * Change vs select: Chrome Recorder's `change` step looks IDENTICAL whether
+ * the user typed into a text input or picked an option from a `<select>` —
+ * there is no field that disambiguates the two. Guessing 'type' silently
+ * would be false confidence: the generated Cypress `.type(value)` throws at
+ * runtime against a real `<select>` even though the scenario is schema-valid
+ * and the generated spec compiles. So every `change` step is converted to
+ * 'type' AND paired with a warning naming the possible-select ambiguity —
+ * a reviewer who confirms the target is a `<select>` can hand-edit that one
+ * step's `action` to the new 'select' TestStep action (renders
+ * `cy.get(t).select(v)`) instead.
  *                         appended right after the step that caused it
  *                         (NeutralScenario has no dedicated "expected
  *                         outcome" field, so this is encoded as an
@@ -175,6 +197,17 @@ export interface RecorderImportResult {
    * only a structurally malformed flow (see `RecorderFlowSchema`) throws.
    */
   warnings: string[];
+  /**
+   * `true` when NOT ONE recorded step converted to a TestStep — every step
+   * was unmappable (hover/scroll/waitForExpression/unknown) or skipped for
+   * lack of a usable selector. `scenario` is still returned (self-verifying,
+   * schema-valid) so a caller not tracking rejection still gets a well-formed
+   * value, but a caller that scaffolds/counts scenarios MUST treat a
+   * `rejected: true` result as "nothing to test", never a successful
+   * conversion — see `resolveJourneyScenarios` (the MCP wiring) for the
+   * consumer that acts on this flag.
+   */
+  rejected: boolean;
 }
 
 /**
@@ -260,6 +293,18 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
           value,
           description: `Type ${JSON.stringify(value)} into ${describeSelector(pick)}`,
         });
+        // Recorder's `change` step is identical for a text input and a
+        // <select> — there is no field that disambiguates them. Guessing
+        // 'type' silently would be false confidence: cy.get(t).type(v)
+        // throws at runtime against a real <select> even though this
+        // scenario is schema-valid and the generated spec compiles. Warn on
+        // EVERY change step rather than guess right or wrong in silence.
+        warnings.push(
+          `change step at index ${index}: target ${describeSelector(pick)} may be a <select> element — ` +
+            `Recorder cannot distinguish a <select> from a text input, and .type() will fail against a real ` +
+            `<select> at runtime. If this targets a <select>, change this step's action to "select" ` +
+            `(renders cy.get(...).select(value)) after confirming against the real page.`
+        );
         break;
       }
 
@@ -292,6 +337,28 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
         const pick = pickResilientSelector(step.selectors);
         if (!pick) {
           warnings.push(`waitForElement step at index ${index} has no usable selector — skipped`);
+          break;
+        }
+        if (step.count !== undefined) {
+          // An element-COUNT assertion, not a single-element visibility
+          // check — TestStep already has 'assert-count' and the Cypress
+          // adapter already renders it (should('have.length.gte', …)).
+          // Silently downgrading this to assert-visible would discard the
+          // count semantics entirely with zero warning.
+          const operator = step.operator ?? '>=';
+          if (operator !== '>=') {
+            warnings.push(
+              `waitForElement step at index ${index}: element-count operator "${operator}" has no faithful ` +
+                `Cypress adapter rendering (only ">=" is rendered, via should('have.length.gte', …)) — ` +
+                `converted to assert-count anyway, but it will enforce ">=" semantics, not "${operator}"`
+            );
+          }
+          steps.push({
+            action: 'assert-count',
+            target: pick.selector,
+            value: String(step.count),
+            description: `Wait for ${describeSelector(pick)} count ${operator} ${step.count}`,
+          });
           break;
         }
         const hidden = step.visible === false;
@@ -352,5 +419,5 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
 
   // Self-verifying: never hand back a scenario that would fail the schema
   // every other producer/consumer in the codebase already trusts.
-  return { scenario: NeutralScenarioSchema.parse(scenario), warnings };
+  return { scenario: NeutralScenarioSchema.parse(scenario), warnings, rejected: steps.length === 0 };
 }

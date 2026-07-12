@@ -14,6 +14,15 @@
  *     scaffoldTests end-to-end (the real downstream scoring/scaffold path) —
  *     the chosen resilient selector lands verbatim in the generated Cypress
  *     spec and the spec passes real TypeScript compilation.
+ *   - waitForElement count/operator: an element-COUNT assertion converts to
+ *     assert-count (not a single-element assert-visible), with a warning for
+ *     any operator other than ">=" (the only one the Cypress adapter renders
+ *     faithfully).
+ *   - change vs select: every change step is warned about as a possible
+ *     <select> (Recorder cannot disambiguate), and the new 'select' action
+ *     renders through the Cypress adapter.
+ *   - rejected flows: a flow whose every step is unmappable reports
+ *     `rejected: true` rather than silently reading as a normal conversion.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,7 +47,8 @@ function loadFixture(): unknown {
 
 test('importRecorderFlow: real on-disk fixture converts to a valid NeutralScenario with the expected values', () => {
   const raw = loadFixture();
-  const { scenario, warnings } = importRecorderFlow(raw);
+  const { scenario, warnings, rejected } = importRecorderFlow(raw);
+  assert.equal(rejected, false, 'nine steps converted — not a rejected conversion');
 
   // Self-verifying inside the converter already, but prove it here too — the
   // schema every other NeutralScenario producer/consumer in the codebase trusts.
@@ -51,9 +61,13 @@ test('importRecorderFlow: real on-disk fixture converts to a valid NeutralScenar
   assert.deepEqual(scenario.sourceGapIds, []);
   assert.equal(scenario.recommendations[0]?.adapter, 'cypress-e2e');
 
-  // A well-formed fixture (setViewport/keyUp are silently-skipped no-ops) should
-  // produce zero warnings — nothing here is tolerated-but-lossy.
-  assert.deepEqual(warnings, []);
+  // setViewport/keyUp are silently-skipped no-ops, so the only warnings this
+  // well-formed fixture produces are the possible-<select> notes on its two
+  // `change` steps (Email, Password) — Recorder cannot tell a <select> from
+  // a text input, so every change step is warned about, never silently
+  // guessed at with false confidence.
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every((w) => w.includes('may be a <select> element')));
 
   const actions = scenario.steps.map((s) => s.action);
   assert.deepEqual(actions, [
@@ -146,12 +160,13 @@ test('importRecorderFlow: an unknown step type is tolerated (skipped with a warn
       { type: 'click', selectors: [['aria/Go']] },
     ],
   };
-  const { scenario, warnings } = importRecorderFlow(flow);
+  const { scenario, warnings, rejected } = importRecorderFlow(flow);
   assert.equal(scenario.steps.length, 2, 'the unknown step contributes no TestStep');
   assert.ok(
     warnings.some((w) => w.includes('unknown step type "someBrandNewStepTypeFromAFutureChromeVersion"')),
     'a clear warning names the unmapped type'
   );
+  assert.equal(rejected, false, 'two steps converted — not a rejected conversion');
 });
 
 test('importRecorderFlow: hover/scroll/waitForExpression are tolerated and warned about, not thrown', () => {
@@ -163,7 +178,7 @@ test('importRecorderFlow: hover/scroll/waitForExpression are tolerated and warne
       { type: 'waitForExpression', expression: 'window.__ready === true' },
     ],
   };
-  const { scenario, warnings } = importRecorderFlow(flow);
+  const { scenario, warnings, rejected } = importRecorderFlow(flow);
   assert.equal(scenario.steps.length, 0);
   assert.equal(
     warnings.length,
@@ -173,6 +188,7 @@ test('importRecorderFlow: hover/scroll/waitForExpression are tolerated and warne
   assert.ok(warnings.some((w) => w.includes('hover')));
   assert.ok(warnings.some((w) => w.includes('scroll')));
   assert.ok(warnings.some((w) => w.includes('waitForExpression')));
+  assert.equal(rejected, true, 'zero steps converted — this IS a rejected conversion (FINDING 3)');
 });
 
 test('importRecorderFlow: doubleClick is downgraded to a click, with a warning explaining the downgrade', () => {
@@ -184,6 +200,119 @@ test('importRecorderFlow: doubleClick is downgraded to a click, with a warning e
   assert.equal(scenario.steps[0]?.action, 'click');
   assert.equal(scenario.steps[0]?.target, 'aria/Expand row');
   assert.ok(warnings.some((w) => w.includes('doubleClick') && w.includes('mapped to a single click')));
+});
+
+// ---------------------------------------------------------------------------
+// waitForElement count/operator → assert-count — FINDING 1
+// ---------------------------------------------------------------------------
+
+test('importRecorderFlow: waitForElement with count+operator produces assert-count, not assert-visible', () => {
+  const flow = {
+    title: 'Count assertion flow',
+    steps: [
+      {
+        type: 'waitForElement',
+        selectors: [['.result-row']],
+        count: 3,
+        operator: '>=',
+      },
+    ],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps.length, 1);
+  assert.equal(scenario.steps[0]?.action, 'assert-count', 'count semantics must not be discarded as assert-visible');
+  assert.equal(scenario.steps[0]?.target, '.result-row');
+  assert.equal(scenario.steps[0]?.value, '3');
+  assert.ok(!warnings.some((w) => w.includes('has no faithful Cypress adapter rendering')), '>= is faithfully supported — no operator warning');
+});
+
+test('importRecorderFlow: waitForElement count with no explicit operator defaults to >= and warns for nothing', () => {
+  const flow = {
+    title: 'Count assertion, default operator',
+    steps: [{ type: 'waitForElement', selectors: [['.item']], count: 5 }],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps[0]?.action, 'assert-count');
+  assert.equal(scenario.steps[0]?.value, '5');
+  assert.ok(!warnings.some((w) => w.includes('has no faithful Cypress adapter rendering')));
+});
+
+test('importRecorderFlow: waitForElement count with a non->= operator emits a warning (no faithful adapter rendering)', () => {
+  const flow = {
+    title: 'Count assertion, unsupported operator',
+    steps: [
+      {
+        type: 'waitForElement',
+        selectors: [['.item']],
+        count: 2,
+        operator: '==',
+      },
+    ],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps[0]?.action, 'assert-count', 'still converted, just with a warning about fidelity');
+  assert.ok(
+    warnings.some((w) => w.includes('"=="') && w.includes('has no faithful Cypress adapter rendering')),
+    'a non->= operator must be warned about, since the Cypress adapter only renders >='
+  );
+});
+
+test('importRecorderFlow: waitForElement with no count still maps to assert-visible/assert-hidden as before', () => {
+  const flow = {
+    title: 'Plain visibility wait',
+    steps: [
+      { type: 'navigate', url: 'https://app.example.test/' },
+      { type: 'waitForElement', selectors: [['.banner']], visible: true },
+      { type: 'waitForElement', selectors: [['.spinner']], visible: false },
+    ],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps[1]?.action, 'assert-visible');
+  assert.equal(scenario.steps[2]?.action, 'assert-hidden');
+  assert.deepEqual(warnings, []);
+});
+
+// ---------------------------------------------------------------------------
+// change vs select — FINDING 2
+// ---------------------------------------------------------------------------
+
+test('importRecorderFlow: a change step yields a type step AND a possible-<select> warning', () => {
+  const flow = {
+    title: 'Change step flow',
+    steps: [
+      { type: 'navigate', url: 'https://app.example.test/settings' },
+      { type: 'change', selectors: [['#country']], value: 'Canada' },
+    ],
+  };
+  const { scenario, warnings } = importRecorderFlow(flow);
+  assert.equal(scenario.steps[1]?.action, 'type', 'still converts to type — the converter never silently guesses select');
+  assert.equal(scenario.steps[1]?.value, 'Canada');
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0]!, /may be a <select> element/);
+  assert.match(warnings[0]!, /"select"/, 'the warning points the reader at the select action to opt in after review');
+});
+
+test("importRecorderFlow: a hand-authored 'select' TestStep action renders through the Cypress adapter", async () => {
+  const scenario = {
+    id: 'scn-select-001',
+    title: 'Country picker',
+    description: 'Pick a country from a real <select>',
+    targetPath: '/settings',
+    steps: [
+      { action: 'navigate' as const, target: '/settings', description: 'go to settings' },
+      { action: 'select' as const, target: '#country', value: 'Canada', description: 'pick Canada' },
+    ],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const result = await scaffoldTests('https://app.example.test', {
+    framework: 'cypress-e2e',
+    scenarios: [scenario],
+  });
+  const spec = result.generatedTests[0]!;
+  assert.match(spec.code, /cy\.get\("#country"\)\.select\("Canada"\);/, 'select TestStep renders cy.get(...).select(...)');
+  assert.equal(result.specValidation.ok, true, JSON.stringify(result.specValidation));
 });
 
 // ---------------------------------------------------------------------------

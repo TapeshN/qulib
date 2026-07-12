@@ -26,7 +26,7 @@ Each item must match this exact shape:
   "description": "string",
   "targetPath": "string (the route path)",
   "steps": [
-    { "action": "navigate|click|type|assert-visible|assert-hidden|assert-text|assert-disabled|assert-count|wait|api-call", "target": "string (optional)", "value": "string (optional)", "description": "string" }
+    { "action": "navigate|click|type|select|assert-visible|assert-hidden|assert-text|assert-disabled|assert-count|wait|api-call", "target": "string (optional)", "value": "string (optional)", "description": "string" }
   ],
   "tags": ["string"],
   "recommendations": [
