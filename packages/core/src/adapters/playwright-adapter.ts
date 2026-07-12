@@ -21,6 +21,14 @@ function renderStep(step: TestStep): string {
       return t && v ? `    await page.locator(${t}).fill(${v});` : `    // type: ${step.description}`;
     case 'select':
       return t && v ? `    await page.locator(${t}).selectOption(${v});` : `    // select: ${step.description}`;
+    case 'key-press':
+      // Playwright's .press() takes the exact same key names Chrome
+      // DevTools Recorder captures (KeyboardEvent.key values like "Enter",
+      // "Tab", "ArrowDown") — unlike Cypress's .type(), it is not limited
+      // to a fixed special-sequence whitelist, so this is faithful for
+      // every key the converter hands it, including ones Cypress cannot
+      // render (see cypress-e2e-adapter.ts's key-press case).
+      return t && v ? `    await page.locator(${t}).press(${v});` : `    // key-press: ${step.description}`;
     case 'assert-visible':
       return t
         ? `    await expect(page.locator(${t})).toBeVisible();`

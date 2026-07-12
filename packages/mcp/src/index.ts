@@ -418,7 +418,7 @@ const ScaffoldTestsInputSchema = z.object({
   framework: z
     .enum(['cypress-e2e', 'playwright'])
     .optional()
-    .describe('Test framework to generate. Default and recommended: cypress-e2e. playwright is accepted but not yet implemented (returns an error).'),
+    .describe('Test framework to generate. Both cypress-e2e (default) and playwright are fully implemented and produce a real, compilable spec + project config.'),
   maxPagesToScan: z
     .number()
     .int()
@@ -530,7 +530,7 @@ mcpServer.registerTool(
   'qulib_scaffold_tests',
   {
     description:
-      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported framework: cypress-e2e (default). playwright scaffold is experimental and not yet implemented. Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers. Optionally pass journeys — pre-recorded user flows (Chrome DevTools Recorder JSON exports, or already-shaped qulib scenarios) — to scaffold from those instead of crawling; format is auto-detected per entry.',
+      'Generate a ready-to-run test scaffold for a deployed web app. Crawls the URL, identifies quality gaps and user flows, then produces framework-specific test files plus the project config and package.json deps. Returns generatedTests (array of {filename, code, outputPath}) and projectConfig so an agent can write the files directly to a repo without any manual test-writing. Supported frameworks: cypress-e2e (default) and playwright — both fully implemented (real generated specs, project config, and dry-run TypeScript compile validation). Optionally pass recipes (e.g. ["auth","a11y"]) to append proven NQ-2/CaseLoom-derived test patterns for common flows — auth adds login/logout/protected-route tests, a11y adds heading/landmark/title checks, nav adds deep-link/404 tests, seed adds state-reset helpers. Optionally pass journeys — pre-recorded user flows (Chrome DevTools Recorder JSON exports, or already-shaped qulib scenarios) — to scaffold from those instead of crawling; format is auto-detected per entry.',
     inputSchema: ScaffoldTestsInputSchema,
   },
   handleScaffoldTests

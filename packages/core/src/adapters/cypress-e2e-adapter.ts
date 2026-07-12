@@ -1,5 +1,6 @@
 import type { TestAdapter } from './adapter.interface.js';
 import type { NeutralScenario, GeneratedTest, TestStep } from '../schemas/gap-analysis.schema.js';
+import { isCypressTypeableKey, toCypressTypeToken } from './cypress-special-keys.js';
 
 function slugify(title: string): string {
   return title
@@ -21,6 +22,22 @@ function renderStep(step: TestStep): string {
       return t && v ? `    cy.get(${t}).type(${v});` : `    // type: ${step.description}`;
     case 'select':
       return t && v ? `    cy.get(${t}).select(${v});` : `    // select: ${step.description}`;
+    case 'key-press': {
+      const key = step.value;
+      if (!t || !key) return `    // key-press: ${step.description}`;
+      if (isCypressTypeableKey(key)) {
+        return `    cy.get(${t}).type(${JSON.stringify(toCypressTypeToken(key))});`;
+      }
+      // Outside Cypress's .type() special-sequence whitelist (e.g. "Tab") —
+      // cy.type("{tab}") throws at real Cypress runtime, so NEVER emit that
+      // string. A safe, non-throwing comment naming the exact gap beats a
+      // spec that compiles but crashes the first time it actually runs.
+      return (
+        `    // key-press: "${key}" is outside Cypress's .type() special-sequence whitelist — ` +
+        `cy.type() would throw at runtime for this key. Use cy.get(${t}).trigger('keydown', { key: ${JSON.stringify(key)} }) ` +
+        `or cy.realPress(${JSON.stringify(key)}) (cypress-real-events) instead. ${step.description}`
+      );
+    }
     case 'assert-visible':
       return t ? `    cy.get(${t}).should('be.visible');` : `    cy.get('body').should('be.visible');`;
     case 'assert-hidden':

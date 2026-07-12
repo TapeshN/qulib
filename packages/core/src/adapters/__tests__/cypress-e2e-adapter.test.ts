@@ -63,6 +63,59 @@ test("render: a target-less 'select' step falls back to a comment", () => {
   assertValidCypressSpec(code);
 });
 
+// ---------------------------------------------------------------------------
+// key-press action — FINDING 1 (framework-neutral keyboard step)
+// ---------------------------------------------------------------------------
+
+test("render: 'key-press' with a Cypress-whitelisted key (Enter) renders cy.get(t).type('{enter}')", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-001',
+    title: 'Search submit',
+    description: 'press Enter to submit search',
+    targetPath: '/search',
+    steps: [{ action: 'key-press', target: '#q', value: 'Enter', description: 'press Enter on #q' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.match(code, /cy\.get\("#q"\)\.type\("\{enter\}"\);/);
+  assertValidCypressSpec(code);
+});
+
+test("render: 'key-press' with a key OUTSIDE Cypress's whitelist (Tab) renders a safe comment, never cy.type(\"{tab}\") (which throws at runtime)", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-002',
+    title: 'Tab through form',
+    description: 'press Tab to move focus',
+    targetPath: '/form',
+    steps: [{ action: 'key-press', target: '#name', value: 'Tab', description: 'press Tab on #name' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.ok(!code.includes('.type("{tab}")'), 'must never emit the throwing {tab} call');
+  assert.match(code, /\/\/ key-press: "Tab" is outside Cypress's \.type\(\) special-sequence whitelist/);
+  assertValidCypressSpec(code);
+});
+
+test("render: a target-less/value-less 'key-press' step falls back to a comment", () => {
+  const scenario: NeutralScenario = {
+    id: 'scn-keypress-003',
+    title: 'Degenerate key-press',
+    description: 'key-press step missing target/value',
+    targetPath: '/x',
+    steps: [{ action: 'key-press', description: 'press an undescribed key' }],
+    tags: [],
+    recommendations: [],
+    sourceGapIds: [],
+  };
+  const { code } = adapter.render(scenario);
+  assert.ok(code.includes('// key-press: press an undescribed key'));
+  assertValidCypressSpec(code);
+});
+
 test('render: navigate/type/assert-count still render as before (no regression from adding select)', () => {
   const scenario: NeutralScenario = {
     id: 'scn-baseline-001',

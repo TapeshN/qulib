@@ -14,7 +14,10 @@
  * `packages/mcp/src/index.ts` adds a Recorder-JSON path onto that same
  * entry point).
  *
- * Mapping table (recorder step `type` → NeutralScenario `TestStep.action`):
+ * Mapping table (recorder step `type` → NeutralScenario `TestStep.action`) —
+ * see the exhaustive step-type x adapter fidelity matrix in this module's
+ * test file (`__tests__/recorder-import.test.ts`) for the authoritative,
+ * test-backed version of this table:
  *   navigate           → 'navigate'        (also seeds `targetPath` from the
  *                                            FIRST navigate step's URL path)
  *   click, doubleClick → 'click'           (doubleClick downgrades to a
@@ -22,47 +25,81 @@
  *                                            distinct double-click action —
  *                                            and is warned about)
  *   change             → 'type'            (value carried through verbatim —
- *                                            see the "change vs select"
- *                                            warning below; Recorder cannot
- *                                            tell a `<select>` from a text
- *                                            input, so this is a WARNED
- *                                            guess, never a silent one)
- *   keyDown            → 'type'            (Cypress `{enter}`-style special-
- *                                            key syntax, `value: "{key}"`,
+ *                                            see the "change vs select vs
+ *                                            checkbox/radio" warning below;
+ *                                            Recorder cannot tell a
+ *                                            `<select>`/checkbox/radio from
+ *                                            a text input, so this is a
+ *                                            WARNED guess, never a silent one)
+ *   keyDown            → 'key-press'       (a framework-neutral key-press
+ *                                            TestStep — NOT Cypress-only
+ *                                            `{key}` syntax, which would be
+ *                                            wrong under Playwright (a
+ *                                            literal string) AND wrong under
+ *                                            Cypress for any key outside its
+ *                                            small special-sequence
+ *                                            whitelist (e.g. "Tab" throws).
+ *                                            Each adapter renders `key-press`
+ *                                            in its own idiom at RENDER
+ *                                            time — see cypress-e2e-adapter
+ *                                            .ts / playwright-adapter.ts —
  *                                            against the last interacted
- *                                            selector — keyDown steps in a
- *                                            Recorder export do not carry
+ *                                            selector, since keyDown steps in
+ *                                            a Recorder export do not carry
  *                                            their own `selectors`, they act
- *                                            on whatever currently has focus)
+ *                                            on whatever currently has focus.
+ *                                            A key outside Cypress's
+ *                                            whitelist is warned about by
+ *                                            name here, at conversion time,
+ *                                            since Playwright's `.press()`
+ *                                            renders virtually any key
+ *                                            faithfully and only Cypress is
+ *                                            at risk)
  *   waitForElement     → 'assert-visible' / 'assert-hidden' (per `visible`),
  *                         or 'assert-count' when the step carries a `count`
  *                         (an element-COUNT assertion rather than a single-
  *                         element check) — only the `>=` `operator` has a
- *                         faithful Cypress rendering today, any other
- *                         operator ("==", "<=", …) is converted with a
- *                         warning since it cannot be rendered faithfully
- *   assertedEvents     → an extra 'assert-visible' step per navigation event,
+ *                         faithful rendering in EITHER adapter today (both
+ *                         cypress-e2e and playwright only render `>=`), any
+ *                         other operator ("==", "<=", …) is converted with a
+ *                         warning naming BOTH adapters since it cannot be
+ *                         rendered faithfully in either
+ *   assertedEvents     → an extra 'assert-visible' step per `navigation`
+ *                         event that carries a `url` (appended right after
+ *                         the step that caused it — NeutralScenario has no
+ *                         dedicated "expected outcome" field, so this is
+ *                         encoded as an assertion step rather than silently
+ *                         dropped); a `navigation` event with no `url`, or
+ *                         any event whose `type` is not `navigation`, is
+ *                         warned about by name rather than silently no-op'd
  *
- * Change vs select: Chrome Recorder's `change` step looks IDENTICAL whether
- * the user typed into a text input or picked an option from a `<select>` —
- * there is no field that disambiguates the two. Guessing 'type' silently
- * would be false confidence: the generated Cypress `.type(value)` throws at
- * runtime against a real `<select>` even though the scenario is schema-valid
- * and the generated spec compiles. So every `change` step is converted to
- * 'type' AND paired with a warning naming the possible-select ambiguity —
- * a reviewer who confirms the target is a `<select>` can hand-edit that one
- * step's `action` to the new 'select' TestStep action (renders
- * `cy.get(t).select(v)`) instead.
- *                         appended right after the step that caused it
- *                         (NeutralScenario has no dedicated "expected
- *                         outcome" field, so this is encoded as an
- *                         assertion step rather than silently dropped)
+ * Change vs select vs checkbox/radio: Chrome Recorder's `change` step looks
+ * IDENTICAL whether the user typed into a text input, picked an option from
+ * a `<select>`, or toggled a checkbox/radio — there is no field that
+ * disambiguates any of these. Guessing 'type' silently would be false
+ * confidence: the generated `.type(value)` throws at runtime in BOTH
+ * Cypress (`cy.get(t).type(v)`) and Playwright (`page.locator(t).fill(v)`)
+ * against a real `<select>`, checkbox, or radio, even though the scenario is
+ * schema-valid and the generated spec compiles. So every `change` step is
+ * converted to 'type' AND paired with a warning naming ALL THREE
+ * non-text-input risks — never a warning that reassures a reviewer about
+ * only one of several equally-real failure modes. A reviewer who confirms
+ * the target is a `<select>` can hand-edit that one step's `action` to the
+ * 'select' TestStep action (renders `cy.get(t).select(v)` /
+ * `page.locator(t).selectOption(v)`); a checkbox/radio target should become
+ * a 'click' step instead.
  *
- * Anything else Recorder can emit (setViewport, keyUp, hover, scroll,
- * waitForExpression, and any step type we have never seen) is TOLERATED —
- * parsing never throws on it — but is not mappable to today's TestStep
- * vocabulary, so it is skipped with a warning rather than silently dropped
- * or forced into a misleading action.
+ * Anything else Recorder can emit (keyUp, hover, scroll, waitForExpression,
+ * and any step type we have never seen) is TOLERATED — parsing never throws
+ * on it — but is not mappable to today's TestStep vocabulary, so it is
+ * skipped with a warning rather than silently dropped or forced into a
+ * misleading action. The one exception is `setViewport`, which is genuinely
+ * informational (viewport metadata, not a user-facing action) but is still
+ * warned about — the recorded dimensions are NOT threaded into the
+ * generated project config (which uses a fixed default viewport), so
+ * silently no-op'ing it would drop real signal without a trace. `keyUp` is
+ * the one truly silent no-op: it is always paired with the `keyDown` that
+ * already produced a full `key-press` step, so nothing is lost.
  *
  * Selector resilience: a Recorder step's `selectors` field is a fallback
  * chain of alternative selector strings, engine-prefixed (`aria/`, `text/`,
@@ -75,6 +112,7 @@
 import type { NeutralScenario, TestStep } from '../../schemas/gap-analysis.schema.js';
 import { NeutralScenarioSchema } from '../../schemas/gap-analysis.schema.js';
 import { RecorderFlowSchema, type RecorderFlow, type RecorderStep } from '../../schemas/recorder-flow.schema.js';
+import { isCypressTypeableKey } from '../../adapters/cypress-special-keys.js';
 
 // ---------------------------------------------------------------------------
 // Format auto-detection
@@ -239,6 +277,14 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
         });
       } else if (event.type === 'navigation') {
         warnings.push(`step ${index}: assertedEvents navigation had no url — skipped assertion`);
+      } else {
+        // FINDING 3: any assertedEvents type other than "navigation" was
+        // previously a silent no-op — contradicting this module's own
+        // "unmappable signals are skipped WITH A WARNING" contract. Never
+        // drop an observed event without saying so.
+        warnings.push(
+          `step ${index}: assertedEvents type "${event.type}" has no NeutralScenario equivalent — skipped`
+        );
       }
     }
   };
@@ -246,7 +292,16 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
   flow.steps.forEach((step, index) => {
     switch (step.type) {
       case 'setViewport':
-        // Informational device/viewport metadata — no user-facing action to map.
+        // Informational device/viewport metadata — no user-facing action to
+        // map to a TestStep. Still warned about (not a silent no-op): the
+        // recorded dimensions are NOT threaded into the generated project
+        // config, which uses a fixed default viewport regardless — a
+        // reviewer relying on the recorded viewport would be silently wrong.
+        warnings.push(
+          `setViewport step at index ${index} is informational only — its dimensions are not translated into ` +
+            `a TestStep or the generated project config (cypress.config.ts / playwright.config.ts both use a ` +
+            `fixed default viewport, not the recorded one)`
+        );
         break;
 
       case 'navigate': {
@@ -293,22 +348,40 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
           value,
           description: `Type ${JSON.stringify(value)} into ${describeSelector(pick)}`,
         });
-        // Recorder's `change` step is identical for a text input and a
-        // <select> — there is no field that disambiguates them. Guessing
-        // 'type' silently would be false confidence: cy.get(t).type(v)
-        // throws at runtime against a real <select> even though this
-        // scenario is schema-valid and the generated spec compiles. Warn on
-        // EVERY change step rather than guess right or wrong in silence.
+        // Recorder's `change` step is identical for a text input, a
+        // <select>, a checkbox, and a radio button — there is no field that
+        // disambiguates any of them. Guessing 'type' silently would be false
+        // confidence: BOTH cy.get(t).type(v) (Cypress) and
+        // page.locator(t).fill(v) (Playwright) throw at runtime against a
+        // real <select>, checkbox, or radio, even though this scenario is
+        // schema-valid and the generated spec compiles. Warn on EVERY change
+        // step, naming ALL THREE non-text-input risks — a warning that
+        // trains a reviewer to rule out only ONE of several real risks
+        // (e.g. "may be a <select>" alone, when checkbox/radio are equally
+        // real) is worse than no warning at all (FINDING 2).
         warnings.push(
-          `change step at index ${index}: target ${describeSelector(pick)} may be a <select> element — ` +
-            `Recorder cannot distinguish a <select> from a text input, and .type() will fail against a real ` +
-            `<select> at runtime. If this targets a <select>, change this step's action to "select" ` +
-            `(renders cy.get(...).select(value)) after confirming against the real page.`
+          `change step at index ${index}: target ${describeSelector(pick)} may be a non-text-input element — ` +
+            `Recorder's change step looks identical for a text input, a <select>, a checkbox, and a radio ` +
+            `button. Both cy.get(t).type(v) (Cypress) and page.locator(t).fill(v) (Playwright) require a ` +
+            `text-like input, textarea, or [contenteditable] target and throw at runtime against a <select>, ` +
+            `checkbox, or radio. If this targets a <select>, change this step's action to "select" (renders ` +
+            `cy.get(...).select(value) / page.locator(...).selectOption(value)) after confirming against the ` +
+            `real page. If it targets a checkbox or radio, change this step's action to "click" instead.`
         );
         break;
       }
 
       case 'keyDown': {
+        // FINDING 1: keyDown maps to a framework-neutral 'key-press'
+        // TestStep, carrying the RAW key name (Recorder's own
+        // KeyboardEvent.key value, e.g. "Enter", "Tab") — never
+        // Cypress-only `{key}` syntax baked in at conversion time. That
+        // would be wrong under Playwright (fill()/type-equivalents would
+        // write the LITERAL string "{enter}" rather than pressing a key)
+        // and wrong under Cypress itself for any key outside its small
+        // special-sequence whitelist (e.g. "Tab" throws). Each adapter
+        // renders 'key-press' in its own idiom at RENDER time — see
+        // cypress-e2e-adapter.ts and playwright-adapter.ts.
         const key = step.key;
         if (!key) {
           warnings.push(`keyDown step at index ${index} has no key — skipped`);
@@ -320,10 +393,24 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
           warnings.push(`keyDown step at index ${index} (key="${key}") has no known target element — skipped`);
           break;
         }
+        // Playwright's page.locator(t).press() accepts virtually any
+        // KeyboardEvent.key value faithfully, so it is never at risk here.
+        // Cypress's .type() is limited to a small special-sequence
+        // whitelist — a key outside it (e.g. "Tab") is warned about BY
+        // NAME at conversion time, since the Cypress adapter will fall back
+        // to a safe comment rather than emitting code that throws.
+        if (!isCypressTypeableKey(key)) {
+          warnings.push(
+            `keyDown step at index ${index}: key "${key}" is outside Cypress's .type() special-sequence ` +
+              `whitelist — the cypress-e2e adapter cannot render a real key-press for this key (it will emit ` +
+              `a non-throwing placeholder comment instead of code that crashes at runtime); the playwright ` +
+              `adapter renders it faithfully via .press("${key}").`
+          );
+        }
         steps.push({
-          action: 'type',
+          action: 'key-press',
           target,
-          value: `{${key.toLowerCase()}}`,
+          value: key,
           description: `Press ${key} on ${describeSelector(pick ?? { selector: target, rank: 'css' })}`,
         });
         break;
@@ -347,10 +434,17 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
           // count semantics entirely with zero warning.
           const operator = step.operator ?? '>=';
           if (operator !== '>=') {
+            // Naming only ONE adapter here would be a false-reassurance
+            // warning (the same class as FINDING 2): both cypress-e2e and
+            // playwright are equally limited to ">=" for assert-count today,
+            // so a reviewer must not be led to think switching adapters
+            // fixes the fidelity gap.
             warnings.push(
               `waitForElement step at index ${index}: element-count operator "${operator}" has no faithful ` +
-                `Cypress adapter rendering (only ">=" is rendered, via should('have.length.gte', …)) — ` +
-                `converted to assert-count anyway, but it will enforce ">=" semantics, not "${operator}"`
+                `rendering in EITHER adapter (cypress-e2e only renders ">=" via should('have.length.gte', …); ` +
+                `playwright only renders ">=" via toBeGreaterThanOrEqual(…)) — converted to assert-count ` +
+                `anyway, but it will enforce ">=" semantics, not "${operator}", regardless of which adapter ` +
+                `generates the spec`
             );
           }
           steps.push({

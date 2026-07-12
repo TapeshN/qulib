@@ -204,8 +204,9 @@ if (isRecorderFlow(raw)) {
 }
 ```
 
-**Mapping.** `navigate` seeds the scenario's `targetPath`; `click`/`change`/
-`keyDown` become `click`/`type` steps; `waitForElement` becomes
+**Mapping.** `navigate` seeds the scenario's `targetPath`; `click`/`change`
+become `click`/`type` steps; `keyDown` becomes a framework-neutral
+**`key-press`** step (see below); `waitForElement` becomes
 `assert-visible`/`assert-hidden` — or `assert-count` when the step carries a
 Recorder element-COUNT assertion (`count`/`operator`, e.g. "wait until >= 3
 matching elements exist") instead of a single-element check; a step's
@@ -214,27 +215,57 @@ Each step's `selectors` fallback chain is resolved by `pickResilientSelector`,
 which prefers `aria/`- and `text/`-prefixed selectors over brittle
 `css`/`xpath` ones — the selector least likely to break when the page's
 markup changes wins. Steps Recorder can emit with no NeutralScenario
-equivalent (`hover`, `scroll`, `waitForExpression`, `setViewport`, an
-unrecognized future `type`) are skipped with a warning rather than thrown or
-silently dropped.
+equivalent (`hover`, `scroll`, `waitForExpression`, an unrecognized future
+`type`) are skipped with a warning rather than thrown or silently dropped;
+`setViewport` is genuinely informational (no user-facing action to map) but
+is still warned about, since its dimensions are not threaded into the
+generated project config either.
 
-**Honesty guardrails.**
-- **Element-count operator.** Only `>=` has a faithful Cypress rendering
-  today (`should('have.length.gte', …)`). A `waitForElement` count assertion
-  with any other Recorder `operator` (`==`, `<=`, …) still converts to
-  `assert-count`, but with a warning — the generated spec enforces `>=`
-  semantics, not the operator Recorder recorded.
-- **`change` vs `<select>`.** Chrome Recorder's `change` step is identical
-  whether the user typed into a text input or picked an option from a
-  `<select>` — there is no field that disambiguates the two. Guessing `type`
-  silently would be false confidence: the generated `cy.get(t).type(value)`
-  throws at runtime against a real `<select>` even though the scenario is
-  schema-valid and the spec compiles. So every `change` step converts to
-  `type` **and** carries a warning naming the possible-`<select>` ambiguity.
-  A reviewer who confirms the target really is a `<select>` can hand-edit
-  that one step's `action` to the new `'select'` `TestStep` action, which
-  renders `cy.get(t).select(v)` (Cypress) / `page.locator(t).selectOption(v)`
-  (Playwright).
+**Honesty guardrails.** The governing rule for every Recorder step type
+against every adapter: a conversion is EITHER rendered faithfully at real
+framework runtime, OR accompanied by a warning naming the exact risk — never
+a silent drop, and never a warning that reassures a reviewer about only one
+of several equally-real risks.
+- **`keyDown` → framework-neutral `key-press` (not Cypress-only `{key}`
+  syntax).** A `keyDown` step converts to a new `'key-press'` `TestStep`
+  action carrying the RAW key Recorder recorded (e.g. `"Enter"`, `"Tab"`) —
+  never Cypress's `{token}` special-sequence syntax baked in up front, which
+  would be wrong under Playwright (writes the literal string `"{enter}"`
+  instead of pressing a key) and wrong under Cypress itself for any key
+  outside its small special-sequence whitelist (`{tab}` throws at real
+  runtime even though the spec compiles). Each adapter renders `key-press` in
+  its own idiom: `cypress-e2e` emits real `.type("{token}")` syntax only for
+  whitelisted keys (`Enter`, `Escape`, `Backspace`, `Delete`, the arrow keys,
+  `Home`/`End`/`PageUp`/`PageDown`, `Insert` — see `cypress-special-keys.ts`)
+  and a safe, non-throwing comment for anything else; `playwright` renders
+  `page.locator(t).press(key)` faithfully for virtually any key, since
+  Playwright's key names match Recorder's directly. A key Cypress cannot
+  render is warned about by name (the exact key + `cypress-e2e`) at
+  conversion time.
+- **Element-count operator.** Only `>=` has a faithful rendering in EITHER
+  adapter today (`should('have.length.gte', …)` in Cypress,
+  `toBeGreaterThanOrEqual(…)` in Playwright). A `waitForElement` count
+  assertion with any other Recorder `operator` (`==`, `<=`, …) still converts
+  to `assert-count`, but with a warning naming BOTH adapters — the generated
+  spec enforces `>=` semantics, not the operator Recorder recorded, no matter
+  which framework renders it.
+- **`change` vs `<select>`/checkbox/radio.** Chrome Recorder's `change` step
+  is identical whether the user typed into a text input, picked an option
+  from a `<select>`, or toggled a checkbox/radio — there is no field that
+  disambiguates any of them. Guessing `type` silently would be false
+  confidence: BOTH `cy.get(t).type(value)` (Cypress) and
+  `page.locator(t).fill(value)` (Playwright) throw at runtime against a real
+  `<select>`, checkbox, or radio, even though the scenario is schema-valid
+  and the spec compiles. So every `change` step converts to `type` **and**
+  carries a warning naming ALL THREE non-text-input risks (never just
+  `<select>` alone). A reviewer who confirms the target really is a
+  `<select>` can hand-edit that one step's `action` to the `'select'`
+  `TestStep` action, which renders `cy.get(t).select(v)` (Cypress) /
+  `page.locator(t).selectOption(v)` (Playwright); a checkbox/radio target
+  should become a `'click'` step instead.
+- **`assertedEvents` with an unrecognized `type`.** Any asserted event whose
+  `type` is not `"navigation"` (or a `navigation` event missing its `url`) is
+  warned about by name rather than silently no-op'd.
 - **Zero-converted-step flows.** A Recorder flow whose every step is
   unmappable (`hover`/`scroll`/`waitForExpression`/unknown, or no usable
   selector) still returns a schema-valid `NeutralScenario` from
@@ -247,7 +278,9 @@ silently dropped.
   successful conversion.
 
 The **MCP** `qulib_scaffold_tests` tool exposes the same converter through its
-optional `journeys` input — see the MCP tools table below.
+optional `journeys` input — see the MCP tools table below. Both `cypress-e2e`
+and `playwright` are fully implemented `framework` choices for scaffolding,
+including from Recorder-derived journeys.
 
 ## Programmatic API
 
@@ -442,7 +475,7 @@ A minimal structural snapshot looks like:
 | `qulib_analyze_app` | Live-app QA scan: release confidence + gaps + a11y | `url`, optional `auth`, optional LLM knobs |
 | `qulib_score_automation` | Score local repo test-automation maturity | absolute `repoPath`, optional `includeFullDimensions` |
 | `qulib_score_api` | Discover API endpoints and score their test coverage | absolute `repoPath`, optional `enableTier3`, `includeEndpointDetail` |
-| `qulib_scaffold_tests` | Generate Cypress scaffold from a live URL, or from pre-recorded journeys instead of crawling (`cypress-e2e` only; playwright not yet implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes`, `journeys` (Chrome DevTools Recorder exports or NeutralScenarios — format auto-detected) |
+| `qulib_scaffold_tests` | Generate a Cypress or Playwright scaffold from a live URL, or from pre-recorded journeys instead of crawling (`cypress-e2e` and `playwright` both fully implemented) | `url`, optional `framework`, `maxPagesToScan`, `recipes`, `journeys` (Chrome DevTools Recorder exports or NeutralScenarios — format auto-detected) |
 | **`qulib_score_bug_report`** | LLM-as-judge of a learner bug report vs planted-bug target | `report` (title, description, steps, severity), `target` (description, type, severity, expectedBehavior) |
 | **`qulib_score_decisions`** | Pivotal-decision evaluation at agent forks | absolute `forksPath` (JSONL), optional `enableLlmJudge` |
 | `qulib_explore_auth` | Deeper auth-path discovery on unfamiliar apps | `url`, optional `timeoutMs` |

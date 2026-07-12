@@ -79,10 +79,12 @@ test('@qulib/core public export: importRecorderFlow converts the real on-disk fi
   assert.equal(scenario.title, 'Listly login flow');
   assert.equal(scenario.targetPath, '/login');
   // The fixture's two `change` steps (Email, Password) each carry a
-  // possible-<select> warning — Recorder cannot disambiguate a <select>
-  // from a text input, so this is never silent.
-  assert.equal(warnings.length, 2);
-  assert.ok(warnings.every((w) => w.includes('may be a <select> element')));
+  // possible-non-text-input warning (select/checkbox/radio — Recorder
+  // cannot disambiguate any of them from a text input), plus one
+  // setViewport informational warning — none of these are ever silent.
+  assert.equal(warnings.length, 3);
+  assert.equal(warnings.filter((w) => w.includes('may be a non-text-input element')).length, 2);
+  assert.ok(warnings.some((w) => w.includes('setViewport step at index 0 is informational only')));
 
   const clickEmail = scenario.steps.find((s) => s.action === 'click' && s.target === 'aria/Email');
   assert.ok(clickEmail, 'aria/Email click step present with the aria selector chosen over #email-input/xpath');
@@ -90,8 +92,9 @@ test('@qulib/core public export: importRecorderFlow converts the real on-disk fi
   const typeEmail = scenario.steps.find((s) => s.action === 'type' && s.target === 'aria/Email');
   assert.equal(typeEmail?.value, 'reader@example.test');
 
-  const keyDownStep = scenario.steps.find((s) => s.value === '{enter}');
-  assert.ok(keyDownStep, 'keyDown Enter converted to Cypress special-key syntax');
+  const keyDownStep = scenario.steps.find((s) => s.action === 'key-press');
+  assert.ok(keyDownStep, 'keyDown Enter converted to a framework-neutral key-press TestStep');
+  assert.equal(keyDownStep?.value, 'Enter', 'the raw key name is carried through, not Cypress-only {key} syntax');
   assert.equal(keyDownStep?.target, 'aria/Password', 'keyDown reuses the last interacted target');
 });
 
@@ -118,8 +121,14 @@ test('resolveJourneyScenarios: converts a Recorder entry and passes through an a
   assert.equal(scenarios.length, 2);
   assert.equal(scenarios[0]?.id, 'recorder-listly-login-flow');
   assert.equal(scenarios[1]?.id, 'hand-authored');
-  assert.equal(warnings.length, 2, 'the two change-step possible-<select> warnings, index-prefixed');
-  assert.ok(warnings.every((w) => w.startsWith('journeys[0]:') && w.includes('may be a <select> element')));
+  assert.equal(
+    warnings.length,
+    3,
+    'the two change-step possible-non-text-input warnings plus the setViewport warning, index-prefixed'
+  );
+  assert.ok(warnings.every((w) => w.startsWith('journeys[0]:')));
+  assert.equal(warnings.filter((w) => w.includes('may be a non-text-input element')).length, 2);
+  assert.ok(warnings.some((w) => w.includes('setViewport step at index 0 is informational only')));
   assert.deepEqual(rejectedJourneys, []);
 });
 
