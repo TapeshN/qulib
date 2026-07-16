@@ -1,6 +1,7 @@
 {
   "name": "@qulib/mcp",
-  "version": "0.14.0",
+  "version": "0.14.1",
+  "mcpName": "io.github.tapeshn/qulib",
   "description": "MCP server for Qulib \u2014 AI-callable release confidence. Seven tools: fused verdict, live-app scan, automation maturity, API coverage, test scaffold, and auth tools.",
   "license": "MIT",
   "author": "Tapesh Nagarwal",

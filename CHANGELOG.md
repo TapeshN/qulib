@@ -62,6 +62,20 @@ Entries for **0.3.1 and earlier** were reconstructed from git tags (`v0.1.1` …
 
 ---
 
+## [0.14.1] — 2026-07-04
+
+### Added
+- **Official MCP registry metadata for `@qulib/mcp`.** Added the `mcpName`
+  (`io.github.tapeshn/qulib`) field to `packages/mcp/package.json` and a
+  `packages/mcp/server.json` manifest (schema `2025-12-11`, npm package `@qulib/mcp`,
+  stdio transport) so the server can be listed in the official Model Context Protocol
+  registry. Metadata-only patch scoped to the published `@qulib/mcp` package — no code,
+  tool, or behavior change; `@qulib/core` is unaffected. Registry publish itself
+  (npm republish of `0.14.1` + `mcp-publisher` GitHub device-auth) is an operator step;
+  runbook at `packages/mcp/REGISTRY-PUBLISH.md`.
+
+---
+
 ## [0.14.0] — 2026-07-02
 
 ### Added
