@@ -11,9 +11,12 @@
  *   6. Exit non-zero if ANY suite rolls up to FAIL, so CI can gate merges.
  *
  * Usage (from packages/core):
- *   npm run eval                      # all suites
- *   npm run eval -- --suite scaffold  # one suite
- *   npm run eval -- --no-ledger       # do not append to the ledger (used by tests)
+ *   npm run eval                              # all suites
+ *   npm run eval -- --suite scaffold          # one suite
+ *   npm run eval -- --no-ledger               # do not append to the ledger (used by tests)
+ *   npm run eval -- --suite scaffold --limit 5 # cap the suite to its first 5 cases
+ *                                               # (budget cap — see the live-judge CI lane,
+ *                                               #  package.json script `eval:live-judge`)
  *
  * Honesty: an empty suite (no golden cases) rolls up to SKIP, not PASS — an empty
  * corpus is an acknowledged missing dependency, never a green light.
@@ -48,6 +51,14 @@ export interface RunOptions {
    * Never null/empty — guaranteed by resolveTenantId().
    */
   tenantId?: string;
+  /**
+   * Budget cap (FG-1b live-judge lane): run at most this many cases per requested
+   * suite (first N in loadCases' stable filename-sorted order). Undefined ⇒ no cap
+   * (existing behavior, every case in the suite runs). Lets a cost-conscious CI job
+   * (e.g. a live-judge run billed per LLM call) grade a small, deterministic subset
+   * instead of the whole corpus without needing a second harness.
+   */
+  limit?: number;
 }
 
 function qulibVersion(): string {
@@ -59,7 +70,14 @@ function qulibVersion(): string {
 /** Run one suite to a summary. Empty corpus ⇒ SKIP summary (not PASS). */
 export async function runSuite(suite: EvalSuite, opts: RunOptions = {}): Promise<EvalRunSummary> {
   const startedAt = new Date().toISOString();
-  const cases = loadCases(suite, opts.goldenRoot);
+  let cases = loadCases(suite, opts.goldenRoot);
+  // Budget cap (FG-1b live-judge lane): slice to the first N cases (stable,
+  // filename-sorted order from loadCases) so a cost-conscious CI job can grade a
+  // small, deterministic subset instead of the whole corpus. Undefined/0-or-less
+  // ⇒ no slicing, matching every existing caller's behavior unchanged.
+  if (opts.limit !== undefined && opts.limit > 0 && cases.length > opts.limit) {
+    cases = cases.slice(0, opts.limit);
+  }
   const results = [];
   for (const c of cases) {
     if (suite === 'scaffold') results.push(await runScaffoldCase(c, opts.judge));
@@ -114,9 +132,10 @@ export async function runEval(
   return { summaries, exitCode };
 }
 
-function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolean } {
+function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolean; limit?: number } {
   const suites: EvalSuite[] = [];
   let appendLedger = true;
+  let limit: number | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--suite') {
@@ -137,9 +156,17 @@ function parseArgs(argv: string[]): { suites?: EvalSuite[]; appendLedger: boolea
       }
     } else if (arg === '--no-ledger') {
       appendLedger = false;
+    } else if (arg === '--limit') {
+      const next = argv[i + 1];
+      const parsed = next === undefined ? NaN : Number(next);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error(`--limit must be a positive integer; got "${next ?? ''}"`);
+      }
+      limit = parsed;
+      i += 1;
     }
   }
-  return { suites: suites.length ? suites : undefined, appendLedger };
+  return { suites: suites.length ? suites : undefined, appendLedger, limit };
 }
 
 function printSummary(summaries: EvalRunSummary[], env: NodeJS.ProcessEnv): void {
@@ -209,8 +236,8 @@ export function filterLedgerByTenant(tenantId: string, path: string = ledgerPath
 }
 
 async function main(): Promise<void> {
-  const { suites, appendLedger } = parseArgs(process.argv.slice(2));
-  const { summaries, exitCode } = await runEval({ suites, appendLedger });
+  const { suites, appendLedger, limit } = parseArgs(process.argv.slice(2));
+  const { summaries, exitCode } = await runEval({ suites, appendLedger, limit });
   printSummary(summaries, process.env);
   process.exit(exitCode);
 }

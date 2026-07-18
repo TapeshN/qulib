@@ -1,0 +1,37 @@
+{
+  "id": "canary-deliberate-low-quality",
+  "suite": "scaffold",
+  "description": "DELIBERATE CANARY (FG-1b, live-judge lane). A generated spec with a real, discovered route and a real (verbatim) selector, but ZERO assertions and a brittle generic tag selector instead of a role/testid/text selector. Every deterministic assert in run-scaffold.ts (shape, specCount, per-scenario spec count, real-selector grounding, mustContain/mustNotContain) PASSES for this case by construction — nothing here is a hallucination or a shape violation. It exists purely so the LIVE LLM-judge (scaffold-v1 rubric: meaningful-assertions weight 0.35, real-selectors weight 0.25) has a genuinely low-quality artifact to grade. Expected: SKIP (case still deterministic-PASS) when no ANTHROPIC_API_KEY; FAIL once a real judge grades it (see evals/README.md § Live-judge CI lane). Do NOT 'fix' this case's generated output to make it pass — a canary that stops firing is a broken canary.",
+  "tags": ["canary", "live-judge-only", "deliberately-weak", "no-llm"],
+  "input": {
+    "url": "https://app.example.test",
+    "framework": "cypress-e2e",
+    "scenarios": [
+      {
+        "id": "canary-open-settings-no-assertion",
+        "title": "Open settings and click a button (no assertion, generic selector)",
+        "description": "Navigates to the settings page and clicks a bare tag selector with no follow-up assertion of any resulting behavior — deliberately low-quality output (no assertion, brittle generic selector) so the live LLM-judge legitimately scores meaningful-assertions and real-selectors low, while every deterministic assert still passes.",
+        "targetPath": "/settings",
+        "steps": [
+          { "action": "navigate", "target": "/settings", "description": "Open the settings page" },
+          { "action": "click", "target": "button", "description": "Click a generic button with no assertion of the result" }
+        ],
+        "tags": ["canary"],
+        "recommendations": [],
+        "sourceGapIds": []
+      }
+    ]
+  },
+  "expected": {
+    "specCount": 1,
+    "mustContain": [
+      "cy.visit(\"/settings\");",
+      "cy.get(\"button\").click();"
+    ],
+    "mustNotContain": [
+      "TODO",
+      "cy.visit(\"/admin\")",
+      "[data-testid="
+    ]
+  }
+}
