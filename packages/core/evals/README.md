@@ -51,13 +51,75 @@ packages/core/evals/
 
 ```bash
 # from packages/core
-npm run eval                 # all suites
+npm run eval                       # all suites
 npm run eval -- --suite scaffold
+npm run eval -- --suite scaffold --limit 5   # cap to the first 5 cases (budget cap)
 ```
 
 The runner exits non-zero on a `FAIL` rollup so CI can gate merges (doctrine #11:
 regressions block merge). With no `ANTHROPIC_API_KEY`, judged dimensions report
 `SKIP` (an acknowledged missing dependency — not a failure).
+
+## Live-judge CI lane (FG-1b, 2026-07-18)
+
+`ci.yml`'s `eval-check` job runs `npm run eval:check` on every PR/push — always
+OFFLINE (CI never sets `ANTHROPIC_API_KEY`), so the judge dimension SKIPs and
+`evals/ledger.jsonl` only ever accumulates deterministic-gate rows. That is by
+design (LLM calls in CI cost real money on every push) but it also means the
+LLM-as-judge itself has never actually run in this repo — a judge that never
+runs is doctrine, not a gate.
+
+`.github/workflows/qulib-live-judge.yml` is the budgeted answer: a SEPARATE
+workflow, triggered on **push to `main`** (post-merge — the "full" half of
+cheap-on-PR/full-on-merge, root `CLAUDE.md` ENGINEERING CADENCE) plus
+`workflow_dispatch` for on-demand runs, that:
+
+1. Checks whether the `ANTHROPIC_API_KEY` repo secret is set (a step output,
+   never the secret itself, feeds the job `if:` — GitHub Actions cannot
+   reference `secrets.*` directly in a job/step `if:` condition).
+2. If absent: **SKIPs loudly** — a `::warning::` annotation plus a job summary
+   entry, never a silent green. This is the typed `SKIP` outcome (an
+   acknowledged missing dependency), not a pass.
+3. If present: runs `npm run eval:live-judge` (`--suite scaffold --limit 5` —
+   see `package.json`), a small, cost-bounded subset so a real judge call
+   happens without unbounded spend. `--no-ledger` keeps the run's entry off the
+   tracked `ledger.jsonl`, matching `ci.yml`'s existing "CI never mutates the
+   tracked ledger" posture — the live signal is the console/summary output.
+
+### The canary (`golden/scaffold/canary-deliberate-low-quality.json`)
+
+Rule 16 (root `CLAUDE.md`): a new gate is only proven real by *deliberately
+triggering it*. So the `scaffold` corpus carries one permanent canary case: a
+generated spec with a real route and a real (verbatim) selector, but **zero
+assertions** and a brittle generic tag selector instead of a role/testid/text
+selector. Every deterministic assert in `run-scaffold.ts` PASSES for it by
+construction (nothing here is a hallucination or a shape violation) — it exists
+purely so the scaffold-v1 rubric's `meaningful-assertions` (weight 0.35) and
+`real-selectors` (weight 0.25) dimensions have a genuinely low-quality artifact
+to grade. Expected behavior:
+
+- **Offline** (no key — every PR, `eval-check`): judge SKIPs, case stays
+  deterministic-PASS. The canary never breaks the PR gate.
+- **Live** (key present — the `qulib-live-judge` workflow): the judge should
+  score it low enough to FAIL, downgrading the case and rolling the `scaffold`
+  suite to FAIL.
+
+Because that FAIL is *expected* every live run, the workflow does not let it
+permanently redden the job: it parses the run's per-case FAIL/WARN lines and
+only fails the build when a case **other than** the canary regresses. A
+canary-only FAIL is reported as "gate proven, no real regression" (job green);
+any other case going FAIL/WARN is a genuine live-judge regression (job red).
+
+**Do not "fix" the canary's generated output to make it pass.** A canary that
+stops firing is a broken canary — it would mean the live judge is no longer
+distinguishing quality, which is exactly the silent-failure mode this lane
+exists to prevent.
+
+**Witness note.** This lane requires the `ANTHROPIC_API_KEY` repo secret,
+which is operator-gated (not something a coding session can set). Until the
+operator adds it, `qulib-live-judge.yml` runs the loud-SKIP path on every push
+to `main`; the first run after the secret is added is the live, red-then-green
+proof that the gate — and the canary inside it — actually fires.
 
 ## Test discipline
 

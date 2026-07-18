@@ -1,0 +1,162 @@
+name: Qulib Live Judge (budgeted)
+
+# FG-1b (orchestration-frontier-gaps, 2026-07-18): the eval ledger has never run
+# a live LLM-as-judge in CI (evals/ledger.jsonl was 89/89 rows score:0 — the judge
+# always SKIPs without ANTHROPIC_API_KEY). This workflow is the budgeted live
+# lane: a SMALL judge subset (--suite scaffold --limit 5, see `eval:live-judge`
+# in packages/core/package.json), gated on the ANTHROPIC_API_KEY repo secret
+# actually being present, so it costs nothing and does nothing until an operator
+# wires the secret — and SKIPs LOUDLY (a visible warning annotation), never
+# silently green, when the secret is absent.
+#
+# Cadence: this is the "full" half of cheap-on-PR/full-on-merge (root CLAUDE.md
+# ENGINEERING CADENCE) — ci.yml's `eval-check` job already runs the cheap OFFLINE
+# slice on every PR/push; this workflow adds the LLM-judge slice only on push to
+# main (post-merge), which fires less often than per-PR and is exactly when a
+# batch has actually landed. `workflow_dispatch` is included so the operator (or
+# this PR's own witness run) can trigger it on demand once the secret exists,
+# without waiting for the next merge.
+#
+# The golden corpus for the `scaffold` suite carries one deliberately-authored
+# canary case (`canary-deliberate-low-quality.json`) that deterministically
+# PASSes (so it never breaks the offline `eval-check` gate) but is designed to
+# fail the LIVE judge's scaffold-v1 rubric (no assertions + a generic selector).
+# Its purpose is rule 16 (root CLAUDE.md): a gate is only proven real by
+# deliberately triggering it — the canary is what makes the first live run here
+# a genuine red, not a rubber stamp.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-key:
+    name: Check for judge credentials
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      - name: Check ANTHROPIC_API_KEY secret presence
+        id: check
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  skip-notice:
+    name: SKIP — no judge credentials (loud, not silently green)
+    runs-on: ubuntu-latest
+    needs: check-key
+    if: needs.check-key.outputs.has_key != 'true'
+    steps:
+      - name: Loud SKIP annotation
+        shell: bash
+        run: |
+          set -euo pipefail
+          MSG="qulib live-judge lane SKIPPED — the ANTHROPIC_API_KEY repo secret is not set. evals/ledger.jsonl will keep accumulating score:0 rows from offline CI until the operator adds this secret (Settings > Secrets and variables > Actions). This is an acknowledged missing dependency (typed SKIP), not a pass."
+          echo "::warning title=qulib live-judge SKIP::$MSG"
+          {
+            echo "## qulib live-judge lane: SKIP"
+            echo ""
+            echo "$MSG"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+  live-judge:
+    name: Live judge — budgeted subset (scaffold, limit 5)
+    runs-on: ubuntu-latest
+    needs: check-key
+    if: needs.check-key.outputs.has_key == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all workspaces
+        run: npm run build
+
+      - name: Run budgeted live-judge subset (scaffold suite, first 5 cases incl. canary)
+        id: judge
+        working-directory: packages/core
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -uo pipefail
+          # --no-ledger: this run's ledger entry stays on the ephemeral runner
+          # checkout only, same as ci.yml's offline eval-check job — no workflow
+          # step commits it back, so a CI run never mutates the tracked
+          # evals/ledger.jsonl. The real judge scores are the console/summary
+          # output captured below, which IS the live signal this lane exists to
+          # produce (rule: "verify, don't claim" — this is a real run, not a stub).
+          npm run eval:live-judge -- --no-ledger > "$RUNNER_TEMP/live-judge-output.txt" 2>&1
+          EXIT_CODE=$?
+          cat "$RUNNER_TEMP/live-judge-output.txt"
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          # The FG-1b canary (canary-deliberate-low-quality) is DESIGNED to make the
+          # live judge FAIL it every run — that is the whole point (rule 16: prove a
+          # gate can fail by triggering it), not a real regression. So: a non-zero
+          # exit is only OK when the canary is the sole FAIL/WARN case; any OTHER
+          # case going FAIL/WARN is a genuine live-judge regression and must redden
+          # this job, or the lane would be worse than useless (permanently red from
+          # the canary, masking a real drop the next time one occurs).
+          UNEXPECTED=$(grep -E '^\[qulib:eval\]   - ' "$RUNNER_TEMP/live-judge-output.txt" | grep -v 'canary-deliberate-low-quality' || true)
+          CANARY_FAILED=$(grep -qE '^\[qulib:eval\]   - canary-deliberate-low-quality: FAIL' "$RUNNER_TEMP/live-judge-output.txt" && echo true || echo false)
+
+          if [ -n "$UNEXPECTED" ]; then
+            echo "::error::Unexpected non-canary FAIL/WARN case(s) in the live-judge run — real regression, investigate:"
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            if [ "$CANARY_FAILED" = "true" ]; then
+              echo "OK: only the FG-1b canary FAILed (by design) — the live-judge gate is proven able to fail; no real regression."
+              exit 0
+            fi
+            echo "::error::Run exited non-zero ($EXIT_CODE) but the canary was NOT the recorded cause — investigate before trusting this lane."
+            exit 1
+          fi
+
+          if [ "$CANARY_FAILED" != "true" ]; then
+            echo "::warning title=qulib live-judge canary silent::The FG-1b canary case (canary-deliberate-low-quality) did not FAIL this run even though the overall run exited 0. Either the canary was dropped from the --limit 5 slice or the live judge stopped catching it — re-check evals/golden/scaffold/canary-deliberate-low-quality.json is still present and un-'fixed'."
+          fi
+        timeout-minutes: 10
+
+      - name: Publish judge summary (loud, always)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## qulib live-judge lane: ran (ANTHROPIC_API_KEY present)"
+            echo ""
+            echo '```'
+            cat "$RUNNER_TEMP/live-judge-output.txt" 2>/dev/null || echo "(no output captured)"
+            echo '```'
+            echo ""
+            echo "This run includes the FG-1b canary case (\`canary-deliberate-low-quality\`, see"
+            echo "\`packages/core/evals/golden/scaffold/\`). It deterministically PASSes (so it"
+            echo "never breaks the offline \`eval-check\` gate) but is designed so the LIVE judge"
+            echo "legitimately scores it FAIL — proving this gate can fail (root CLAUDE.md rule 16)"
+            echo "without that expected FAIL permanently reddening this workflow: the job step"
+            echo "above only fails the build when a case OTHER than the canary goes FAIL/WARN."
+          } >> "$GITHUB_STEP_SUMMARY"

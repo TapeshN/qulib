@@ -61,6 +61,7 @@
     "eval": "node --import tsx/esm evals/runner/index.ts",
     "eval:check": "node --import tsx/esm evals/runner/check.ts",
     "eval:judge": "node --import tsx/esm evals/judge/eval-judge.ts",
+    "eval:live-judge": "node --import tsx/esm evals/runner/index.ts --suite scaffold --limit 5",
     "smoke": "tsx src/cli/index.ts analyze --url https://example.com --ephemeral",
     "cost-doctor": "tsx src/cli/index.ts cost doctor"
   },

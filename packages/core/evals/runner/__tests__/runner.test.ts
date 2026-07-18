@@ -599,6 +599,52 @@ test('runSuite: empty corpus rolls up to SKIP, not PASS', async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------------------
+// --limit / RunOptions.limit — budget cap for the live-judge CI lane (FG-1b)
+// ---------------------------------------------------------------------------
+
+test('runSuite: limit caps the case count to the first N (stable, filename-sorted order)', async () => {
+  const allCases = loadCases('scaffold');
+  assert.ok(allCases.length > 5, 'precondition: real scaffold corpus must exceed the limit under test');
+
+  const summary = await runSuite('scaffold', { appendLedger: false, limit: 5 });
+  assert.equal(summary.counts.total, 5, 'limit must cap the run to exactly 5 cases');
+  assert.deepEqual(
+    summary.results.map((r) => r.caseId),
+    allCases.slice(0, 5).map((c) => c.id),
+    'limited run must cover the same first-N cases loadCases would return'
+  );
+});
+
+test('runSuite: limit greater than the corpus size is a no-op (runs every case)', async () => {
+  const allCases = loadCases('scaffold');
+  const summary = await runSuite('scaffold', { appendLedger: false, limit: allCases.length + 100 });
+  assert.equal(summary.counts.total, allCases.length);
+});
+
+test('runSuite: no limit (undefined) runs the full corpus, unchanged behavior', async () => {
+  const allCases = loadCases('scaffold');
+  const summary = await runSuite('scaffold', { appendLedger: false });
+  assert.equal(summary.counts.total, allCases.length);
+});
+
+test('runSuite: the FG-1b canary case is present in the golden corpus and included under limit=5', async () => {
+  const allCases = loadCases('scaffold');
+  const canary = allCases.find((c) => c.id === 'canary-deliberate-low-quality');
+  assert.ok(canary, 'FG-1b canary case must exist in evals/golden/scaffold/ — do not delete it');
+  const summary = await runSuite('scaffold', { appendLedger: false, limit: 5 });
+  assert.ok(
+    summary.results.some((r) => r.caseId === 'canary-deliberate-low-quality'),
+    'the budgeted live-judge lane (--suite scaffold --limit 5) must actually exercise the canary'
+  );
+});
+
+test('runEval: limit is threaded through to every requested suite', async () => {
+  const { summaries } = await runEval({ suites: ['scaffold'], appendLedger: false, limit: 2 });
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].counts.total, 2);
+});
+
 test('runEval: the real corpus passes all suites green with no judge (deterministic gate)', async () => {
   const { summaries, exitCode } = await runEval({ appendLedger: false });
   assert.equal(summaries.length, EVAL_SUITES.length, `expected ${EVAL_SUITES.length} suite summaries, got ${summaries.length}`);
