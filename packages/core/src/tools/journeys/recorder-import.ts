@@ -546,13 +546,20 @@ export function importRecorderFlow(raw: unknown): RecorderImportResult {
     warnings.push('no steps could be converted from this recorder flow — resulting scenario has zero steps');
   }
 
+  // Preserve optional journey metadata tags from the Recorder envelope
+  // (additive `tags` on RecorderFlowSchema) alongside the importer marker.
+  // Downstream Cypress suite generation uses these for describe-title
+  // annotations (`@smoke`, `@regression`) — never invent tags here.
+  const metadataTags = (flow.tags ?? [])
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0 && t !== 'recorder-import');
   const scenario: NeutralScenario = {
     id: `recorder-${slugify(title)}`,
     title,
     description: `Imported from a Chrome DevTools Recorder flow ("${title}", ${flow.steps.length} recorded step(s), ${steps.length} converted).`,
     targetPath,
     steps,
-    tags: ['recorder-import'],
+    tags: ['recorder-import', ...metadataTags],
     recommendations: [
       {
         adapter: 'cypress-e2e',

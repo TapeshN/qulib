@@ -73,6 +73,12 @@ export const RecorderFlowSchema = z
   .object({
     title: z.string(),
     steps: z.array(RecorderStepSchema),
+    /**
+     * Optional journey metadata tags (e.g. "smoke", "regression").
+     * Consumed by the Cypress suite generator for describe-title annotations
+     * (`@smoke`, `@regression`). Additive — older Recorder exports omit this.
+     */
+    tags: z.array(z.string()).optional(),
   })
   .passthrough();
 

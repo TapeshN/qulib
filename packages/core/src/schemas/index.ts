@@ -46,6 +46,15 @@ export {
   type RecorderFlow,
 } from './recorder-flow.schema.js';
 export {
+  JourneyHealthScoreSchema,
+  JourneyHealthPerJourneySchema,
+  CypressRunResultsSchema,
+  CypressRunTestSchema,
+  type JourneyHealthScore,
+  type JourneyHealthPerJourney,
+  type CypressRunResults,
+} from './journey-health.schema.js';
+export {
   GapAnalysisSchema,
   GapSchema,
   NeutralScenarioSchema,
