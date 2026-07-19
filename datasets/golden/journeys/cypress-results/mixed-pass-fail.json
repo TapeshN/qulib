@@ -1,0 +1,62 @@
+{
+  "stats": {
+    "suites": 2,
+    "tests": 3,
+    "passes": 2,
+    "pending": 0,
+    "failures": 1,
+    "start": "2020-01-01T00:00:00.000Z",
+    "end": "2020-01-01T00:00:01.000Z",
+    "duration": 1000
+  },
+  "tests": [
+    {
+      "title": "completes sign-in",
+      "fullTitle": "Smoke login flow @smoke @regression completes sign-in",
+      "duration": 120,
+      "currentRetry": 0,
+      "state": "passed",
+      "err": {}
+    },
+    {
+      "title": "shows dashboard",
+      "fullTitle": "Smoke login flow @smoke @regression shows dashboard",
+      "duration": 80,
+      "currentRetry": 0,
+      "state": "passed",
+      "err": {}
+    },
+    {
+      "title": "rejects bad password",
+      "fullTitle": "Checkout flow @regression rejects bad password",
+      "duration": 200,
+      "currentRetry": 0,
+      "state": "failed",
+      "err": { "message": "expected true to equal false" }
+    }
+  ],
+  "passes": [
+    {
+      "title": "completes sign-in",
+      "fullTitle": "Smoke login flow @smoke @regression completes sign-in",
+      "duration": 120,
+      "currentRetry": 0
+    },
+    {
+      "title": "shows dashboard",
+      "fullTitle": "Smoke login flow @smoke @regression shows dashboard",
+      "duration": 80,
+      "currentRetry": 0
+    }
+  ],
+  "failures": [
+    {
+      "title": "rejects bad password",
+      "fullTitle": "Checkout flow @regression rejects bad password",
+      "duration": 200,
+      "currentRetry": 0,
+      "err": { "message": "expected true to equal false" }
+    }
+  ],
+  "pending": []
+}

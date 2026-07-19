@@ -22,3 +22,6 @@ datasets/*
 !datasets/golden/
 datasets/golden/*
 !datasets/golden/manifest.json
+# Journey → Cypress generator + health-score golden fixtures (TASK-150-P2)
+!datasets/golden/journeys/
+!datasets/golden/journeys/**
