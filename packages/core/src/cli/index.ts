@@ -52,6 +52,8 @@ import { registerAnalyzeDiffCommand } from './analyze-diff-run.js';
 import { registerSpecValidateCommand } from './spec-validate-run.js';
 import { registerScoreDecisionsCommand } from './score-decisions-run.js';
 import { registerScoreBugReportCommand } from './score-bug-report-run.js';
+import { registerGenerateCypressCommand } from './generate-cypress-run.js';
+import { registerJourneyHealthCommand } from './journey-health-run.js';
 
 const program = new Command();
 const AnalyzeUrlSchema = z.string().url();
@@ -276,6 +278,8 @@ registerAnalyzeDiffCommand(program);
 registerSpecValidateCommand(program);
 registerScoreDecisionsCommand(program);
 registerScoreBugReportCommand(program);
+registerGenerateCypressCommand(program);
+registerJourneyHealthCommand(program);
 
 program
   .command('clean')
