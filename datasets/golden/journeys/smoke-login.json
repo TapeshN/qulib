@@ -1,0 +1,65 @@
+{
+  "title": "Smoke login flow",
+  "tags": ["smoke", "regression"],
+  "steps": [
+    {
+      "type": "setViewport",
+      "width": 1280,
+      "height": 720,
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "isLandscape": false
+    },
+    {
+      "type": "navigate",
+      "url": "https://app.example.test/login",
+      "assertedEvents": [
+        {
+          "type": "navigation",
+          "url": "https://app.example.test/login",
+          "title": "Log in"
+        }
+      ]
+    },
+    {
+      "type": "change",
+      "target": "main",
+      "selectors": [
+        ["aria/Email"],
+        ["#email"],
+        ["xpath//html/body/form/input[1]"]
+      ],
+      "value": "reader@example.test"
+    },
+    {
+      "type": "change",
+      "target": "main",
+      "selectors": [
+        ["aria/Password"],
+        ["#password"],
+        ["xpath//html/body/form/input[2]"]
+      ],
+      "value": "correct-horse-battery"
+    },
+    {
+      "type": "click",
+      "target": "main",
+      "selectors": [
+        ["aria/Sign in"],
+        ["button[type=submit]"],
+        ["xpath//html/body/form/button"]
+      ],
+      "offsetX": 12,
+      "offsetY": 8
+    },
+    {
+      "type": "waitForElement",
+      "selectors": [
+        ["aria/Dashboard"],
+        ["[data-testid=dashboard-root]"]
+      ],
+      "visible": true
+    }
+  ]
+}

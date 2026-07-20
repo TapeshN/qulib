@@ -1,0 +1,15 @@
+{
+  "score": 67,
+  "perJourney": [
+    {
+      "id": "recorder-checkout-flow",
+      "passed": 0,
+      "failed": 1
+    },
+    {
+      "id": "recorder-smoke-login-flow",
+      "passed": 2,
+      "failed": 0
+    }
+  ]
+}

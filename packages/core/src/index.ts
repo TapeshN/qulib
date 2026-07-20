@@ -76,6 +76,33 @@ export {
   pickResilientSelector,
 } from './tools/journeys/recorder-import.js';
 export type { RecorderImportResult, ResilientSelector, SelectorRank } from './tools/journeys/recorder-import.js';
+export {
+  generateCypressSpecFromJourney,
+  generateCypressSuite,
+  generateCypressSuiteFromDir,
+  annotateDescribeTitle,
+  regressionAnnotationsFromTags,
+  withRegressionDescribeTitle,
+} from './tools/journeys/generate-cypress-suite.js';
+export type {
+  GeneratedCypressSpec,
+  GenerateCypressSuiteResult,
+} from './tools/journeys/generate-cypress-suite.js';
+export {
+  computeJourneyHealthScore,
+  journeyIdFromSuiteTitle,
+  scoreFromCounts,
+} from './tools/scoring/journey-health-score.js';
+export type {
+  JourneyHealthScore,
+  JourneyHealthPerJourney,
+  CypressRunResults,
+} from './schemas/journey-health.schema.js';
+export {
+  JourneyHealthScoreSchema,
+  JourneyHealthPerJourneySchema,
+  CypressRunResultsSchema,
+} from './schemas/journey-health.schema.js';
 export { NeutralScenarioSchema } from './schemas/gap-analysis.schema.js';
 export type { NeutralScenario, TestStep } from './schemas/gap-analysis.schema.js';
 export { createProvider } from './llm/provider-registry.js';
