@@ -17,6 +17,12 @@ permissions:
   contents: read
   id-token: write # required for npm provenance + OIDC trusted publishing
 
+# One publish per ref at a time. Never cancel-in-progress: a half-finished
+# publish (core out, mcp not) is worse than a queued one.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Publish (core then mcp, with provenance)

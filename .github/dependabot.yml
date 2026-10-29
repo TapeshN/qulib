@@ -1,0 +1,32 @@
+version: 2
+# Governance 2026-10-29: dependency updates arrive monthly as ONE grouped PR per
+# ecosystem, and security updates are grouped the same way (one PR per ecosystem,
+# not one per package). This repo has no persistent integration branch yet;
+# when it gets one, add `target-branch: <prefix>/train` to each block (GitHub still
+# opens security updates against the default branch).
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      npm-monthly:
+        applies-to: version-updates
+        patterns: ["*"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    groups:
+      actions-monthly:
+        applies-to: version-updates
+        patterns: ["*"]
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
